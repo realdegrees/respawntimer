@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import { production, debug, logging } from '../common/util';
+import { production, debug, logging } from '../src/common/util';
 import { install } from 'source-map-support';
 
 // Install source-map support for stacktrace
@@ -40,7 +40,7 @@ class Logger {
      * @param depth 
      */
     public setStackTraceDepth(depth: number){
-
+        stackTraceDepth = depth;
     }
     public log(message: string, ...optionalParams: any[]): void {
         log(Level.LOG, message, optionalParams);

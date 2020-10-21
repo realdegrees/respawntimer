@@ -1,0 +1,30 @@
+import { Client } from "discord.js";
+import { Trigger } from './common/types';
+import { dynamicConfig } from "./common/dynamic-config";
+
+
+
+class Bot {
+    constructor(private client: Client = new Client()) { }
+    public start() {
+        this.client.login(process.env.DISCORD_CLIENT_TOKEN);
+    }
+    // Commands as middleware
+    public use(trigger: Trigger): void {
+        this.client.on('message', (message) => {
+            if (message.author.bot) {
+                return;
+            }
+            trigger.checkCondition(message)
+                .then((conditionPassed) => [conditionPassed, trigger.checkPermission(message.member)] as const)
+                .then(([conditionPassed, hasPermission]) => {
+                    if (conditionPassed && hasPermission) {
+                        trigger.callback(message);
+                    } else if (!hasPermission) {
+                        message.channel.send(dynamicConfig.permissionDeniedResponse)
+                    }
+                });
+        });
+    }
+}
+export default new Bot();
