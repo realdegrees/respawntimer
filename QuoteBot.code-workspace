@@ -1,0 +1,24 @@
+{
+    "folders": [
+        {
+            // Source code
+            "name": "Config",
+            "path": "config"
+        },
+        {
+            // Source code
+            "name": "Source",
+            "path": "src"
+        },
+        {
+            // Source code
+            "name": "Github",
+            "path": ".github"
+        },
+        {
+            // Docs and release notes
+            "name": "Documentation",
+            "path": "docs"
+        }
+    ]
+}
