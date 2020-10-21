@@ -2,16 +2,16 @@
     "folders": [
         {
             // Source code
+            "name": "Backend",
+            "path": "backend"
+        },
+        {
+            // Config
             "name": "Config",
             "path": "config"
         },
         {
-            // Source code
-            "name": "Source",
-            "path": "src"
-        },
-        {
-            // Source code
+            // Github
             "name": "Github",
             "path": ".github"
         },
