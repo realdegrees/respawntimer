@@ -10,8 +10,8 @@ export class Trigger {
      * @param callback The function to call when a message passing the conditions in options is sent
      * @param options If not provided, the callback will be triggered on every message
      */
-    constructor(public callback: TriggerCallback, private options?: TriggerOptions) { 
-        if(options?.commandOptions?.content.startsWith(dynamicConfig.commandPrefix)){
+    constructor(public callback: TriggerCallback, private options?: TriggerOptions) {
+        if (options?.commandOptions?.content.startsWith(dynamicConfig.commandPrefix)) {
             options.commandOptions.content.replace(dynamicConfig.commandPrefix, '');
             logger.warn(`The command in this Trigger ${options.commandOptions.content} already contains the prefix!`, 'It was automatically removed.')
         }
@@ -22,24 +22,46 @@ export class Trigger {
      * @param message 
      */
     public checkCondition(message: Message): Promise<boolean> {
-        if (this.options?.conditionCheck) {
-            // Uses the provided custom condition check
-            return this.options.conditionCheck(message, this.options.commandOptions);
-        } else if (this.options?.commandOptions) {
+        if (this.options?.commandOptions) {
             // Checks the default conditions with the provided commandOptions
             const command = `${dynamicConfig.commandPrefix}${this.options.commandOptions.content}`;
             const matchType = this.options.commandOptions.matchType;
-            return new Promise((resolve) => {
+            return new Promise<boolean>((resolve) => {
                 switch (matchType) {
                     case TriggerMatch.CONTAINS:
                         resolve(message.content.includes(command));
                     case TriggerMatch.EQUALS:
-                        resolve(message.content === command);
+                        resolve((message.content === command));
                     case TriggerMatch.STARTS_WITH:
                         resolve(message.content.startsWith(command));
                 }
+            }).then((isAllowed) => {
+                if (isAllowed && this.options?.conditionCheck) {
+                    return this.options.conditionCheck(message, this.options.commandOptions);
+                } else {
+                    return false;
+                }
             });
-        } else {
+        }
+        // if (this.options?.conditionCheck) {
+        //     // Uses the provided custom condition check
+        //     return this.options.conditionCheck(message, this.options.commandOptions);
+        // } else if (this.options?.commandOptions) {
+        //     // Checks the default conditions with the provided commandOptions
+        //     const command = `${dynamicConfig.commandPrefix}${this.options.commandOptions.content}`;
+        //     const matchType = this.options.commandOptions.matchType;
+        //     return new Promise((resolve) => {
+        //         switch (matchType) {
+        //             case TriggerMatch.CONTAINS:
+        //                 resolve(message.content.includes(command));
+        //             case TriggerMatch.EQUALS:
+        //                 resolve(message.content === command);
+        //             case TriggerMatch.STARTS_WITH:
+        //                 resolve(message.content.startsWith(command));
+        //         }
+        //     });
+        // }
+        else {
             return Promise.resolve(true);
         }
 

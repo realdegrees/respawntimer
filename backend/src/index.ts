@@ -19,8 +19,8 @@ Bot.use(new Trigger((message) => {
     conditionCheck: (message, options) => {
         const timePosted = new Date(message.createdTimestamp);
         // If the command was written between 3pm and 9pm, the bot will answer, else the bot will ignore the command
-        const isAllowed = timePosted.getHours() < 21 && timePosted.getHours() >= 3;
-        return Promise.resolve(isAllowed);
+        const isAllowed = timePosted.getHours() > 21 && timePosted.getHours() >= 3;
+        return Promise.resolve(!isAllowed);
     }
 }));
 
