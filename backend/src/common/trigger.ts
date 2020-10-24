@@ -43,8 +43,8 @@ export class Trigger {
             }
 
             const command =
-                `${this.options.commandOptions.ignorePrefix ? '' : dynamicConfig.commandPrefix}
-                ${this.options.commandOptions.command}`;
+                `${this.options.commandOptions.ignorePrefix ? '' : dynamicConfig.commandPrefix}`
+                + this.options.commandOptions.command;
 
             switch (this.options.commandOptions.match) {
                 case TriggerMatch.CONTAINS:

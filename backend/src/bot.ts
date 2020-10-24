@@ -14,7 +14,11 @@ class Bot {
 
             trigger.check(message)
                 .then(() => trigger.callback(message))
-                .catch((reason) => message.channel.send(reason));
+                .catch((reason) => {
+                    if (reason) {
+                        message.channel.send(reason);
+                    }
+                });
         });
     }
 
