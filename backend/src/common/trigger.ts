@@ -1,8 +1,8 @@
-import { Message, GuildMember } from "discord.js";
-import { dynamicConfig } from "./dynamic-config";
-import { TriggerMatch } from "./types";
-import { TriggerOptions, CommandOptions } from "./types/trigger-options";
-import logger from "../../lib/logger";
+import { Message, GuildMember } from 'discord.js';
+import { dynamicConfig } from './dynamic-config';
+import { TriggerMatch } from './types';
+import { TriggerOptions, CommandOptions } from './types/trigger-options';
+import logger from '../../lib/logger';
 
 export class Trigger {
     /**
@@ -30,10 +30,13 @@ export class Trigger {
                 switch (matchType) {
                     case TriggerMatch.CONTAINS:
                         resolve(message.content.includes(command));
+                        break;
                     case TriggerMatch.EQUALS:
                         resolve((message.content === command));
+                        break;
                     case TriggerMatch.STARTS_WITH:
                         resolve(message.content.startsWith(command));
+                        break;
                 }
             }).then((isAllowed) => {
                 if (isAllowed && this.options?.conditionCheck) {
@@ -65,7 +68,7 @@ export class Trigger {
             return Promise.resolve(true);
         }
 
-    };
+    }
     /**
      * Checks if the provided member has the right to issue this command
      * Dictated by the commandOptions for this trigger
@@ -77,7 +80,7 @@ export class Trigger {
                 resolve(!this.options?.rolePermissions || this.options.rolePermissions.some((permission) => member?.roles.cache.has(permission))) :
                 reject('Unable to retrieve message author!');
         });
-    };
+    }
 }
 export type TriggerCallback = (message: Message) => void;
 export type TriggerCondition = (message: Message, commandOptions?: CommandOptions) => Promise<boolean>

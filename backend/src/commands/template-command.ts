@@ -1,3 +1,6 @@
+/* eslint-disable @typescript-eslint/no-empty-function */
+/* eslint-disable @typescript-eslint/no-unused-vars */
+
 /**
  * This is a sample TriggerCallback.
  * A triggerCallback is passed to a Trigger which gets attached to a bot.
@@ -7,8 +10,8 @@
  * The message object holds all of the information relevant to the bot, including server properties.
  */
 
-import { TriggerCallback } from "../common/types";
-import { Message } from "discord.js";
+import { TriggerCallback } from '../common/types';
+import { Message } from 'discord.js';
 
 export const commandName: TriggerCallback = (message: Message) => {
     

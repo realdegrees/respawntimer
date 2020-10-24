@@ -1,12 +1,12 @@
-import { Client } from "discord.js";
+import { Client } from 'discord.js';
 import { Trigger } from './common/types';
-import { dynamicConfig } from "./common/dynamic-config";
+import { dynamicConfig } from './common/dynamic-config';
 
 
 
 class Bot {
     constructor(private client: Client = new Client()) { }
-    public start() {
+    public start(): void {
         this.client.login(process.env.DISCORD_CLIENT_TOKEN);
     }
     // Commands as middleware

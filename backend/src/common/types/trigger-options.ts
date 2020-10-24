@@ -1,5 +1,5 @@
-import { TriggerMatch } from "./trigger-match";
-import { TriggerCondition } from "../trigger";
+import { TriggerMatch } from './trigger-match';
+import { TriggerCondition } from '../trigger';
 
 export interface TriggerOptions {
     commandOptions?: CommandOptions;

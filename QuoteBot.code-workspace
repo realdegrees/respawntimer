@@ -20,5 +20,10 @@
             "name": "Documentation",
             "path": "docs"
         }
-    ]
+    ],
+    "settings": {
+        "eslint.validate": [
+            "typescript"
+        ],
+    }
 }

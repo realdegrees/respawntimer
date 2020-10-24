@@ -1,3 +1,4 @@
+/* eslint-disable no-console */
 import chalk from 'chalk';
 import { production, debug, logging } from '../src/common/util';
 import { install } from 'source-map-support';
@@ -20,10 +21,10 @@ let stackTraceDepth = 3;
 class Logger {
     constructor() {
         log(Level.DEBUG,
-            `Degrees' Logger Info`,
+            'Degrees\' Logger Info',
             [
-                `Degrees' Logger uses process.cwd() to format the stacktrace!`,
-                `Make sure to start the node process from the project's root directory!`,
+                'Degrees\' Logger uses process.cwd() to format the stacktrace!',
+                'Make sure to start the node process from the project\'s root directory!',
                 `Current working directory: ${process.cwd()}`
             ],
             true);
@@ -39,34 +40,35 @@ class Logger {
      * Defaults to 3
      * @param depth 
      */
-    public setStackTraceDepth(depth: number){
+    public setStackTraceDepth(depth: number): void {
         stackTraceDepth = depth;
     }
-    public log(message: string, ...optionalParams: any[]): void {
+    public log(message: string, ...optionalParams: unknown[]): void {
         log(Level.LOG, message, optionalParams);
     }
-    public info(message: string, ...optionalParams: any[]): void {
+    public info(message: string, ...optionalParams: unknown[]): void {
         log(Level.INFO, message, optionalParams);
     }
-    public warn(message: string, ...optionalParams: any[]): void {
+    public warn(message: string, ...optionalParams: unknown[]): void {
         log(Level.WARNING, message, optionalParams);
     }
-    public debug(message: string, ...optionalParams: any[]): void {
+    public debug(message: string, ...optionalParams: unknown[]): void {
         log(Level.DEBUG, message, optionalParams);
     }
-    public error(message: string, ...optionalParams: any[]): void {
+    public error(message: string, ...optionalParams: unknown[]): void {
         log(Level.ERROR, message, optionalParams);
     }
 }
-const preLogHook = () => {
-
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+const preLogHook = (): void => {
+    // TODO
 };
-const afterLogHook = () => {
+const afterLogHook = (): void => {
     if (emptyStackTraces === warnEmptyStackTracesThreshold) {
         emptyStackTraces++;
 
         log(Level.WARNING,
-            `Degrees' Logger Warning`,
+            'Degrees\' Logger Warning',
             [
                 `Detected ${emptyStackTraces - 1} empty stack trace logs!`,
                 `You may need to use Logger.setProjectRoot() if [${process.cwd()} is not your project root.]`,
@@ -74,10 +76,10 @@ const afterLogHook = () => {
             true);
     }
 };
-const log = (level: Level, message: string, params: any[], noStackTrace?: boolean): void => {
-    if (level === Level.DEBUG && !debug) { 
+const log = (level: Level, message: string, params: unknown[], noStackTrace?: boolean): void => {
+    if (level === Level.DEBUG && !debug) {
         console.debug('Hiding debug log');
-        return; 
+        return;
     }
     if (level === Level.LOG && production && !logging) { return; }
 
@@ -99,7 +101,7 @@ const log = (level: Level, message: string, params: any[], noStackTrace?: boolea
 
     afterLogHook();
 };
-const logParams = (indentation: number, level: Level, params: any[]): void => {
+const logParams = (indentation: number, level: Level, params: unknown[]): void => {
     if (params?.length <= 0) {
         return;
     }
@@ -111,7 +113,7 @@ const logParams = (indentation: number, level: Level, params: any[]): void => {
         logFunc(level)(`[${'~'.repeat(indentation)}] ${JSON.stringify(param)}`);
     });
 };
-const logFunc = (level: Level): any => {
+const logFunc = (level: Level): (message?: unknown, ...optionalParams: unknown[]) => void => {
     switch (level) {
         case Level.LOG:
             return console.log;
@@ -126,14 +128,17 @@ const logFunc = (level: Level): any => {
     }
 };
 const getStackTrace = (): string[] => {
-    
-    return (new Error().stack)!
+
+    const stack = new Error().stack;
+
+    return stack ? stack
         .split('\n')
         .slice(4) // Remove logger function from stacktrace
         .map((line) => line.trim().split(' ').slice(-1)[0].replace(/[)(]/g, '')) // Extract the path
         .map((path) => mapNonProjectCalls(path)) // Hide internal and external calls
         .filter((call, index, paths) => index === paths.length - 1 || paths[index + 1] !== call) // Remove duplice adjacent values
         .map((call) => call.replace(`${projectRoot}`, '').trim()) // Remove project root to shorten path
+        : []
 };
 const mapNonProjectCalls = (path: string): string => {
     if (path.includes(`${projectRoot}`)) {

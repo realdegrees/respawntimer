@@ -16,6 +16,7 @@ Bot.use(new Trigger((message) => {
         content: 'bot',
         matchType: TriggerMatch.CONTAINS
     },
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     conditionCheck: (message, options) => {
         const timePosted = new Date(message.createdTimestamp);
         // If the command was written between 3pm and 9pm, the bot will answer, else the bot will ignore the command

@@ -3,5 +3,5 @@
 export const dynamicConfig = {
     commandPrefix: '!',
     managerRole: '',
-    permissionDeniedResponse: `Looks like you don't have permission to use this command :/`
+    permissionDeniedResponse: 'Looks like you don\'t have permission to use this command :/'
 }
