@@ -1,12 +1,43 @@
 # Prerequisites
 - Node (v14+)
-- Environment variable `DISCORD_CLIENT_TOKEN` with the bots client token
 - Bot in the server
 
 # Setup
 - Clone the repository
 - Open the [backend](backend) folder in terminal
 - Run `npm install`
+
+## Environment Variables
+Setting up the environment variables is essential for the project to run.
+You can create a file named `.env` in the [backend](backend) folder to provide the required environment variables.
+
+In production the environment variables should not be passed with the `.env` file.  
+It is preferred to use a secure solution like a docker container.
+
+### Discord bot token
+1. Get the client token from your discord bot
+2. Copy the client token and save it in an environment variable named `DISCORD_CLIENT_TOKEN`
+
+Example
+```env
+DISCORD_CLIENT_TOKEN="**************"
+```
+### Firebase config
+1. [Get your firebase config object](https://support.google.com/firebase/answer/7015592)
+2. Copy the firebase config object and save it in an environemnt variables named `FIREBASE_CONFIG`
+
+Example
+```env
+FIREBASE_CONFIG="{
+    apiKey: '***************',
+    authDomain: '***************',
+    databaseURL: '***************',
+    projectId: '***************',
+    storageBucket: '***************',
+    messagingSenderId: '***************',
+    appId: '***************'
+}"
+```
 
 # Usage
 - Open the [backend](backend) folder in terminal
