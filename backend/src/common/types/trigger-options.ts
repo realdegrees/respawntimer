@@ -26,6 +26,8 @@ export interface CommandOptions {
     command: string;
     /** Determines e.g. if the command *must* be the first text in the message or not */
     match: TriggerMatch;
-    /** Should the bot trigger on 'content' even if the bot prefix is not provided? */
-    ignorePrefix?: TriggerMatch;
+    /** Should the bot trigger on 'content' even if the bot prefix is not provided?
+     *  Defaults to 'false'
+     */
+    ignorePrefix?: boolean;
 }
