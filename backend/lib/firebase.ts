@@ -13,6 +13,22 @@ interface CollectionFilter {
     value: string;
 }
 
+let db: Firebase;
+const init = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+        try {
+            db = new Firebase();
+            resolve();
+        } catch (error) {
+            reject(error);
+        }
+    });
+};
+const getInstance = (): Firebase => {
+    return db;
+};
+
+
 class Firebase {
     private _firebase: firebase.app.App;
     private _firestore: Firestore;
@@ -55,4 +71,7 @@ class Firestore {
     }
 }
 
-export default new Firebase();
+export default {
+    getInstance,
+    init
+};

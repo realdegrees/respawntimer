@@ -1,34 +1,26 @@
 import { Client } from 'discord.js';
 import { Trigger } from './common/types';
-import { dynamicConfig } from './common/dynamic-config';
-
-
 
 class Bot {
     public constructor(private client: Client = new Client()) { }
-    public start(): void {
-        this.client.login(process.env.DISCORD_CLIENT_TOKEN);
+    public init(): Promise<string> {
+        return this.client.login(process.env.DISCORD_CLIENT_TOKEN);
     }
-    // Commands as middleware
-    public use(trigger: Trigger): void {
+    private useTrigger(trigger: Trigger): void {
         this.client.on('message', (message) => {
             if (message.author.bot) {
                 return;
             }
-            trigger.checkCondition(message)
-                .then(async (conditionPassed) =>
-                    [
-                        conditionPassed,
-                        await trigger.checkPermission(message.member)
-                    ] as const)
-                .then(([conditionPassed, hasPermission]) => {
-                    if (conditionPassed && hasPermission) {
-                        trigger.callback(message);
-                    } else if (!hasPermission) {
-                        message.channel.send(dynamicConfig.permissionDeniedResponse);
-                    }
-                });
+
+            trigger.check(message)
+                .then(() => trigger.callback(message))
+                .catch((reason) => message.channel.send(reason));
         });
     }
+
+    public use(triggers: Trigger[]): void {
+        triggers.forEach(this.useTrigger.bind(this));
+    }
+
 }
 export default new Bot();

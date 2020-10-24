@@ -25,17 +25,20 @@ DISCORD_CLIENT_TOKEN="**************"
 ### Firebase config
 1. [Get your firebase config object](https://support.google.com/firebase/answer/7015592)
 2. Copy the firebase config object and save it in an environemnt variables named `FIREBASE_CONFIG`
+3. Replace all `'` with `"`
+4. Add `"` around all property names
+5. Join everything into one line (_hint:_ In VSCode highlight the object -> `Ctrl+Shift+P` -> `Join Lines`)
 
-Example
+Example (Multiline for readability)
 ```env
 FIREBASE_CONFIG="{
-    apiKey: '***************',
-    authDomain: '***************',
-    databaseURL: '***************',
-    projectId: '***************',
-    storageBucket: '***************',
-    messagingSenderId: '***************',
-    appId: '***************'
+    "apiKey": "***************",
+    "authDomain": "***************",
+    "databaseURL": "***************",
+    "projectId": "***************",
+    "storageBucket": "***************",
+    "messagingSenderId": "***************",
+    "appId": "***************"
 }"
 ```
 

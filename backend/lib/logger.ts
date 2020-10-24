@@ -55,8 +55,12 @@ class Logger {
     public debug(message: string, ...optionalParams: unknown[]): void {
         log(Level.DEBUG, message, optionalParams);
     }
-    public error(message: string, ...optionalParams: unknown[]): void {
-        log(Level.ERROR, message, optionalParams);
+    public error(error: Error | string, ...optionalParams: unknown[]): void {
+        if (error instanceof Error) {
+            log(Level.ERROR, error.message, optionalParams, false, error.stack);
+        } else {
+            log(Level.ERROR, error, optionalParams);
+        }
     }
 }
 // eslint-disable-next-line @typescript-eslint/no-empty-function
@@ -80,7 +84,8 @@ const afterLogHook = (): void => {
 const log = (level: Level,
     message: string,
     params: unknown[],
-    noStackTrace?: boolean): void => {
+    noStackTrace?: boolean,
+    fromStack?: string): void => {
     if (level === Level.DEBUG && !debug) {
         console.debug('Hiding debug log');
         return;
@@ -93,7 +98,7 @@ const log = (level: Level,
 
     const timestamp = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '');
     const coloredMessage = chalk.hex(level)(message);
-    const stack = getStackTrace();
+    const stack = getStackTrace(fromStack);
     stack.length = Math.min(stack.length, stackTraceDepth); // Applies the stackTraceDepth limit
 
     const stackSequence = noStackTrace ? '' : `(${stack.join(' <- ')})`;
@@ -134,17 +139,15 @@ const logFunc = (level: Level):
             return console.error;
     }
 };
-const getStackTrace = (): string[] => {
-
-    const stack = new Error().stack;
+const getStackTrace = (fromExisting?: string): string[] => {
+    const stack = fromExisting ? fromExisting : new Error().stack;
 
     return stack ? stack
         .split('\n')
-        .slice(4) // Remove logger function from stacktrace
+        .slice(fromExisting ? 1 : 4) // Remove logger function from stacktrace
         .map((line) => line.trim().split(' ').slice(-1)[0].replace(/[)(]/g, '')) // Extract the path
         .map((path) => mapNonProjectCalls(path)) // Hide internal and external calls
-        .filter((call, index, paths) =>
-            index === paths.length - 1 || paths[index + 1] !== call) // Remove duplice adjacent values
+        .filter((call, index, paths) => index === paths.length - 1 || paths[index + 1] !== call) // Remove duplice adjacent values
         .map((call) => call.replace(`${projectRoot}`, '').trim()) // Remove project root to shorten path
         : [];
 };
