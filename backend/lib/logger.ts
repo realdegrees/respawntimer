@@ -19,7 +19,7 @@ let emptyStackTraces = 0;
 let projectRoot = process.cwd() + '/';
 let stackTraceDepth = 3;
 class Logger {
-    constructor() {
+    public constructor() {
         log(Level.DEBUG,
             'Degrees\' Logger Info',
             [
@@ -71,17 +71,23 @@ const afterLogHook = (): void => {
             'Degrees\' Logger Warning',
             [
                 `Detected ${emptyStackTraces - 1} empty stack trace logs!`,
-                `You may need to use Logger.setProjectRoot() if [${process.cwd()} is not your project root.]`,
+                `You may need to use Logger.setProjectRoot() 
+                if [${process.cwd()} is not your project root.]`,
             ],
             true);
     }
 };
-const log = (level: Level, message: string, params: unknown[], noStackTrace?: boolean): void => {
+const log = (level: Level,
+    message: string,
+    params: unknown[],
+    noStackTrace?: boolean): void => {
     if (level === Level.DEBUG && !debug) {
         console.debug('Hiding debug log');
         return;
     }
-    if (level === Level.LOG && production && !logging) { return; }
+    if (level === Level.LOG && production && !logging) {
+        return;
+    }
 
     preLogHook();
 
@@ -102,10 +108,10 @@ const log = (level: Level, message: string, params: unknown[], noStackTrace?: bo
     afterLogHook();
 };
 const logParams = (indentation: number, level: Level, params: unknown[]): void => {
-    if (params?.length <= 0) {
+    if (params.length <= 0) {
         return;
     }
-    params?.forEach((param) => {
+    params.forEach((param) => {
         if (Array.isArray(param)) {
             logParams(indentation, level, param);
             return;
@@ -113,7 +119,8 @@ const logParams = (indentation: number, level: Level, params: unknown[]): void =
         logFunc(level)(`[${'~'.repeat(indentation)}] ${JSON.stringify(param)}`);
     });
 };
-const logFunc = (level: Level): (message?: unknown, ...optionalParams: unknown[]) => void => {
+const logFunc = (level: Level):
+    (message?: unknown, ...optionalParams: unknown[]) => void => {
     switch (level) {
         case Level.LOG:
             return console.log;
@@ -136,9 +143,10 @@ const getStackTrace = (): string[] => {
         .slice(4) // Remove logger function from stacktrace
         .map((line) => line.trim().split(' ').slice(-1)[0].replace(/[)(]/g, '')) // Extract the path
         .map((path) => mapNonProjectCalls(path)) // Hide internal and external calls
-        .filter((call, index, paths) => index === paths.length - 1 || paths[index + 1] !== call) // Remove duplice adjacent values
+        .filter((call, index, paths) =>
+            index === paths.length - 1 || paths[index + 1] !== call) // Remove duplice adjacent values
         .map((call) => call.replace(`${projectRoot}`, '').trim()) // Remove project root to shorten path
-        : []
+        : [];
 };
 const mapNonProjectCalls = (path: string): string => {
     if (path.includes(`${projectRoot}`)) {
@@ -148,8 +156,7 @@ const mapNonProjectCalls = (path: string): string => {
     } else if (path.startsWith('internal') || path.match(/.+\..+:/)) {
         return 'internal';
     } else {
-        // log(Level.DEBUG, `Degrees' Logger Info`,[`Unable to hide non-project code call ${path}`], true);
         return path;
     }
-}
+};
 export default new Logger();

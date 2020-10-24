@@ -5,7 +5,7 @@ import { dynamicConfig } from './common/dynamic-config';
 
 
 class Bot {
-    constructor(private client: Client = new Client()) { }
+    public constructor(private client: Client = new Client()) { }
     public start(): void {
         this.client.login(process.env.DISCORD_CLIENT_TOKEN);
     }
@@ -16,12 +16,16 @@ class Bot {
                 return;
             }
             trigger.checkCondition(message)
-                .then((conditionPassed) => [conditionPassed, trigger.checkPermission(message.member)] as const)
+                .then(async (conditionPassed) =>
+                    [
+                        conditionPassed,
+                        await trigger.checkPermission(message.member)
+                    ] as const)
                 .then(([conditionPassed, hasPermission]) => {
                     if (conditionPassed && hasPermission) {
                         trigger.callback(message);
                     } else if (!hasPermission) {
-                        message.channel.send(dynamicConfig.permissionDeniedResponse)
+                        message.channel.send(dynamicConfig.permissionDeniedResponse);
                     }
                 });
         });

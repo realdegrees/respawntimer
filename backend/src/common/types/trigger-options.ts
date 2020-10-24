@@ -1,6 +1,7 @@
 import { TriggerMatch } from './trigger-match';
 import { TriggerCondition } from '../trigger';
 
+// TODO: Add 'ignorePrefix' option
 export interface TriggerOptions {
     commandOptions?: CommandOptions;
     /**
@@ -8,7 +9,8 @@ export interface TriggerOptions {
      */
     rolePermissions?: string[]; // TODO: Add runtime check to see if all given roles are available on the server
     /**
-     * A custom condition check to determine if the command written by the user will trigger a bot response or not
+     * A custom condition check to determine if the command 
+     * written by the user will trigger a bot response or not
      */
     conditionCheck?: TriggerCondition;
 }

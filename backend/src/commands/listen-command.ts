@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 /**
  * This is an example from a previous bot
  * Check this to see how a trigger callback is used and how to interact with the server
