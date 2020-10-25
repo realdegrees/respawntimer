@@ -1,4 +1,4 @@
-import { Message, GuildMember } from 'discord.js';
+import { Message, GuildMember, Guild } from 'discord.js';
 import { dynamicConfig } from './dynamic-config';
 import { TriggerMatch } from './types';
 import { TriggerOptions } from './types/trigger-options';
@@ -30,6 +30,7 @@ export class Trigger {
         return this.checkCommand(message.content)
             .then(() => this.checkChannel(message.channel.id))
             .then(() => this.checkPermission(message.member))
+            .then(() => this.checkRoles(message.member))
             .then(() => this.checkCustomCondition(message));
     }
 
@@ -76,6 +77,26 @@ export class Trigger {
             }
         });
     }
+    private checkRoles(member: GuildMember | null): Promise<void> {
+        return new Promise((resolve, reject) => {
+            if (!this.options?.roles) {
+                resolve();
+                return;
+            }
+            if (member) {
+                const isIncluded = this.options.roles.include?.some(
+                    (role) => member.roles.resolve(role));
+                const isExcluded = this.options.roles.exclude?.some(
+                    (role) => member.roles.resolve(role));
+
+                isIncluded && !isExcluded ?
+                    resolve() :
+                    reject('You are missing a required role for this command!');
+            } else {
+                reject('Unable to retrieve message author! Can\'t check roles');
+            }
+        });
+    }
     /**
      * Checks if the provided member has the right to issue this command
      * Dictated by the commandOptions for this trigger
@@ -83,16 +104,18 @@ export class Trigger {
      */
     private checkPermission(member: GuildMember | null): Promise<void> {
         return new Promise((resolve, reject) => {
-            if (!this.options?.rolePermissions) {
+            if (!this.options?.requiredPermissions) {
                 resolve();
                 return;
             }
             if (member) {
-                this.options.rolePermissions.some(
-                    (permission) => member.roles.cache.has(permission)
-                ) ?
-                    resolve() :
+                if (this.options.requiredPermissions.every(
+                    (permission) => member.hasPermission(permission))
+                ) {
+                    resolve();
+                } else {
                     reject('You do not have permission to issue this command!');
+                }
             } else {
                 reject('Unable to retrieve message author! Can\'t check permissions');
             }

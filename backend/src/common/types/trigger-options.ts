@@ -1,5 +1,6 @@
 import { TriggerMatch } from './trigger-match';
 import { TriggerCondition } from '../trigger';
+import { BitFieldResolvable, PermissionString } from 'discord.js';
 
 export interface TriggerOptions {
     commandOptions?: CommandOptions;
@@ -13,7 +14,12 @@ export interface TriggerOptions {
     /**
      * A list of roles that are allowed to issue this command
      */
-    rolePermissions?: string[]; // TODO: Add runtime check to see if all given roles are available on the server
+    roles?: {
+        include?: string[];
+        exclude?: string[];
+    }; // TODO: Add runtime check to see if all given roles are available on the server
+    /** The permission(s) required to trigger */
+    requiredPermissions?: BitFieldResolvable<PermissionString>[];
     /**
      * A custom condition check to determine if the command 
      * written by the user will trigger a bot response or not

@@ -36,6 +36,17 @@ Promise.all([
                     });
 
                 }
+            }),
+            new Trigger(() => {
+                // TODO: Send rich text allowing the manager to setup the bot
+            }, {
+                commandOptions: {
+                    command: 'configure',
+                    match: TriggerMatch.EQUALS
+                },
+                requiredPermissions: [
+                    'MANAGE_GUILD'
+                ]
             })
         ]);
     })
