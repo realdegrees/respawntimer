@@ -11,9 +11,20 @@
  * The message object holds all of the information relevant to the bot, including server properties.
  */
 
-import { TriggerCallback } from '../common/types';
-import { Message } from 'discord.js';
+import { Reaction } from '../common/reaction';
 
-export const commandName: TriggerCallback = (message: Message) => {
-    
-};
+export const templateReaction: Reaction = new Reaction(
+    () => {
+        // Code that runs when a trigger has successfully checked permissions
+        return Promise.resolve();
+    }, {
+        pre: () => {
+            // Hook that runs before the reaction
+            return Promise.resolve();
+        },
+        post: () => {
+            // Hook that runs after the reaction
+            return Promise.resolve();
+        }
+    }
+);

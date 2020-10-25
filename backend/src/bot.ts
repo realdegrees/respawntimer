@@ -1,6 +1,11 @@
 import { Client } from 'discord.js';
 import { Trigger } from './common/types';
 
+/**
+ * This singleton instance is used to register new Triggers with the bot
+ * It is currently only capable of reacting to message triggers
+ * TODO: Add additional triggers like [channelJoined, guildJoined, etc.]
+ */
 class Bot {
     public constructor(private client: Client = new Client()) { }
     public init(): Promise<string> {
@@ -12,8 +17,11 @@ class Bot {
                 return;
             }
 
+            // Runs a permision check on the trigger
+            // If successful, run the reaction
+            // If not, send the reason as a message
             trigger.check(message)
-                .then(() => trigger.callback(message))
+                .then(() => trigger.reaction.run(message))
                 .catch((reason) => {
                     if (reason) {
                         message.channel.send(reason);

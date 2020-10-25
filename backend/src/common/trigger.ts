@@ -1,17 +1,18 @@
-import { Message, GuildMember, Guild } from 'discord.js';
+import { Message, GuildMember } from 'discord.js';
 import { dynamicConfig } from './dynamic-config';
 import { TriggerMatch } from './types';
 import { TriggerOptions } from './types/trigger-options';
 import logger from '../../lib/logger';
+import { Reaction } from './reaction';
 
 export class Trigger {
     /**
      * Creates a new Trigger that issues the callback when a message 
      * is sent that passes the conditions provided in the options param
-     * @param callback The function to call when a message passing the conditions in options is sent
+     * @param reaction The reaction object to be executed after a successful permission check
      * @param options If not provided, the callback will be triggered on every message
      */
-    public constructor(public callback: TriggerCallback, private options?: TriggerOptions) {
+    public constructor(public readonly reaction: Reaction, private options?: TriggerOptions) {
         if (options?.commandOptions?.command.startsWith(dynamicConfig.commandPrefix)) {
             options.commandOptions.command.replace(dynamicConfig.commandPrefix, '');
             logger.warn(
@@ -122,7 +123,6 @@ export class Trigger {
         });
     }
 }
-export type TriggerCallback = (message: Message) => void;
 export type TriggerCondition = (
     message: Message,
     options?: TriggerOptions

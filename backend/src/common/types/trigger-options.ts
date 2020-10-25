@@ -8,14 +8,19 @@ export interface TriggerOptions {
      * Must use channelIds
      */
     channels?: {
+        /** If this is set, the trigger will only run in the specified channels */
         include?: string[];
+        /** All channels to be exlcuded from this trigger (Overwrites "include") */
         exclude?: string[];
     };
     /**
      * A list of roles that are allowed to issue this command
      */
     roles?: {
+        /** If this is set, the trigger will be ignored 
+         * if the author does not have one of the specified roles*/
         include?: string[];
+        /** All roles that are prohibited from using this trigger (Overwrites "include") */
         exclude?: string[];
     }; // TODO: Add runtime check to see if all given roles are available on the server
     /** The permission(s) required to trigger */
@@ -26,7 +31,8 @@ export interface TriggerOptions {
      */
     conditionCheck?: TriggerCondition;
 }
-// TODO: Add 'ignorePrefix' option
+// TODO: Add 'triggerType' in order to create triggers 
+// TODO: for different events like guildJoined or channelJoined etc.
 export interface CommandOptions {
     /** The command that a user needs to write to trigger the bot */
     command: string;

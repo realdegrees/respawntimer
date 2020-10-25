@@ -4,6 +4,8 @@ import { config } from 'dotenv';
 import { Trigger, TriggerMatch } from './common/types';
 import { install } from 'source-map-support';
 import logger from '../lib/logger';
+import { templateTrigger } from './triggers/template-trigger';
+import { Reaction } from './common/reaction';
 install();
 config();
 
@@ -18,28 +20,10 @@ Promise.all([
              * This is a sample trigger to show how triggers work
              * add more triggers to this parameter array to add functionality to the bot
              */
-            new Trigger((message) => {
-                message.channel.send('Henlo');
-            }, {
-                commandOptions: {
-                    command: 'henlo',
-                    match: TriggerMatch.CONTAINS
-                },
-                // eslint-disable-next-line @typescript-eslint/no-unused-vars
-                conditionCheck: (message, options) => {
-                    return new Promise((resolve, reject) => {
-                        const timePosted = new Date(message.createdTimestamp);
-                        // If the command was written between 3pm and 9pm
-                        // the bot will answer, else the bot will ignore the command
-                        const isAllowed = timePosted.getHours() < 21 && timePosted.getHours() >= 3;
-                        return isAllowed ? resolve() : reject('I only answer between 3pm and 9pm');
-                    });
-
-                }
-            }),
-            new Trigger(() => {
-                // TODO: Send rich text allowing the manager to setup the bot
-            }, {
+            templateTrigger,
+            new Trigger(new Reaction(() => {
+                return Promise.resolve();
+            }), {
                 commandOptions: {
                     command: 'configure',
                     match: TriggerMatch.EQUALS
