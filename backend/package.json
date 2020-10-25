@@ -30,7 +30,7 @@
   "dependencies": {
     "@firebase/app-types": "^0.6.1",
     "@firebase/firestore-types": "^1.14.0",
-    "discord.js": "^12.4.0",
+    "discord.js": "^12.4.1",
     "dotenv": "^8.2.0",
     "firebase": "^7.24.0",
     "rxfire": "^3.13.5",
