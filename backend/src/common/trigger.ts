@@ -12,7 +12,10 @@ export class Trigger {
      * @param reaction The reaction object to be executed after a successful permission check
      * @param options If not provided, the callback will be triggered on every message
      */
-    public constructor(public readonly reaction: Reaction, private options?: TriggerOptions) {
+    public constructor(
+        public readonly reaction: Reaction,
+        public readonly options?: TriggerOptions
+    ) {
         if (options?.commandOptions?.command.startsWith(dynamicConfig.commandPrefix)) {
             options.commandOptions.command.replace(dynamicConfig.commandPrefix, '');
             logger.warn(
@@ -20,6 +23,10 @@ export class Trigger {
                 ${options.commandOptions.command} already contains the prefix!`,
                 'It was automatically removed.');
         }
+    }
+
+    public patchOptions(options: TriggerOptions): void {
+        Object.assign(this.options, options);
     }
 
     /**
@@ -69,7 +76,9 @@ export class Trigger {
     private checkChannel(channelId: string): Promise<void> {
         return new Promise((resolve, reject) => {
             if (this.options?.channels) {
-                const isIncluded = this.options.channels.include?.includes(channelId);
+                const isIncluded = this.options.channels.include?.length ?
+                    this.options.channels.include.includes(channelId) :
+                    true;
                 const isExcluded = this.options.channels.exclude?.includes(channelId);
 
                 isIncluded && !isExcluded ? resolve() : reject();
@@ -85,8 +94,10 @@ export class Trigger {
                 return;
             }
             if (member) {
-                const isIncluded = this.options.roles.include?.some(
-                    (role) => member.roles.resolve(role));
+                const isIncluded = this.options.roles.include?.length ?
+                    this.options.roles.include.some(
+                        (role) => member.roles.resolve(role)) :
+                    true;
                 const isExcluded = this.options.roles.exclude?.some(
                     (role) => member.roles.resolve(role));
 

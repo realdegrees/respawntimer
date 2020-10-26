@@ -12,32 +12,30 @@ interface CollectionFilter {
     operator: FilterOperator;
     value: string;
 }
-
-let db: Firebase;
-const init = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-        try {
-            db = new Firebase();
-            resolve();
-        } catch (error) {
-            reject(error);
-        }
-    });
-};
-const getInstance = (): Firebase => {
-    return db;
-};
-
-
 class Firebase {
     private _firebase: firebase.app.App;
-    private _firestore: Firestore;
+    private _firestore!: Firestore;
 
     public constructor() {
         const config = JSON.parse(process.env['FIREBASE_CONFIG'] as string);
         this._firebase = firebase.initializeApp(config);
 
-        this._firestore = new Firestore(this._firebase);
+    }
+
+    public init(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const configValue = process.env['FIREBASE_CONFIG'];
+            if (!configValue) {
+                reject('Environment variable "FIREBASE_CONFIG" not found!');
+            }
+            try {
+                const config = JSON.parse(process.env['FIREBASE_CONFIG'] as string);
+                this._firebase = firebase.initializeApp(config);
+                this._firestore = new Firestore(this._firebase);
+            }catch(error){
+                reject(error);
+            }
+        });
     }
 
     public get firestore(): Firestore {
@@ -71,7 +69,4 @@ class Firestore {
     }
 }
 
-export default {
-    getInstance,
-    init
-};
+export default new Firebase();

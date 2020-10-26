@@ -87,7 +87,6 @@ const log = (level: Level,
     noStackTrace?: boolean,
     fromStack?: string): void => {
     if (level === Level.DEBUG && !debug) {
-        console.debug('Hiding debug log');
         return;
     }
     if (level === Level.LOG && production && !logging) {

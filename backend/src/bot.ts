@@ -8,8 +8,19 @@ import { Trigger } from './common/types';
  */
 class Bot {
     public constructor(private client: Client = new Client()) { }
-    public init(): Promise<string> {
-        return this.client.login(process.env.DISCORD_CLIENT_TOKEN);
+    public init(): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const discordToken = process.env['DISCORD_CLIENT_TOKEN'];
+
+            if (!discordToken) {
+                reject('Environment variable "DISCORD_CLIENT_TOKEN" not found!');
+                return;
+            }
+
+            this.client.login(discordToken)
+                .then(() => this.client.on('ready', resolve))
+                .catch((error) => reject(error));
+        });
     }
     private useTrigger(trigger: Trigger): void {
         this.client.on('message', (message) => {
