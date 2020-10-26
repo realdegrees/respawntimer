@@ -1,0 +1,22 @@
+name: Continous Integration
+on:
+    pull_request:
+        branches: [ master, develop ]
+jobs:
+    ci:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@master
+        - name: Install Dependencies
+          run: npm install
+          working-directory: backend
+        - name: Lint
+          run: npm run-script lint
+          working-directory: backend
+        - name: Build
+          run: npm run-script build
+          working-directory: backend
+        - name: Test
+          run: npm test
+          working-directory: backend
+          
