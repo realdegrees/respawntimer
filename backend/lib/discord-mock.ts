@@ -1,17 +1,19 @@
 import { config } from 'dotenv';
 config();
 import {
+    CategoryChannel,
     Channel,
+    ChannelResolvable,
     Client,
     EmojiResolvable,
     Guild, GuildCreateChannelOptions, Message,
     MessageOptions,
     TextChannel,
-    User,
     VoiceChannel
 } from 'discord.js';
 
 export class MockClient {
+    private categoryChannel: Channel | undefined;
     private constructor(
         private client: Client,
         private guild: Guild,
@@ -22,7 +24,6 @@ export class MockClient {
             const client = new Client();
             const discordToken = process.env['DISCORD_CLIENT_TOKEN'];
             const mockGuildId = process.env['TEST_GUILD_ID'];
-            const mockChannelId = process.env['TEST_CHANNEL_ID'];
 
             if (!discordToken) {
                 reject('Environment variable "DISCORD_CLIENT_TOKEN" not found!');
@@ -30,10 +31,6 @@ export class MockClient {
             }
             if (!mockGuildId) {
                 reject('Environment variable "TEST_GUILD_ID" not found!');
-                return;
-            }
-            if (!mockChannelId) {
-                reject('Environment variable "TEST_CHANNEL_ID" not found!');
                 return;
             }
 
@@ -49,30 +46,56 @@ export class MockClient {
                 .then(resolve)
                 .catch(reject);
         });
-
     }
 
-    public async getTextChannel(
+    public async createTextChannel(
         name?: string,
-        options?: GuildCreateChannelOptions & { type: 'text' })
+        options?: Omit<GuildCreateChannelOptions, 'parent' | 'type'>)
         : Promise<TextChannel> {
-            if(!name){
-                name = `jest-${process.platform}-${new Date().getTime()}`;
-            }
+        if (!this.categoryChannel) {
+            this.categoryChannel = await this.createCategoryChannel();
+        }
+        if (!name) {
+            name = `jest-text-${process.platform}-${new Date().getTime()}`;
+        }
         const channel = await (options ?
-            this.guild.channels.create(name, options) :
+            this.guild.channels.create(name, {
+                ...options,
+                type: 'text',
+                parent: this.categoryChannel
+            }) :
             this.guild.channels.create(name));
         this.mockedChannels.push(channel);
         return channel;
     }
 
-    public async getVoiceChannel(
-        name: string,
-        options: GuildCreateChannelOptions & { type: 'voice' })
+    public async createVoiceChannel(
+        name?: string,
+        options?: Omit<GuildCreateChannelOptions, 'parent' | 'type'>)
         : Promise<VoiceChannel> {
-        const channel = await this.guild.channels.create(name, options);
+        if (!this.categoryChannel) {
+            this.categoryChannel = await this.createCategoryChannel();
+        }
+        if (!name) {
+            name = `jest-voice-${process.platform}-${new Date().getTime()}`;
+        }
+        const channel = await this.guild.channels.create(
+            name,
+            {
+                ...options,
+                type: 'voice',
+                parent: this.categoryChannel
+            }
+        );
         this.mockedChannels.push(channel);
         return channel;
+
+    }
+    private async createCategoryChannel(): Promise<CategoryChannel> {
+        return this.guild.channels.create(
+            `jest-${process.platform}-${new Date().getTime()}`, {
+            type: 'category'
+        });
 
     }
 
@@ -82,6 +105,7 @@ export class MockClient {
                 (channel) => channel.delete('Created for testing purposes')
             )
         );
+        await this.categoryChannel?.delete();
         this.client.destroy();
     }
 
