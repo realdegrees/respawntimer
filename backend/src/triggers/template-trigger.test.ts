@@ -24,7 +24,7 @@ describe('Template Trigger', () => {
 
     it('should complete check on simple command', async () => {
         const channel = await client.createTextChannel('', {
-            
+
         });
         const message = await client.getMessage(channel, command, {
             reactions: [

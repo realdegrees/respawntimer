@@ -1,6 +1,6 @@
-import { ReactionEmoji, User } from "discord.js";
-import { dynamicConfig } from "./dynamic-config";
-import { Trigger } from "./types";
+import { User } from 'discord.js';
+import { dynamicConfig } from './dynamic-config';
+import { Trigger } from './types';
 
 const includesArg = (arg: string): boolean => {
     return !!process.argv.find((a: string) => [arg, `-${arg}`, `--${arg}`].includes(a));

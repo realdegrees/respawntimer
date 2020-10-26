@@ -3,7 +3,6 @@ config();
 import {
     CategoryChannel,
     Channel,
-    ChannelResolvable,
     Client,
     EmojiResolvable,
     Guild, GuildCreateChannelOptions, Message,
