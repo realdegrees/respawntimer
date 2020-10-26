@@ -18,8 +18,10 @@ describe('Template Trigger', () => {
         }
         command = getSampleTriggerCommand(templateTrigger);
     });
-    afterAll(() => {
-        expect(client.cleanup()).resolves.not.toBeTruthy();
+    afterAll((done) => {
+        client.cleanup()
+            .then(done)
+            .catch(done);
     });
 
     it('should complete check on simple command', async () => {
