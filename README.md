@@ -43,6 +43,7 @@ FIREBASE_CONFIG="{
 ```
 ### Testing server id
 `!! Only relevant if you want to run automated tests on a fork !!`
+
 discord.js does not provide mock methods for testing purposes.  
 In order to run tests you need to mock the actual Discord API.
 
@@ -55,13 +56,13 @@ In order to run tests you need to mock the actual Discord API.
 - Run `npm start`
 - Converse with the bot
 
-# Development
+# Development  
 For rapid development you can use the VSCode debugging tool.
 - Run `npm run build:watch` to start `tsc` in watch mode
 - Navigate to the debug tab in VSCode
 - Select the `Debug Bot (Backend)` task and run it
 
-# Testing
+# Testing  
 If you want to run automated tests on a fork
 - Add the above environment variables to the repo's secrets
 If you want to run manual tests on your machine
