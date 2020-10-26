@@ -41,6 +41,13 @@ FIREBASE_CONFIG="{
     "appId": "***************"
 }"
 ```
+### Testing server id
+`!! Only relevant if you want to run automated tests on a fork !!`
+discord.js does not provide mock methods for testing purposes.  
+In order to run tests you need to mock the actual Discord API.
+
+1. Create a discord server for testing
+2. Copy the guild ID and save it in an environemnt variables named `TEST_GUILD_ID`
 
 # Usage
 - Open the [backend](backend) folder in terminal
@@ -53,5 +60,11 @@ For rapid development you can use the VSCode debugging tool.
 - Run `npm run build:watch` to start `tsc` in watch mode
 - Navigate to the debug tab in VSCode
 - Select the `Debug Bot (Backend)` task and run it
+
+# Testing
+If you want to run automated tests on a fork
+- Add the above environment variables to the repo's secrets
+If you want to run manual tests on your machine
+- Run `npm test` in [backend](backend)
 
 The Bot now runs in debug mode, any changes to the program will automatically restart the bot.
