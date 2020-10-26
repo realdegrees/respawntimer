@@ -42,7 +42,7 @@ FIREBASE_CONFIG="{
 }"
 ```
 ### Testing server id
-`!! Only relevant if you want to run automated tests on a fork !!`
+`!! Only relevant if you want to run tests !!`
 
 discord.js does not provide mock methods for testing purposes.  
 In order to run tests you need to mock the actual Discord API.
