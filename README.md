@@ -1,6 +1,12 @@
+# Description
+This template can be used to create your own discord bot.
+It is based on the discordjs library and also slightly wraps the discordjs API.
+You can define simple Trigger objects to register new commands with the bot.
+What the bot actually does when a command is triggered is still up to you to implement.
+The repo comes with automated testing via GitHub Actions and (TBD) a CLI to generate new commands.
+
 # Prerequisites
 - Node (v14+)
-- Bot in the server
 
 # Setup
 - Clone the repository
