@@ -10,7 +10,7 @@ jobs:
         - uses: actions/checkout@master
         - uses: actions/setup-node@v2-beta
           with:
-            node-version: '12'
+            node-version: '14'
         - name: Install Dependencies
           run: npm install
           working-directory: backend
@@ -27,7 +27,7 @@ jobs:
         - uses: actions/checkout@master
         - uses: actions/setup-node@v2-beta
           with:
-            node-version: '12'
+            node-version: '14'
         - name: Install Dependencies
           run: npm install
           working-directory: backend
@@ -40,7 +40,7 @@ jobs:
         - uses: actions/checkout@master
         - uses: actions/setup-node@v2-beta
           with:
-            node-version: '12'
+            node-version: '14'
         - name: Install Dependencies
           run: npm install
           working-directory: backend
