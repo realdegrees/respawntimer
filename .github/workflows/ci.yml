@@ -5,7 +5,7 @@ on:
 
 jobs:
     lint:
-      runs-on: ubuntu-latest
+      runs-on: self-hosted
       steps:
         - uses: actions/checkout@master
         - name: Install Dependencies
@@ -19,7 +19,7 @@ jobs:
         FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }} 
         DISCORD_CLIENT_TOKEN: ${{ secrets.DISCORD_CLIENT_TOKEN }} 
         TEST_GUILD_ID: ${{ secrets.TEST_GUILD_ID }} 
-      runs-on: ubuntu-latest
+      runs-on: self-hosted
       steps:
         - uses: actions/checkout@master
         - name: Install Dependencies
@@ -29,7 +29,7 @@ jobs:
           run: npm test
           working-directory: backend
     build:
-      runs-on: ubuntu-latest
+      runs-on: self-hosted
       steps:
         - uses: actions/checkout@master
         - name: Install Dependencies
