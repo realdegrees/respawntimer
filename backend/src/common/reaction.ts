@@ -3,7 +3,7 @@ import { Trigger } from './types';
 
 export class Reaction {
     // Set via reflection, do not use in constructor
-    private trigger!: Trigger;
+    public readonly trigger!: Trigger;
 
     public constructor(private onReact: ReactionCallback, private hooks?: Hooks) {
     }
@@ -13,13 +13,13 @@ export class Reaction {
         // TODO: and pass context from the reaction to the postReactionHook
         // TODO: Define what context might be useful for logs or whatever
         return Promise.resolve()
-            .then(() => this.hooks?.pre?.(message))
-            .then(() => this.onReact(message))
-            .then(() => this.hooks?.post?.(message));
+            .then(() => this.hooks?.pre?.(this, message))
+            .then(() => this.onReact(this, message))
+            .then(() => this.hooks?.post?.(this, message));
     }
 }
 interface Hooks {
-    pre?: (message: Message) => Promise<void>;
-    post?: (message: Message) => Promise<void>;
+    pre?: ReactionCallback;
+    post?: ReactionCallback;
 }
-type ReactionCallback = (message: Message) => Promise<void>;
+type ReactionCallback = (context: Reaction, message: Message) => Promise<void>;

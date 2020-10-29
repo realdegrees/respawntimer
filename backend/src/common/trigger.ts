@@ -9,9 +9,9 @@ import Firebase from '../../lib/firebase';
 
 export class Trigger {
     // Set via reflection, do not use in constructor
-    private bot!: Omit<Bot, 'use'>;
+    public readonly bot!: Omit<Bot, 'use'>;
     // Set via reflection, do not use in constructor
-    private db!: Firebase;
+    public readonly db!: Firebase;
 
     /**
      * Creates a new Trigger that issues the callback when a message 
@@ -20,11 +20,11 @@ export class Trigger {
      * @param options If not provided, the callback will be triggered on every message
      */
     public constructor(
-        public readonly reaction: Reaction,
+        private readonly reactions: Reaction[],
         public readonly options?: TriggerOptions,
     ) {
         // ! This reflection must be the first expression on instantiation
-        Reflect.set(reaction, 'trigger', this);
+        reactions.forEach((reaction) => Reflect.set(reaction, 'trigger', this));
         if (options?.commandOptions?.command.startsWith(dynamicConfig.commandPrefix)) {
             options.commandOptions.command.replace(dynamicConfig.commandPrefix, '');
             logger.warn(
@@ -32,6 +32,13 @@ export class Trigger {
                 ${options.commandOptions.command} already contains the prefix!`,
                 'It was automatically removed.');
         }
+    }
+
+    public react(message: Message): Promise<unknown[]> {
+        return Promise.all(
+            this.reactions.map(
+                (reaction) => reaction.run(message)
+            ));
     }
 
     public patchOptions(options: TriggerOptions): void {
@@ -79,7 +86,7 @@ export class Trigger {
     }
     private checkCustomCondition(message: Message): Promise<void> {
         return this.options?.conditionCheck ?
-            this.options.conditionCheck(message, this.options) :
+            this.options.conditionCheck(this, message, this.options) :
             Promise.resolve();
     }
     private checkChannel(channelId: string): Promise<void> {
@@ -144,6 +151,7 @@ export class Trigger {
     }
 }
 export type TriggerCondition = (
+    context: Trigger,
     message: Message,
     options?: TriggerOptions
 ) => Promise<void>;

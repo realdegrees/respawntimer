@@ -3,7 +3,7 @@ import { Trigger, TriggerMatch } from '../common/types';
 import { templateReaction } from '../reactions/template-reaction';
 
 export const templateTrigger: Trigger = new Trigger(
-    templateReaction, {
+    [templateReaction], {
     commandOptions: {
         command: 'template',
         match: TriggerMatch.EQUALS,
@@ -18,7 +18,7 @@ export const templateTrigger: Trigger = new Trigger(
         include: ['roleThatIsAllowedToRunThisTrigger'],
         exclude: ['roleThatIsNotAllowedToRunThisTrigger'],
     },
-    conditionCheck: (message, options) => {
+    conditionCheck: (context, message) => {
         // a custom condition check
         // example:
         return new Promise((resolve, reject) => {

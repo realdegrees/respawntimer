@@ -40,7 +40,7 @@ class Bot {
                 // If successful, run the reaction
                 // If not, send the reason as a message
                 trigger.check(message)
-                    .then(() => trigger.reaction.run(message))
+                    .then(() => trigger.react(message))
                     .catch((reason) => {
                         if (reason) {
                             message.channel.send(reason);

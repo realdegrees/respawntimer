@@ -21,9 +21,11 @@ Promise.resolve()
              * add more triggers to this parameter array to add functionality to the bot
              */
             templateTrigger,
-            new Trigger(new Reaction(() => {
-                return Promise.resolve();
-            }), {
+            new Trigger([
+                new Reaction(() => {
+                    return Promise.resolve();
+                })
+            ], {
                 commandOptions: {
                     command: 'configure',
                     match: TriggerMatch.EQUALS
