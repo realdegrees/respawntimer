@@ -1,4 +1,8 @@
+import { install } from 'source-map-support';
 import { config } from 'dotenv';
+
+// Install source-map support for stacktrace
+install({ hookRequire: true });
 config();
 import {
     CategoryChannel,

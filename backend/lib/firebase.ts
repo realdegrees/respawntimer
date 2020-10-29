@@ -2,6 +2,12 @@ import firebase from 'firebase';
 import { Observable } from 'rxjs';
 import { collectionData, docData } from 'rxfire/firestore';
 import { DocumentData } from '@firebase/firestore-types';
+import { install } from 'source-map-support';
+import { config } from 'dotenv';
+
+// Install source-map support for stacktrace
+install({ hookRequire: true });
+config();
 
 type FilterOperator =
     '<' | '<=' | '==' | '>=' |
@@ -13,35 +19,23 @@ interface CollectionFilter {
     value: string;
 }
 class Firebase {
-    private _firebase: firebase.app.App;
-    private _firestore!: Firestore;
+    private constructor(
+        private app: firebase.app.App, 
+        public readonly firestore: Firestore){}
 
-    public constructor() {
-        const config = JSON.parse(process.env['FIREBASE_CONFIG'] as string);
-        this._firebase = firebase.initializeApp(config);
-
-    }
-
-    public init(): Promise<void> {
+    public static init(): Promise<Firebase> {
         return new Promise((resolve, reject) => {
             const configValue = process.env['FIREBASE_CONFIG'];
             if (!configValue) {
                 reject('Environment variable "FIREBASE_CONFIG" not found!');
             }
-            try {
-                const config = JSON.parse(process.env['FIREBASE_CONFIG'] as string);
-                this._firebase = firebase.initializeApp(config);
-                this._firestore = new Firestore(this._firebase);
-            }catch(error){
-                reject(error);
-            }
+            const config = JSON.parse(process.env['FIREBASE_CONFIG'] as string);
+            const instance = firebase.initializeApp(config);
+            const firestore = new Firestore(instance);
+            
+            resolve(new Firebase(instance, firestore));
         });
     }
-
-    public get firestore(): Firestore {
-        return this._firestore;
-    }
-
 }
 class Firestore {
     private firestore: firebase.firestore.Firestore;
@@ -69,4 +63,4 @@ class Firestore {
     }
 }
 
-export default new Firebase();
+export default Firebase;

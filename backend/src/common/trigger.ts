@@ -4,8 +4,15 @@ import { TriggerMatch } from './types';
 import { TriggerOptions } from './types/trigger-options';
 import logger from '../../lib/logger';
 import { Reaction } from './reaction';
+import Bot from '../bot';
+import Firebase from '../../lib/firebase';
 
 export class Trigger {
+    // Set via reflection, do not use in constructor
+    private bot!: Omit<Bot, 'use'>;
+    // Set via reflection, do not use in constructor
+    private db!: Firebase;
+
     /**
      * Creates a new Trigger that issues the callback when a message 
      * is sent that passes the conditions provided in the options param
@@ -14,7 +21,7 @@ export class Trigger {
      */
     public constructor(
         public readonly reaction: Reaction,
-        public readonly options?: TriggerOptions
+        public readonly options?: TriggerOptions,
     ) {
         if (options?.commandOptions?.command.startsWith(dynamicConfig.commandPrefix)) {
             options.commandOptions.command.replace(dynamicConfig.commandPrefix, '');

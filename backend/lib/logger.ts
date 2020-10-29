@@ -19,7 +19,7 @@ let emptyStackTraces = 0;
 let projectRoot = process.cwd() + '/';
 let stackTraceDepth = 3;
 class Logger {
-    public constructor() {
+    /*public constructor() {
         log(Level.DEBUG,
             'Degrees\' Logger Info',
             [
@@ -28,7 +28,7 @@ class Logger {
                 `Current working directory: ${process.cwd()}`
             ],
             true);
-    }
+    }*/
     /**
      * @param path Absolute path to the projects root directory
      */

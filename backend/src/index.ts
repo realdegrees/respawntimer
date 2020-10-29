@@ -9,13 +9,13 @@ import { Reaction } from './common/reaction';
 install();
 config();
 
-Promise.all([
-    Bot.init(),
-    Firebase.init()
-])
-    .then(() => {
+
+Promise.resolve()
+    .then(() => Firebase.init())
+    .then((db) => Bot.init(db))
+    .then((bot) => {
         logger.info('Bot started successfully');
-        Bot.use([
+        bot.use([
             /**
              * This is a sample trigger to show how triggers work
              * add more triggers to this parameter array to add functionality to the bot
