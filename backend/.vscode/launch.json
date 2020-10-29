@@ -4,24 +4,18 @@
     // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
     "version": "0.2.0",
     "configurations": [
-        
         {
-            "type": "pwa-node",
-            "request": "launch",
             "name": "Debug Bot",
-            "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/nodemon",
-            "args": [
-                "debug"
+            "request": "launch",
+            "runtimeArgs": [
+                "run-script",
+                "dev"
             ],
-            "program": "${workspaceFolder}/dist/src/index.js",
-            "restart": true,
+            "runtimeExecutable": "npm",
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "outFiles": [
-                "${workspaceFolder}/dist/**/*.js"
-            ],
-            "cwd": "${workspaceFolder}",
+            "type": "pwa-node",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen"
         },
