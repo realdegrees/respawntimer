@@ -23,6 +23,8 @@ export class Trigger {
         public readonly reaction: Reaction,
         public readonly options?: TriggerOptions,
     ) {
+        // ! This reflection must be the first expression on instantiation
+        Reflect.set(reaction, 'trigger', this);
         if (options?.commandOptions?.command.startsWith(dynamicConfig.commandPrefix)) {
             options.commandOptions.command.replace(dynamicConfig.commandPrefix, '');
             logger.warn(

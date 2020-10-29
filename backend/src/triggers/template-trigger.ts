@@ -2,7 +2,6 @@
 import { Trigger, TriggerMatch } from '../common/types';
 import { templateReaction } from '../reactions/template-reaction';
 
-// TODO: add bot to trigger
 export const templateTrigger: Trigger = new Trigger(
     templateReaction, {
     commandOptions: {

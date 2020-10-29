@@ -1,7 +1,11 @@
 import { Message } from 'discord.js';
+import { Trigger } from './types';
 
 export class Reaction {
-    public constructor(private onReact: ReactionCallback, private hooks?: Hooks ) {
+    // Set via reflection, do not use in constructor
+    private trigger!: Trigger;
+
+    public constructor(private onReact: ReactionCallback, private hooks?: Hooks) {
     }
 
     public async run(message: Message): Promise<void> {
@@ -9,9 +13,9 @@ export class Reaction {
         // TODO: and pass context from the reaction to the postReactionHook
         // TODO: Define what context might be useful for logs or whatever
         return Promise.resolve()
-        .then(() => this.hooks?.pre?.(message))
-        .then(() => this.onReact(message))
-        .then(() => this.hooks?.post?.(message));
+            .then(() => this.hooks?.pre?.(message))
+            .then(() => this.onReact(message))
+            .then(() => this.hooks?.post?.(message));
     }
 }
 interface Hooks {
