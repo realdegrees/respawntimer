@@ -5,7 +5,7 @@ import { getSampleTriggerCommand } from '../common/util';
 
 describe('Pong Reaction', () => {
     let client: TestClient;
-    beforeEach(async () => {
+    beforeAll(async () => {
         client = await TestClient.connect();
     });
     afterAll(async () => {
