@@ -13,7 +13,7 @@ You can create a file named `.env` in the [backend](backend) folder to provide t
 In production the environment variables should not be passed with the `.env` file.  
 It is preferred to use a secure solution like a docker container.
 
-### Discord bot token
+### Discord bot token *(required)*
 1. Get the client token from your discord bot
 2. Copy the client token and save it in an environment variable named `DISCORD_CLIENT_TOKEN`
 
@@ -21,7 +21,7 @@ Example
 ```env
 DISCORD_CLIENT_TOKEN="**************"
 ```
-### Firebase config
+### Firebase config *(required)*
 1. [Get your firebase config object](https://support.google.com/firebase/answer/7015592)
 2. Copy the firebase config object and save it in an environemnt variables named `FIREBASE_CONFIG`
 3. Replace all `'` with `"`
@@ -40,7 +40,7 @@ FIREBASE_CONFIG="{
     "appId": "***************"
 }"
 ```
-### Testing server id
+### Testing server id (optional)
 `!! Only relevant if you want to run tests !!`
 
 discord.js does not provide mock methods for testing purposes.  
@@ -55,16 +55,15 @@ In order to run tests you need to mock the actual Discord API.
 - Run `npm start`
 - Converse with the bot
 
-# Development  
-For rapid development you can use the VSCode debugging tool.
-- Run `npm run build:watch` to start `tsc` in watch mode
-- Navigate to the debug tab in VSCode
-- Select the `Debug Bot (Backend)` task and run it
+# Development and Debugging 
+- Terminal > Run `npm run dev`
+- VSCode > Run `Debug Bot (Backend)` task
+
+Both methods start the typsescript compiler in watch mode and restart the program on changes.
+The VSCode launch task has a debugger attached to it automatically.
 
 # Testing  
 If you want to run automated tests on a fork
 - Add the above environment variables to the repo's secrets
 If you want to run manual tests on your machine
 - Run `npm test` in [backend](backend)
-
-The Bot now runs in debug mode, any changes to the program will automatically restart the bot.
