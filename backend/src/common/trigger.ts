@@ -84,10 +84,9 @@ export class Trigger {
             }
         });
     }
-    private checkCustomCondition(message: Message): Promise<void> {
-        return this.options?.conditionCheck ?
-            this.options.conditionCheck(this, message, this.options) :
-            Promise.resolve();
+    private async checkCustomCondition(message: Message): Promise<void> {
+        return Promise.resolve()
+            .then(() => this.options?.conditionCheck?.(message, this));
     }
     private checkChannel(channelId: string): Promise<void> {
         return new Promise((resolve, reject) => {
@@ -151,7 +150,10 @@ export class Trigger {
     }
 }
 export type TriggerCondition = (
-    context: Trigger,
     message: Message,
-    options?: TriggerOptions
+    context: Trigger
+) => void;
+export type AsyncTriggerCondition = (
+    message: Message,
+    context: Trigger
 ) => Promise<void>;

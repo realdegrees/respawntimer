@@ -19,7 +19,7 @@ export class MockClient {
     private categoryChannel: Channel | undefined;
     private constructor(
         private client: Client,
-        private guild: Guild,
+        public readonly guild: Guild,
         private mockedChannels: Channel[] = []) { }
 
     public static connect(): Promise<MockClient> {
@@ -112,7 +112,7 @@ export class MockClient {
         this.client.destroy();
     }
 
-    public async getMessage(
+    public async sendMessage(
         channel: TextChannel,
         content: string,
         options?: MockMessageOptions): Promise<Message> {
@@ -121,6 +121,27 @@ export class MockClient {
             await channel.send(content);
         return Promise.all([options?.reactions?.map((reaction) => message.react(reaction))])
             .then(() => message);
+    }
+
+    public async awaitMessage(
+        channel: TextChannel,
+        content?: string,
+    ): Promise<Message> {
+        return channel.awaitMessages(
+            (message: Message) => content ? message.content === content : true, {
+            max: 1
+        })
+            .then((collected) => collected.first())
+            .then((message) => {
+                if (message) {
+                    return message;
+                } else {
+                    throw new Error(
+                        `Timeout for message with content "${content}" in channel "${channel.name}"`
+                    );
+
+                }
+            });
     }
 }
 type MockMessageOptions = Omit<MessageOptions, 'split'> & {
