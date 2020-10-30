@@ -143,6 +143,18 @@ export class MockClient {
                 }
             });
     }
+
+    public async getMessages(channel: TextChannel, max?: number): Promise<Message[]> {
+        return channel.fetch().then((channel) => {
+            if (channel.type === 'text') {
+                return (channel as TextChannel).messages.cache.sort(
+                    (m1, m2) => m1.createdTimestamp - m2.createdTimestamp
+                ).array().slice(max);
+            } else {
+                return [];
+            }
+        });
+    }
 }
 type MockMessageOptions = Omit<MessageOptions, 'split'> & {
     reactions?: EmojiResolvable[];
