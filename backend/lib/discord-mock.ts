@@ -9,43 +9,34 @@ import {
     Channel,
     Client,
     EmojiResolvable,
-    Guild, GuildCreateChannelOptions, Message,
+    Guild, GuildAuditLogs, GuildCreateChannelOptions, Message,
     MessageOptions,
     TextChannel,
     VoiceChannel
 } from 'discord.js';
 
-export class MockClient {
+export class TestClient {
     private categoryChannel: Channel | undefined;
     private constructor(
         private client: Client,
         public readonly guild: Guild,
         private mockedChannels: Channel[] = []) { }
 
-    public static connect(): Promise<MockClient> {
+    public static connect(): Promise<TestClient> {
         return new Promise((resolve, reject) => {
             const client = new Client();
             const discordToken = process.env['DISCORD_CLIENT_TOKEN'];
-            const mockGuildId = process.env['TEST_GUILD_ID'];
 
             if (!discordToken) {
                 reject('Environment variable "DISCORD_CLIENT_TOKEN" not found!');
                 return;
             }
-            if (!mockGuildId) {
-                reject('Environment variable "TEST_GUILD_ID" not found!');
-                return;
-            }
 
             client.login(discordToken)
-                .then(() => client.guilds.cache.get(mockGuildId))
-                .then((guild) => {
-                    if (!guild) {
-                        throw new Error(`The guild with id ${mockGuildId} was not found!`);
-                    } else {
-                        return new MockClient(client, guild);
-                    }
-                })
+                .then(
+                    () => client.guilds.create(`test-${process.platform}-${new Date().getTime()}`)
+                )
+                .then((guild) => new TestClient(client, guild))
                 .then(resolve)
                 .catch(reject);
         });
@@ -59,7 +50,7 @@ export class MockClient {
             this.categoryChannel = await this.createCategoryChannel();
         }
         if (!name) {
-            name = `jest-text-${process.platform}-${new Date().getTime()}`;
+            name = `test-text-${process.platform}-${new Date().getTime()}`;
         }
         const channel = await (options ?
             this.guild.channels.create(name, {
@@ -102,14 +93,15 @@ export class MockClient {
 
     }
 
-    public async cleanup(): Promise<void> {
-        await Promise.all(
-            this.mockedChannels.map(
-                (channel) => channel.delete('Created for testing purposes')
-            )
-        );
-        await this.categoryChannel?.delete();
+    /**
+     * Returns the test guild's audit log
+     */
+    public async destroy(): Promise<[GuildAuditLogs, Guild]> {
+        const logs = await this.guild.fetchAuditLogs();
+        const lastGuildState = await this.guild.fetch();
+        await this.guild.delete();
         this.client.destroy();
+        return [logs, lastGuildState];
     }
 
     public async sendMessage(

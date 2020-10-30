@@ -40,14 +40,6 @@ FIREBASE_CONFIG="{
     "appId": "***************"
 }"
 ```
-### Testing server id (optional)
-`!! Only relevant if you want to run tests !!`
-
-discord.js does not provide mock methods for testing purposes.  
-In order to run tests you need to mock the actual Discord API.
-
-1. Create a discord server for testing
-2. Copy the guild ID and save it in an environemnt variables named `TEST_GUILD_ID`
 
 # Usage
 - Open the [backend](backend) folder in terminal

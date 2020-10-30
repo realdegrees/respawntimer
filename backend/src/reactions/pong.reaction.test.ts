@@ -1,15 +1,15 @@
-import { MockClient } from '../../lib/discord-mock';
+import { TestClient } from '../../lib/discord-mock';
 import { pong } from './pong.reaction';
 import { ping } from '../triggers/ping.trigger';
 import { getSampleTriggerCommand } from '../common/util';
 
 describe('Pong Reaction', () => {
-    let client: MockClient;
+    let client: TestClient;
     beforeEach(async () => {
-        client = await MockClient.connect();
+        client = await TestClient.connect();
     });
     afterAll(async () => {
-        await client.cleanup();
+        await client.destroy();
     });
 
     it('should send pong command', async () => {
