@@ -12,11 +12,11 @@ Promise.resolve()
     .then(() => Firebase.init())
     .then((db) => Bot.init(db))
     .then((bot) => {
-        logger.info('Bot started successfully');
         bot.use([
             ping
         ]);
     })
+    .then(() => logger.info('Bot started successfully'))
     .catch((error) => {
         logger.error('The bot is unable to start!');
         logger.error(error);
