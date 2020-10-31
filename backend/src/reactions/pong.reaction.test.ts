@@ -1,4 +1,4 @@
-import { TestClient } from '../../lib/discord-mock';
+import { TestClient } from 'djs-test-client';
 import { pong } from './pong.reaction';
 import { ping } from '../triggers/ping.trigger';
 import { getSampleTriggerCommand } from '../common/util';
