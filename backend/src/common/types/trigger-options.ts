@@ -34,8 +34,8 @@ export interface TriggerOptions {
 // TODO: Add 'triggerType' in order to create triggers 
 // TODO: for different events like guildJoined or channelJoined etc.
 export interface CommandOptions {
-    /** The command that a user needs to write to trigger the bot */
-    command: string;
+    /** The command (and aliases) that a user needs to write to trigger the bot */
+    command: string[];
     /** Determines e.g. if the command *must* be the first text in the message or not */
     match: TriggerMatch;
     /** Should the bot trigger on 'content' even if the bot prefix is not provided?

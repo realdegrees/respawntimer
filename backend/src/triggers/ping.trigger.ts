@@ -1,9 +1,11 @@
 import { Trigger, TriggerMatch } from '../common/types';
 import { pong } from '../reactions/pong.reaction';
 
-export const ping = new Trigger([pong], {
+export const ping = new Trigger({
+    default: [pong]
+}, {
     commandOptions: {
-        command: 'ping',
+        command: ['ping'],
         match: TriggerMatch.EQUALS,
         ignorePrefix: true
     }

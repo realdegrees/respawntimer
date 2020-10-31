@@ -8,7 +8,8 @@ import { Trigger } from './common/types';
  * TODO: Add additional triggers like [channelJoined, guildJoined, etc.]
  */
 class Bot {
-    private constructor(private client: Client, private db: Firebase) { }
+    private constructor(private client: Client, private db: Firebase) {
+    }
     public static async init(db: Firebase): Promise<Bot> {
         return new Promise((resolve, reject) => {
             const client = new Client();
@@ -40,9 +41,9 @@ class Bot {
                 // If successful, run the reaction
                 // If not, send the reason as a message
                 trigger.check(message)
-                    .then(() => trigger.react(message))
-                    .catch((reason) => {
-                        if (reason) {
+                    .then((message) => trigger.react(message))
+                    .catch((reason: string | undefined) => {
+                        if (reason?.length) {
                             message.channel.send(reason);
                         }
                     });

@@ -1,11 +1,10 @@
-import { Message, GuildMember } from 'discord.js';
-import { dynamicConfig } from './dynamic-config';
+import { Message } from 'discord.js';
 import { TriggerMatch } from './types';
 import { TriggerOptions } from './types/trigger-options';
-import logger from '../../lib/logger';
 import { Reaction } from './reaction';
 import Bot from '../bot';
 import Firebase from '../../lib/firebase';
+import { escapeRegex, fetchPrefix } from './util';
 
 export class Trigger {
     // Set via reflection, do not use in constructor
@@ -20,25 +19,29 @@ export class Trigger {
      * @param options If not provided, the callback will be triggered on every message
      */
     public constructor(
-        private readonly reactions: Reaction[],
+        public readonly reactionMap: ReactionMap,
         public readonly options?: TriggerOptions,
     ) {
         // ! This reflection must be the first expression on instantiation
-        reactions.forEach((reaction) => Reflect.set(reaction, 'trigger', this));
-        if (options?.commandOptions?.command.startsWith(dynamicConfig.commandPrefix)) {
-            options.commandOptions.command.replace(dynamicConfig.commandPrefix, '');
-            logger.warn(
-                `The command in this Trigger 
-                ${options.commandOptions.command} already contains the prefix!`,
-                'It was automatically removed.');
-        }
+        Object.values(reactionMap)
+            .forEach((reactions) =>
+                reactions?.forEach((reaction) => Reflect.set(reaction, 'trigger', this))
+            );
     }
 
     public react(message: Message): Promise<unknown[]> {
-        return Promise.all(
-            this.reactions.map(
-                (reaction) => reaction.run(message)
-            ));
+        const subTrigger = message.content.split(' ')[0] || 'default';
+        if (subTrigger !== 'default') {
+            this.removeFromMessage(message, subTrigger);
+        }
+        const reactions = this.reactionMap[subTrigger];
+
+        return reactions ?
+            Promise.all(
+                reactions.map(
+                    (reaction) => reaction.run(message)
+                )) :
+            Promise.reject(`You cannot run this command with "${subTrigger}"`);
     }
 
     public patchOptions(options: TriggerOptions): void {
@@ -50,45 +53,72 @@ export class Trigger {
      * callback based on the options provided in constructor
      * @param message 
      */
-    public check(message: Message): Promise<void> {
-        return this.checkCommand(message.content)
-            .then(() => this.checkChannel(message.channel.id))
-            .then(() => this.checkPermission(message.member))
-            .then(() => this.checkRoles(message.member))
-            .then(() => this.checkCustomCondition(message));
+    public check(message: Message): Promise<Message> {
+        return this.checkCommand(message)
+            .then((message) => this.checkChannel(message))
+            .then((message) => this.checkPermission(message))
+            .then((message) => this.checkRoles(message))
+            .then((message) => this.checkCustomCondition(message));
     }
 
 
 
-    private checkCommand(message: string): Promise<void> {
+    private checkCommand(message: Message): Promise<Message> {
+        const content = message.content;
         return new Promise((resolve, reject) => {
             if (!this.options?.commandOptions) {
-                resolve();
+                resolve(message);
                 return;
             }
 
-            const command =
-                `${this.options.commandOptions.ignorePrefix ? '' : dynamicConfig.commandPrefix}`
-                + this.options.commandOptions.command;
+            this.options.commandOptions.command.forEach(async (commandValue) => {
+                const prefix = !this.options?.commandOptions?.ignorePrefix && message.guild?.id ?
+                    await fetchPrefix(message.guild.id, this.db) : '';
+                const command = prefix + commandValue;
 
-            switch (this.options.commandOptions.match) {
-                case TriggerMatch.CONTAINS:
-                    message.includes(command) ? resolve() : reject();
-                    break;
-                case TriggerMatch.EQUALS:
-                    message === command ? resolve() : reject();
-                    break;
-                case TriggerMatch.STARTS_WITH:
-                    message.startsWith(command) ? resolve() : reject();
-                    break;
-            }
+                switch (this.options?.commandOptions?.match) {
+                    case TriggerMatch.CONTAINS:
+                        if (content.includes(command)) {
+                            this.removeFromMessage(message, command);
+                            resolve(message);
+                            return;
+                        }
+                        break;
+                    case TriggerMatch.EQUALS:
+                        if (content.match(new RegExp(`^${escapeRegex(command)}$`))) {
+                            this.removeFromMessage(message, command);
+                            resolve(message);
+                            return;
+                        }
+                        break;
+                    case TriggerMatch.STARTS_WITH:
+                        if (
+                            content.match(new RegExp(`^${escapeRegex(command)} .*`)) ||
+                            content.match(new RegExp(`^${escapeRegex(command)}$`))
+                        ) {
+                            this.removeFromMessage(message, command);
+                            resolve(message);
+                            return;
+                        }
+                        break;
+                }
+                reject();
+            });
         });
     }
-    private async checkCustomCondition(message: Message): Promise<void> {
-        return Promise.resolve()
-            .then(() => this.options?.conditionCheck?.(message, this));
+    /**
+     * Removes the specified text from the message and cleans whitespaces
+     */
+    private removeFromMessage(message: Message, text: string): void {
+        message.content = message.content.split(text).join('').replace(/\s{2,}/g, ' ').trim();
     }
-    private checkChannel(channelId: string): Promise<void> {
+    private async checkCustomCondition(message: Message): Promise<Message> {
+        return Promise.resolve()
+            .then(() => this.options?.conditionCheck?.(message, this))
+            .then(() => message);
+    }
+    private checkChannel(message: Message): Promise<Message> {
+        const channelId = message.channel.id;
         return new Promise((resolve, reject) => {
             if (this.options?.channels) {
                 const isIncluded = this.options.channels.include?.length ?
@@ -96,16 +126,17 @@ export class Trigger {
                     true;
                 const isExcluded = this.options.channels.exclude?.includes(channelId);
 
-                isIncluded && !isExcluded ? resolve() : reject();
+                isIncluded && !isExcluded ? resolve(message) : reject();
             } else {
-                resolve();
+                resolve(message);
             }
         });
     }
-    private checkRoles(member: GuildMember | null): Promise<void> {
+    private checkRoles(message: Message): Promise<Message> {
+        const member = message.member;
         return new Promise((resolve, reject) => {
             if (!this.options?.roles) {
-                resolve();
+                resolve(message);
                 return;
             }
             if (member) {
@@ -117,7 +148,7 @@ export class Trigger {
                     (role) => member.roles.resolve(role));
 
                 isIncluded && !isExcluded ?
-                    resolve() :
+                    resolve(message) :
                     reject('You are missing a required role for this command!');
             } else {
                 reject('Unable to retrieve message author! Can\'t check roles');
@@ -129,17 +160,18 @@ export class Trigger {
      * Dictated by the commandOptions for this trigger
      * @param member 
      */
-    private checkPermission(member: GuildMember | null): Promise<void> {
+    private checkPermission(message: Message): Promise<Message> {
+        const member = message.member;
         return new Promise((resolve, reject) => {
             if (!this.options?.requiredPermissions) {
-                resolve();
+                resolve(message);
                 return;
             }
             if (member) {
                 if (this.options.requiredPermissions.every(
                     (permission) => member.hasPermission(permission))
                 ) {
-                    resolve();
+                    resolve(message);
                 } else {
                     reject('You do not have permission to issue this command!');
                 }
@@ -149,6 +181,10 @@ export class Trigger {
         });
     }
 }
+type ReactionMap = {
+    readonly default: Reaction[];
+    readonly [subTrigger: string]: Reaction[] | undefined;
+};
 export type TriggerCondition = (
     message: Message,
     context: Trigger

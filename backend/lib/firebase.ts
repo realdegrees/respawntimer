@@ -20,8 +20,8 @@ interface CollectionFilter {
 }
 class Firebase {
     private constructor(
-        private app: firebase.app.App, 
-        public readonly firestore: Firestore){}
+        private app: firebase.app.App,
+        public readonly firestore: Firestore) { }
 
     public static init(): Promise<Firebase> {
         return new Promise((resolve, reject) => {
@@ -32,7 +32,7 @@ class Firebase {
             const config = JSON.parse(process.env['FIREBASE_CONFIG'] as string);
             const instance = firebase.initializeApp(config);
             const firestore = new Firestore(instance);
-            
+
             resolve(new Firebase(instance, firestore));
         });
     }
@@ -54,12 +54,22 @@ class Firestore {
                 filter.value)) :
             collectionData(this.firestore.collection(path));
     }
-    public doc<T extends unknown>(path: string): Observable<T> {
+    public subscribe<T>(path: string): Observable<T> {
         return docData(this.firestore.doc(path));
     }
 
-    public store(data: DocumentData, path: string): Promise<void> {
+    public get<T>(path: string): Promise<T | undefined> {
+        return this.firestore.doc(path).get()
+            .then((data) => data.data() as T);
+    }
+    public store<T extends DocumentData>(data: T, path: string): Promise<void> {
         return this.firestore.doc(path).set(data);
+    }
+    public update<T extends DocumentData>(data: T, path: string): Promise<void> {
+        return this.firestore.doc(path).set(data, { merge: true });
+    }
+    public delete(path: string): Promise<void> {
+        return this.firestore.doc(path).delete();
     }
 }
 

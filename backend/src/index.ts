@@ -4,6 +4,7 @@ import { config } from 'dotenv';
 import { install } from 'source-map-support';
 import logger from '../lib/logger';
 import { ping } from './triggers/ping.trigger';
+import { configureTrigger } from './triggers/configure.trigger';
 install();
 config();
 
@@ -13,7 +14,8 @@ Promise.resolve()
     .then((db) => Bot.init(db))
     .then((bot) => {
         bot.use([
-            ping
+            ping,
+            configureTrigger
         ]);
     })
     .then(() => logger.info('Bot started successfully'))
