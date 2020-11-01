@@ -1,7 +1,7 @@
-import { Reaction } from '../../common/reaction';
+import { GuildMessage, Reaction } from '../../common/reaction';
 import { getSampleTriggerCommand } from '../../common/util';
 
-export const useSubtriggerReaction = new Reaction(
+export const useSubtriggerReaction = new Reaction<GuildMessage>(
     async (message, context) => {
         const subTriggers = Object.keys(context.trigger.reactionMap)
             .filter((subTrigger) => subTrigger !== 'default');
@@ -9,7 +9,7 @@ export const useSubtriggerReaction = new Reaction(
             subTriggers.map(async (subTrigger) =>
                 await getSampleTriggerCommand(
                     context.trigger,
-                    message, {
+                    message.guild.id, {
                     subTrigger
                 })
             ));

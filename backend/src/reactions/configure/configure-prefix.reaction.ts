@@ -1,6 +1,6 @@
-import { Reaction } from '../../common/reaction';
+import { GuildMessage, Reaction } from '../../common/reaction';
 
-export const configurePrefixReaction = new Reaction((message, context) => {
+export const configurePrefixReaction = new Reaction<GuildMessage>((message, context) => {
     if (!message.content) {
         message.channel.send('You didn\'t provide the desired prefix!');
         return;
@@ -9,7 +9,7 @@ export const configurePrefixReaction = new Reaction((message, context) => {
         {
             prefix: message.content
         },
-        [message.guild?.id, 'config'].join('/')
+        [message.guild.id, 'config'].join('/')
     ).then(() => {
         message.channel.send('I updated the prefix.');
     }).catch(() => {

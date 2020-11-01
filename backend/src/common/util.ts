@@ -19,7 +19,7 @@ export const logging = ((): boolean => {
 })();
 export const getSampleTriggerCommand = (
     trigger: Trigger,
-    message: Message,
+    guildId: string,
     options?: {
         subTrigger?: string;
         includeMentions?: User[];
@@ -31,8 +31,8 @@ export const getSampleTriggerCommand = (
             options.includeMentions.map((user) => user.toString()).join(' ') :
             '';
         if (commandOptions?.command.length && commandOptions.command.length > 0) {
-            if (!commandOptions.ignorePrefix && message.guild?.id) {
-                fetchPrefix(message.guild.id, trigger.db)
+            if (!commandOptions.ignorePrefix) {
+                fetchPrefix(guildId, trigger.db)
                     .then((prefix) =>
                         resolve(
                             prefix +

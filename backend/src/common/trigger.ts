@@ -1,7 +1,7 @@
 import { Message } from 'discord.js';
 import { TriggerMatch } from './types';
 import { TriggerOptions } from './types/trigger-options';
-import { Reaction } from './reaction';
+import { DirectMessage, GuildMessage, Reaction } from './reaction';
 import Bot from '../bot';
 import Firebase from '../../lib/firebase';
 import { escapeRegex, fetchPrefix } from './util';
@@ -24,9 +24,12 @@ export class Trigger {
     ) {
         // ! This reflection must be the first expression on instantiation
         Object.values(reactionMap)
-            .forEach((reactions) =>
-                reactions?.forEach((reaction) => Reflect.set(reaction, 'trigger', this))
-            );
+            .forEach((reactions) => {
+                if (reactions) {
+                    Object.values(reactions)
+                        .forEach((reaction) => Reflect.set(reaction, 'trigger', this));
+                }
+            });
     }
 
     public react(message: Message): Promise<unknown[]> {
@@ -38,7 +41,7 @@ export class Trigger {
 
         return reactions ?
             Promise.all(
-                reactions.map(
+                Object.values(reactions).map(
                     (reaction) => reaction.run(message)
                 )) :
             Promise.reject(`You cannot run this command with "${subTrigger}"`);
@@ -182,9 +185,12 @@ export class Trigger {
     }
 }
 type ReactionMap = {
-    readonly default: Reaction[];
-    readonly [subTrigger: string]: Reaction[] | undefined;
+    readonly default: ReactionMapItem;
+    readonly [subTrigger: string]: ReactionMapItem | undefined;
 };
+type ReactionMapItem = 
+{ guild: Reaction<GuildMessage>[] } | 
+{direct: Reaction < DirectMessage > []};
 export type TriggerCondition = (
     message: Message,
     context: Trigger

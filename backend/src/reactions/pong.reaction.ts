@@ -1,5 +1,5 @@
-import { Reaction } from '../common/reaction';
+import { GuildMessage, Reaction } from '../common/reaction';
 
-export const pong = new Reaction(async (message) => 
+export const pong = new Reaction<GuildMessage>(async (message) => 
     await message.channel.send('pong')
 );

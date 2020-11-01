@@ -1,9 +1,11 @@
+/* eslint-disable no-console */
 import { TestClient } from 'djs-test-client';
 import Firebase from '../../../lib/firebase';
 import { configureTrigger } from '../../triggers/configure.trigger';
 import { configurePrefixReaction } from './configure-prefix.reaction';
 import { reflectVariables } from '../../common/util';
 import { GuildSettings } from '../../common/types';
+import { GuildMessage } from '../../common/reaction';
 
 describe('Configure', () => {
     let client: TestClient;
@@ -14,27 +16,19 @@ describe('Configure', () => {
         reflectVariables(configureTrigger, { db });
         reflectVariables(configurePrefixReaction, { trigger: configureTrigger });
     });
-    afterAll(async () => {
-        await db.firestore.delete(client.guild.id);
-        await client.destroy();
+    afterAll(() => {
+        return db.firestore.delete(client.guild.id) // TODO: THIS DOESN'T WORK
+            .then(() => client.destroy());
     });
 
-    it('should store prefix', async (done) => {
+    it('should store prefix', () => {
         const newPrefix = '$';
-        const channel = await client.createTextChannel('prefix');
-        const message = await client.sendMessage(
-            channel,
-            newPrefix
-        );
-
-        await configurePrefixReaction.run(message);
-
-        const dbSettings =
-            await db.firestore.get<GuildSettings>(
+        return client.createTextChannel('prefixTest')
+            .then((channel) => client.sendMessage(channel, '$'))
+            .then((message) => configurePrefixReaction.run(message as GuildMessage))
+            .then(() => db.firestore.get<GuildSettings>(
                 [client.guild.id, 'config'].join('/')
-            );
-
-        expect(dbSettings?.prefix).toEqual(newPrefix);
-        done();
+            ))
+            .then((dbSettings) => expect(dbSettings?.prefix).toEqual(newPrefix));
     });
 });
