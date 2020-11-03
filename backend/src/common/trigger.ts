@@ -19,11 +19,11 @@ export class Trigger {
      * @param options If not provided, the callback will be triggered on every message
      */
     public constructor(
-        public readonly reactionMap: ReactionMap,
+        public readonly reactions: ReactionMap,
         public readonly options?: TriggerOptions,
     ) {
         // ! This reflection must be the first expression on instantiation
-        Object.values(reactionMap)
+        Object.values(reactions)
             .forEach((reactions) => {
                 if (reactions) {
                     Object.values(reactions)
@@ -37,7 +37,9 @@ export class Trigger {
         if (subTrigger !== 'default') {
             this.removeFromMessage(message, subTrigger);
         }
-        const reactions = this.reactionMap[subTrigger];
+
+        
+        const reactions = message.guild ? this.reactions.sub?.guild : this.reactions.sub?.direct;
 
         return reactions ?
             Promise.all(
@@ -186,11 +188,12 @@ export class Trigger {
 }
 type ReactionMap = {
     readonly default: ReactionMapItem;
-    readonly [subTrigger: string]: ReactionMapItem | undefined;
+    readonly sub?: ReactionMapItem;
 };
-type ReactionMapItem = 
-{ guild: Reaction<GuildMessage>[] } | 
-{direct: Reaction < DirectMessage > []};
+type ReactionMapItem = {
+    guild: Reaction<GuildMessage>[];
+    direct: Reaction<DirectMessage>[];
+};
 export type TriggerCondition = (
     message: Message,
     context: Trigger

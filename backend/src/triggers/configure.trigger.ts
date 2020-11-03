@@ -1,13 +1,15 @@
 import { Trigger, TriggerMatch } from '../common/types';
-import { configurePrefixReaction } from '../reactions/configure/configure-prefix.reaction';
+import { configurePrefixReaction } from '../reactions/configure/prefix.reaction';
 import { useSubtriggerReaction } from '../reactions/base/use-subtriggers.reaction';
 
 export const configureTrigger = new Trigger({
     default: {
-        guild: [useSubtriggerReaction]
+        guild: [useSubtriggerReaction],
+        direct: []
     },
-    'prefix': {
-        guild: [configurePrefixReaction]
+    sub: {
+        guild: [configurePrefixReaction],
+        direct: []
     }
 }, {
     commandOptions: {

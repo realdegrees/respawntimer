@@ -4,6 +4,8 @@ import { collectionData, docData } from 'rxfire/firestore';
 import { DocumentData } from '@firebase/firestore-types';
 import { install } from 'source-map-support';
 import { config } from 'dotenv';
+import { ReadStream } from 'fs';
+import { Url } from 'url';
 
 // Install source-map support for stacktrace
 install({ hookRequire: true });
@@ -20,8 +22,8 @@ interface CollectionFilter {
 }
 class Firebase {
     private constructor(
-        private app: firebase.app.App,
-        public readonly firestore: Firestore) { }
+        public readonly firestore: Firestore,
+        public readonly storage: Storage) { }
 
     public static init(): Promise<Firebase> {
         return new Promise((resolve, reject) => {
@@ -32,9 +34,34 @@ class Firebase {
             const config = JSON.parse(process.env['FIREBASE_CONFIG'] as string);
             const instance = firebase.initializeApp(config);
             const firestore = new Firestore(instance);
+            const storage = new Storage(instance);
 
-            resolve(new Firebase(instance, firestore));
+            resolve(new Firebase(firestore, storage));
         });
+    }
+}
+class Storage {
+    private storage: firebase.storage.Storage;
+
+    public constructor(firebase: firebase.app.App) {
+        this.storage = firebase.storage();
+    }
+
+    public async streamAudio(path: string): Promise<ReadStream> {
+        const downloadUrl = await this.storage.ref(path).getDownloadURL();
+        const response = await fetch(downloadUrl);
+        const buffer = await response.arrayBuffer();
+        return new ReadStream({
+            read() {
+                this.push(buffer);
+                this.push(null);
+            }
+        });
+    }
+
+    public async saveAudio(path: string, audio: Buffer): Promise<string> {
+        return this.storage.ref(path).put(audio)
+            .then((snapshot) => snapshot.ref.getDownloadURL());
     }
 }
 class Firestore {

@@ -1,5 +1,5 @@
 import { settings } from 'cluster';
-import { Message, User } from 'discord.js';
+import { Guild, Message, User } from 'discord.js';
 import { config } from 'dotenv/types';
 import Firebase from '../../lib/firebase';
 import { GuildSettings, Trigger } from './types';
@@ -19,7 +19,7 @@ export const logging = ((): boolean => {
 })();
 export const getSampleTriggerCommand = (
     trigger: Trigger,
-    guildId: string,
+    guild: Guild,
     options?: {
         subTrigger?: string;
         includeMentions?: User[];
@@ -32,7 +32,7 @@ export const getSampleTriggerCommand = (
             '';
         if (commandOptions?.command.length && commandOptions.command.length > 0) {
             if (!commandOptions.ignorePrefix) {
-                fetchPrefix(guildId, trigger.db)
+                fetchPrefix(guild.id, trigger.db)
                     .then((prefix) =>
                         resolve(
                             prefix +
