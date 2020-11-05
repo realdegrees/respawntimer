@@ -9,7 +9,7 @@
   "scripts": {
     "start": "node ./dist/src/index.js",
     "start:build": "npm run build && node ./dist/src/index.js",
-    "dev": "tsc-watch --onSuccess \"npm start\"",
+    "dev": "tsc-watch --onSuccess \"node ./dist/src/index.js --debug\"",
     "build": "tsc",
     "build:watch": "tsc --watch",
     "lint:fix": "eslint . --fix --ext .ts",
@@ -41,7 +41,6 @@
     "dotenv": "^8.2.0",
     "firebase": "^7.24.0",
     "node-fetch": "^2.6.1",
-    "rxfire": "^3.13.5",
     "rxjs": "^6.6.3",
     "source-map-support": "^0.5.19",
     "youtube-dl": "^3.0.2"

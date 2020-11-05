@@ -1,58 +1,57 @@
 import { MessageAttachment } from 'discord.js';
 import { extname } from 'path';
 import youtubedl from 'youtube-dl';
+import logger from '../../../lib/logger';
+import { InternalError } from '../../common/errors/internal.error';
+import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 
 export const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>('add', async (
     message,
     context,
     audio) => {
-        if(!audio) {
-            throw new Error('Something went wrong');
-        }
-        await context.trigger.db.firestore.update({
-            url: audio.audioUrl,
-            source: audio.source
-        }, [message.guild.id, 'audio', audio.commandName].join('/'));
-        await message.channel.send('I stored your new command!');
+    if (!audio) {
+        throw new InternalError('Something went wrong');
+    }
+    return context.trigger.db.firestore.update({
+        url: audio.audioUrl,
+        source: audio.source
+    }, [message.guild.id, 'audio', 'commands', audio.commandName].join('/'))
+        .then(() => message.channel.send('I stored your new command!'))
+        .catch((e) => logger.error(e));
 }, {
-    pre: async (message, context) => {
-        const [commandName, audioUrl] = message.content.split(' ');
+    pre: async (message) => {
+        const [commandName, url] = message.content.split(' ');
         if (!commandName) {
-            throw new Error('You didn\'t provide a name for your command');
+            throw new VerboseError('You didn\'t provide a name for your command');
         }
-        if (!audioUrl && !message.attachments.first()?.attachment) {
-            throw new Error('You must either attach an audio file or provide a youtube link!');
+        if (!url && !message.attachments.first()?.attachment) {
+            throw new VerboseError(
+                'You must either attach an audio file or provide a youtube link!'
+            );
         }
-        if (audioUrl) {
+        if (url) {
             await new Promise<youtubedl.Info>((resolve, reject) => {
-                youtubedl.getInfo(audioUrl, (err, info) => {
+                youtubedl.getInfo(url, (err, info) => {
                     err ? reject(err) : resolve(info);
                 });
-            });
+            }).catch(() => new VerboseError('The provided youtube link is invalid!'));
             return {
-                audioUrl,
+                audioUrl: url,
                 commandName,
                 source: 'youtube'
             };
-        } else if (message.attachments.first()){
+        } else if (message.attachments.first()) {
             const attachmentData = message.attachments.first() as MessageAttachment;
             const fileType = extname(attachmentData.url);
-            if(fileType !== 'mp3'){
-                throw new Error('The provided attachment is not an mp3!');
+            if (fileType !== '.mp3') {
+                throw new VerboseError('The provided attachment is not an mp3!');
             }
-            
-            const audioUrl =  await context.trigger.db.storage.saveAudio(
-                [message.guild.id, 'audio', attachmentData.name]
-                    .join('/')
-                    .concat(extname(attachmentData.url)),
-                attachmentData.attachment as Buffer
-            );
 
             return {
-                audioUrl,
+                audioUrl: attachmentData.url,
                 commandName,
-                source: 'storage'
+                source: 'discord'
             };
         }
         return;
@@ -61,5 +60,5 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>
 interface AudioAddPreprocessed {
     commandName: string;
     audioUrl: string;
-    source: 'storage' | 'youtube';
+    source: 'discord' | 'youtube';
 }

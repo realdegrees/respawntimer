@@ -12,7 +12,7 @@ export const useSubtriggerReaction = new Reaction<GuildMessage>('usage',
                     subTrigger: reaction.name
                 })
             ));
-        message.channel.send(
+        await message.channel.send(
             'This is not a standalone command try one of these:\n' +
             commands
         );

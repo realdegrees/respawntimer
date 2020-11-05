@@ -1,5 +1,8 @@
 import { Client } from 'discord.js';
 import Firebase from '../lib/firebase';
+import { InternalError } from './common/errors/internal.error';
+import { NoMatchError } from './common/errors/no-match.error';
+import { VerboseError } from './common/errors/verbose.error';
 import { Trigger } from './common/types';
 
 /**
@@ -42,9 +45,15 @@ class Bot {
                 // If not, send the reason as a message
                 trigger.check(message)
                     .then((message) => trigger.react(message))
-                    .catch((reason: string | undefined) => {
-                        if (reason?.length) {
-                            message.channel.send(reason);
+                    .catch((reason: VerboseError | InternalError | NoMatchError) => {
+                        if(reason instanceof NoMatchError){
+                            return;
+                        }
+                        if(reason instanceof InternalError){
+                            message.channel.send('An unkown error occured');
+                        }
+                        if (reason instanceof VerboseError){
+                            message.channel.send(reason.message);
                         }
                     });
             });

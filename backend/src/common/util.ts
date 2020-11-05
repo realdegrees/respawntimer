@@ -1,6 +1,4 @@
-import { settings } from 'cluster';
-import { Guild, Message, User } from 'discord.js';
-import { config } from 'dotenv/types';
+import { Guild, User } from 'discord.js';
 import Firebase from '../../lib/firebase';
 import { GuildSettings, Trigger } from './types';
 

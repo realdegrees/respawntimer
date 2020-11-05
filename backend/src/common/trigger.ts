@@ -5,6 +5,8 @@ import { DirectMessage, GuildMessage, Reaction } from './reaction';
 import Bot from '../bot';
 import Firebase from '../../lib/firebase';
 import { escapeRegex, fetchPrefix } from './util';
+import { NoMatchError } from './errors/no-match.error';
+import { VerboseError } from './errors/verbose.error';
 
 export class Trigger {
     // Set via reflection, do not use in constructor
@@ -23,11 +25,14 @@ export class Trigger {
         public readonly options?: TriggerOptions,
     ) {
         // ! This reflection must be the first expression on instantiation
+
         Object.values(reactions)
             .forEach((reactions) => {
                 if (reactions) {
-                    Object.values(reactions)
-                        .forEach((reaction) => Reflect.set(reaction, 'trigger', this));
+                    [
+                        ...reactions.direct,
+                        ...reactions.guild
+                    ].forEach((reaction) => Reflect.set(reaction, 'trigger', this));
                 }
             });
     }
@@ -36,17 +41,26 @@ export class Trigger {
         const subTrigger = message.content.split(' ')[0] || 'default';
         if (subTrigger !== 'default') {
             this.removeFromMessage(message, subTrigger);
+        } else {
+            return Promise.all(message.guild ?
+                this.reactions.default.guild
+                    .map((reaction) => reaction.run(message as GuildMessage)) :
+                this.reactions.default.direct
+                    .map((reaction) => reaction.run(message as DirectMessage)));
+        }
+        if (!this.reactions.sub) {
+            return Promise.reject(
+                new VerboseError(
+                    `You cannot run this command with "${subTrigger}"`));
         }
 
-        
-        const reactions = message.guild ? this.reactions.sub?.guild : this.reactions.sub?.direct;
-
-        return reactions ?
-            Promise.all(
-                Object.values(reactions).map(
-                    (reaction) => reaction.run(message)
-                )) :
-            Promise.reject(`You cannot run this command with "${subTrigger}"`);
+        return Promise.all(message.guild ?
+            this.reactions.sub.guild
+                .filter((reaction) => reaction.name === subTrigger)
+                .map((reaction) => reaction.run(message as GuildMessage)) :
+            this.reactions.sub.direct
+                .filter((reaction) => reaction.name === subTrigger)
+                .map((reaction) => reaction.run(message as DirectMessage)));
     }
 
     public patchOptions(options: TriggerOptions): void {
@@ -107,7 +121,7 @@ export class Trigger {
                         }
                         break;
                 }
-                reject();
+                reject(new NoMatchError());
             });
         });
     }
@@ -131,7 +145,9 @@ export class Trigger {
                     true;
                 const isExcluded = this.options.channels.exclude?.includes(channelId);
 
-                isIncluded && !isExcluded ? resolve(message) : reject();
+                isIncluded && !isExcluded ?
+                    resolve(message) :
+                    reject(new VerboseError('This command does not work in this channel'));
             } else {
                 resolve(message);
             }
@@ -154,9 +170,9 @@ export class Trigger {
 
                 isIncluded && !isExcluded ?
                     resolve(message) :
-                    reject('You are missing a required role for this command!');
+                    reject(new VerboseError('You are missing a required role for this command!'));
             } else {
-                reject('Unable to retrieve message author! Can\'t check roles');
+                reject(new VerboseError('Unable to retrieve message author! Can\'t check roles'));
             }
         });
     }
@@ -178,7 +194,7 @@ export class Trigger {
                 ) {
                     resolve(message);
                 } else {
-                    reject('You do not have permission to issue this command!');
+                    reject(new VerboseError('You do not have permission to issue this command!'));
                 }
             } else {
                 reject('Unable to retrieve message author! Can\'t check permissions');

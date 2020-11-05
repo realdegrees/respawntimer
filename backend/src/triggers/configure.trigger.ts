@@ -17,8 +17,8 @@ export const configureTrigger = new Trigger({
         match: TriggerMatch.STARTS_WITH
     },
     conditionCheck: (message) => {
-        return message.guild?.id ?
+        return message.guild ?
             Promise.resolve() :
-            Promise.reject();
+            Promise.reject('This command only works in guilds!');
     }
 });

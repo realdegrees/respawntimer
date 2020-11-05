@@ -1,12 +1,11 @@
 import firebase from 'firebase';
 import 'firebase/storage';
 import 'firebase/firestore';
-import { Observable } from 'rxjs';
-import { collectionData, docData } from 'rxfire/firestore';
 import { DocumentData } from '@firebase/firestore-types';
 import { install } from 'source-map-support';
 import { config } from 'dotenv';
 import { ReadStream } from 'fs';
+import logger from './logger';
 
 // Install source-map support for stacktrace
 install({ hookRequire: true });
@@ -72,32 +71,37 @@ class Firestore {
         this.firestore = firebase.firestore();
     }
 
-    public collection<T extends unknown>(
-        path: string,
-        filter?: CollectionFilter): Observable<T[]> {
-        return filter ?
-            collectionData(this.firestore.collection(path).where(
-                filter.property,
-                filter.operator,
-                filter.value)) :
-            collectionData(this.firestore.collection(path));
-    }
-    public subscribe<T>(path: string): Observable<T> {
-        return docData(this.firestore.doc(path));
-    }
-
-    public get<T>(path: string): Promise<T | undefined> {
-        return this.firestore.doc(path).get()
-            .then((data) => data.data() as T);
+    public get<T>(path: string): Promise<T> {
+        return Promise.resolve(this.firestore.doc(path).get())
+            .then((data) => data.data() as T)
+            .catch((e) => {
+                logger.warn('Failed to get object from db', path, e);
+                throw e;
+            });
     }
     public store<T extends DocumentData>(data: T, path: string): Promise<void> {
-        return this.firestore.doc(path).set(data);
+        return Promise.resolve(this.firestore.doc(path).set(data))
+            .then(() => logger.debug('Stored object in db', path, data))
+            .catch((e) => {
+                logger.warn('Failed to store object in db', path, data);
+                throw e;
+            });
     }
     public update<T extends DocumentData>(data: T, path: string): Promise<void> {
-        return this.firestore.doc(path).set(data, { merge: true });
+        return Promise.resolve(this.firestore.doc(path).set(data, { merge: true }))
+            .then(() => logger.debug('Stored object in db', path, data))
+            .catch((e) => {
+                logger.warn('Failed to store object in db', path, data, e);
+                throw e;
+            });
     }
     public delete(path: string): Promise<void> {
-        return this.firestore.doc(path).delete();
+        return Promise.resolve(this.firestore.doc(path).delete())
+            .then(() => logger.debug('Deleted db object', path))
+            .catch((e) => {
+                logger.warn('Failed to delete db object', path, e);
+                throw e;
+            });
     }
 }
 
