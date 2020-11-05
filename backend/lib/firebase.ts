@@ -1,11 +1,12 @@
 import firebase from 'firebase';
+import 'firebase/storage';
+import 'firebase/firestore';
 import { Observable } from 'rxjs';
 import { collectionData, docData } from 'rxfire/firestore';
 import { DocumentData } from '@firebase/firestore-types';
 import { install } from 'source-map-support';
 import { config } from 'dotenv';
 import { ReadStream } from 'fs';
-import { Url } from 'url';
 
 // Install source-map support for stacktrace
 install({ hookRequire: true });
