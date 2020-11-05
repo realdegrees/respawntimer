@@ -2,7 +2,7 @@
 import { TestClient } from 'djs-test-client';
 import Firebase from '../../../lib/firebase';
 import { configureTrigger } from '../../triggers/configure.trigger';
-import { configurePrefixReaction } from './configure-prefix.reaction';
+import { configurePrefixReaction } from './prefix.reaction';
 import { reflectVariables } from '../../common/util';
 import { GuildSettings } from '../../common/types';
 import { GuildMessage } from '../../common/reaction';
@@ -17,7 +17,7 @@ describe('Configure', () => {
         reflectVariables(configurePrefixReaction, { trigger: configureTrigger });
     });
     afterAll(() => {
-        return db.firestore.delete(client.guild.id) // TODO: THIS DOESN'T WORK
+        return Promise.resolve() // TODO: THIS DOESN'T WORK
             .then(() => client.destroy());
     });
 

@@ -1,15 +1,20 @@
 import { MessageAttachment } from 'discord.js';
-import { ReadStream } from 'fs';
 import { extname } from 'path';
-import { Url } from 'url';
 import youtubedl from 'youtube-dl';
 import { GuildMessage, Reaction } from '../../common/reaction';
 
-const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>('add', (
+export const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>('add', async (
     message,
     context,
     audio) => {
-    return Promise.reject('Audio add not implemented');
+        if(!audio) {
+            throw new Error('Something went wrong');
+        }
+        await context.trigger.db.firestore.update({
+            url: audio.audioUrl,
+            source: audio.source
+        }, [message.guild.id, 'audio', audio.commandName].join('/'));
+        await message.channel.send('I stored your new command!');
 }, {
     pre: async (message, context) => {
         const [commandName, audioUrl] = message.content.split(' ');
@@ -27,33 +32,34 @@ const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>('add',
             });
             return {
                 audioUrl,
-                commandName
+                commandName,
+                source: 'youtube'
             };
-        } else {
+        } else if (message.attachments.first()){
             const attachmentData = message.attachments.first() as MessageAttachment;
+            const fileType = extname(attachmentData.url);
+            if(fileType !== 'mp3'){
+                throw new Error('The provided attachment is not an mp3!');
+            }
+            
             const audioUrl =  await context.trigger.db.storage.saveAudio(
                 [message.guild.id, 'audio', attachmentData.name]
                     .join('/')
                     .concat(extname(attachmentData.url)),
-                attachmentData.attachment
-            )
-        }
+                attachmentData.attachment as Buffer
+            );
 
-        if (message.content.split(' ').length >= 2) {
-            const response = await fetch(message.content);
-            const buffer = await response.arrayBuffer();
-            return new ReadStream({
-                read() {
-                    this.push(buffer);
-                    this.push(null);
-                }
-            });
-        } else {
-
+            return {
+                audioUrl,
+                commandName,
+                source: 'storage'
+            };
         }
+        return;
     }
 });
 interface AudioAddPreprocessed {
     commandName: string;
-    audioUrl: Url;
+    audioUrl: string;
+    source: 'storage' | 'youtube';
 }

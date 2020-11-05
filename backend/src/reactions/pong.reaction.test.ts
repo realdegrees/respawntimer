@@ -17,7 +17,7 @@ describe('Pong Reaction', () => {
 
     it('should send pong command', async () => {
         const channel = await client.createTextChannel();
-        const content = await getSampleTriggerCommand(ping, client.guild.id);
+        const content = await getSampleTriggerCommand(ping, client.guild);
         const input = await client.sendMessage(
             channel,
             content
