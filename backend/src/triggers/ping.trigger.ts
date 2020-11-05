@@ -3,7 +3,8 @@ import { pong } from '../reactions/pong.reaction';
 
 export const ping = new Trigger({
     default: {
-        guild: [pong]
+        guild: [pong],
+        direct: []
     }
 }, {
     commandOptions: {

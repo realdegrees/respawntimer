@@ -17,8 +17,10 @@ export class Reaction<MessageType extends (GuildMessage | DirectMessage), HookTy
         // TODO: and pass context from the reaction to the postReactionHook
         // TODO: Define what context might be useful for logs or whatever
         return Promise.resolve()
+            .then(() => message.channel.startTyping())
             .then(() => this.hooks?.pre?.(message, this))
             .then((hookInfo) => this.onReact(message, this, hookInfo))
+            .then(() => message.channel.stopTyping(true))
             .then(() => this.hooks?.post?.(message, this))
             .then(); // Let the promise return void for now
     }
@@ -35,7 +37,7 @@ interface Hooks<T extends GuildMessage | DirectMessage, HookType> {
 type HookCallback<T extends GuildMessage | DirectMessage, HookType> = (
     message: T,
     context: Reaction<T, HookType>
-) => PromiseLike<HookType>;
+) => PromiseLike<HookType | undefined>;
 type ReactionCallback<T extends GuildMessage | DirectMessage, HookType> = (
     message: T,
     context: Reaction<T, HookType>,

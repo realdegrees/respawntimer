@@ -191,8 +191,10 @@ type ReactionMap = {
     readonly sub?: ReactionMapItem;
 };
 type ReactionMapItem = {
-    guild: Reaction<GuildMessage>[];
-    direct: Reaction<DirectMessage>[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    guild: Reaction<GuildMessage, any>[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    direct: Reaction<DirectMessage, any>[];
 };
 export type TriggerCondition = (
     message: Message,
