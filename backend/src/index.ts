@@ -5,6 +5,7 @@ import { install } from 'source-map-support';
 import logger from '../lib/logger';
 import { ping } from './triggers/ping.trigger';
 import { configureTrigger } from './triggers/configure.trigger';
+import { audioTrigger } from './triggers/audio.trigger';
 install();
 config();
 
@@ -15,7 +16,8 @@ Promise.resolve()
     .then((bot) => {
         bot.use([
             ping,
-            configureTrigger
+            configureTrigger,
+            audioTrigger
         ]);
     })
     .then(() => logger.info('Bot started successfully'))
