@@ -1,5 +1,5 @@
-import { Message } from "discord.js";
-import { DirectMessage, GuildMessage, Reaction } from "../../common/reaction";
+import { Message } from 'discord.js';
+import { DirectMessage, GuildMessage, Reaction } from '../../common/reaction';
 
 export class DefaultReaction<
     T extends (GuildMessage | DirectMessage) = Message,

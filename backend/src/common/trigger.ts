@@ -110,7 +110,7 @@ export class Trigger {
         item: ReactionMapItem | undefined,
         options?: {
             guild?: boolean;
-            nameFilter?: string
+            nameFilter?: string;
         }): Required<ReactionMapItem> | undefined {
         return item ? {
             direct: !options?.guild ? item.direct ?? [] : [],
@@ -268,7 +268,7 @@ type ReactionMapItem = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     readonly direct?: Reaction<DirectMessage, any>[];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readonly all?: Reaction<Message, any>[]
+    readonly all?: Reaction<Message, any>[];
 };
 export type TriggerCondition = (
     message: Message,

@@ -90,7 +90,3 @@ export const fetchPrefix = (guildId: string, db: Firebase): Promise<string> =>
 export const escapeRegex = (text: string): string => {
     return text.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
 };
-type Constructor<T> = { new(...args: any[]): T };
-export const typeGuard = <T>(objRef: any, classRef: Constructor<T>): objRef is T => {
-    return objRef instanceof classRef;
-}
