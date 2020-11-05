@@ -12,17 +12,14 @@ export class Reaction<MessageType extends (GuildMessage | DirectMessage), HookTy
         private onReact: ReactionCallback<MessageType, HookType>,
         private hooks?: Hooks<MessageType, HookType>) { }
 
-    public async run(message: MessageType): Promise<void> {
+    public async run(message: MessageType): Promise<unknown> {
         // TODO: Possibly add context from preReactionHook 
         // TODO: and pass context from the reaction to the postReactionHook
         // TODO: Define what context might be useful for logs or whatever
         return Promise.resolve()
-            .then(() => message.channel.startTyping())
             .then(() => this.hooks?.pre?.(message, this))
             .then((hookInfo) => this.onReact(message, this, hookInfo))
-            .then(() => message.channel.stopTyping(true))
-            .then(() => this.hooks?.post?.(message, this))
-            .then(); // Let the promise return void for now
+            .then(() => this.hooks?.post?.(message, this));
     }
     public getTriggerString(guild: Guild): Promise<string> {
         return getSampleTriggerCommand(this.trigger, guild, {

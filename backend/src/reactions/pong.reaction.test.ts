@@ -9,19 +9,17 @@ describe('Pong Reaction', () => {
     beforeAll(async () => {
         client = await TestClient.connect();
     });
-    afterAll((done) => {
-        client.destroy()
-            .then(done)
-            .catch(done);
+    afterAll(async () => {
+        await client.destroy();
     });
 
     it('should send pong command', async () => {
         const channel = await client.createTextChannel();
         const content = await getSampleTriggerCommand(ping, client.guild);
-        const input = await client.sendMessage(
+        const input = (await client.sendMessage(
             channel,
             content
-        ) as GuildMessage;
+        )) as GuildMessage;
         await pong.run(input);
         const message = (await client.getMessages(channel, 1))[0];
         expect(message).toBeTruthy();

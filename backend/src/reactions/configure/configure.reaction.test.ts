@@ -16,19 +16,18 @@ describe('Configure', () => {
         reflectVariables(configureTrigger, { db });
         reflectVariables(configurePrefixReaction, { trigger: configureTrigger });
     });
-    afterAll(() => {
-        return Promise.resolve() // TODO: THIS DOESN'T WORK
-            .then(() => client.destroy());
+    afterAll(async () => {
+        await client.destroy();
     });
 
-    it('should store prefix', () => {
+    it('should store prefix', async () => {
         const newPrefix = '$';
-        return client.createTextChannel('prefixTest')
-            .then((channel) => client.sendMessage(channel, '$'))
-            .then((message) => configurePrefixReaction.run(message as GuildMessage))
-            .then(() => db.firestore.get<GuildSettings>(
-                [client.guild.id, 'config'].join('/')
-            ))
-            .then((dbSettings) => expect(dbSettings?.prefix).toEqual(newPrefix));
+        const channel = await client.createTextChannel('prefixTest');
+        const message = await client.sendMessage(channel, '$');
+        await configurePrefixReaction.run(message as GuildMessage);
+        const dbSettings = await db.firestore.get<GuildSettings>(
+            [client.guild.id, 'config'].join('/')
+        );
+        expect(dbSettings?.prefix).toEqual(newPrefix);
     });
 });

@@ -28,7 +28,8 @@
                 "${workspaceRoot}/node_modules/.bin/jest",
                 "--runInBand",
                 "--forceExit",
-                "--detectOpenHandles"
+                "--detectOpenHandles",
+                "--testTimeout=20000"
             ],
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen"
