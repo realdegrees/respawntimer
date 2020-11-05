@@ -15,6 +15,7 @@ type FilterOperator =
     '<' | '<=' | '==' | '>=' |
     '>' | '!=' | 'array-contains' |
     'array-contains-any' | 'in' | 'not-in';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface CollectionFilter {
     property: string;
     operator: FilterOperator;

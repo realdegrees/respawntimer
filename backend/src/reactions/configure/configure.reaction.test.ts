@@ -28,6 +28,6 @@ describe('Configure', () => {
         const dbSettings = await db.firestore.get<GuildSettings>(
             [client.guild.id, 'config'].join('/')
         );
-        expect(dbSettings?.prefix).toEqual(newPrefix);
+        expect(dbSettings.prefix).toEqual(newPrefix);
     });
 });
