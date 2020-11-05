@@ -1,6 +1,6 @@
 import { Trigger, TriggerMatch } from '../common/types';
 import { configurePrefixReaction } from '../reactions/configure/prefix.reaction';
-import { useSubtriggerReaction } from '../reactions/base/use-subtriggers.reaction';
+import { useSubtriggerReaction } from '../reactions/default/use-subtriggers.reaction';
 
 export const configureTrigger = new Trigger({
     default: {

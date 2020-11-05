@@ -1,6 +1,7 @@
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { getSampleTriggerCommand } from '../../common/util';
 
+// TODO: Check if message is guild message and adapt getSampleTriggerCommand
 export const useSubtriggerReaction = new Reaction<GuildMessage>('usage',
     async (message, context) => {
         const reactions = context.trigger.reactions.sub?.guild ?? [];

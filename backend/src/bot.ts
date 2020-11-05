@@ -1,5 +1,6 @@
 import { Client } from 'discord.js';
 import Firebase from '../lib/firebase';
+import logger from '../lib/logger';
 import { InternalError } from './common/errors/internal.error';
 import { NoMatchError } from './common/errors/no-match.error';
 import { VerboseError } from './common/errors/verbose.error';
@@ -50,7 +51,8 @@ class Bot {
                             return;
                         }
                         if(reason instanceof InternalError){
-                            message.channel.send('An unkown error occured');
+                            logger.error(reason);
+                            message.channel.send('An internal error occured!');
                         }
                         if (reason instanceof VerboseError){
                             message.channel.send(reason.message);

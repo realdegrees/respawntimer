@@ -1,8 +1,6 @@
-import { MessageAttachment } from 'discord.js';
 import { extname } from 'path';
 import youtubedl from 'youtube-dl';
 import logger from '../../../lib/logger';
-import { InternalError } from '../../common/errors/internal.error';
 import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 
@@ -10,9 +8,6 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>
     message,
     context,
     audio) => {
-    if (!audio) {
-        throw new InternalError('Something went wrong');
-    }
     return context.trigger.db.firestore.update({
         url: audio.audioUrl,
         source: audio.source
@@ -22,13 +17,9 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>
 }, {
     pre: async (message) => {
         const [commandName, url] = message.content.split(' ');
+        const attachment = message.attachments.first();
         if (!commandName) {
             throw new VerboseError('You didn\'t provide a name for your command');
-        }
-        if (!url && !message.attachments.first()?.attachment) {
-            throw new VerboseError(
-                'You must either attach an audio file or provide a youtube link!'
-            );
         }
         if (url) {
             await new Promise<youtubedl.Info>((resolve, reject) => {
@@ -41,8 +32,8 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>
                 commandName,
                 source: 'youtube'
             };
-        } else if (message.attachments.first()) {
-            const attachmentData = message.attachments.first() as MessageAttachment;
+        } else if(attachment){
+            const attachmentData = attachment;
             const fileType = extname(attachmentData.url);
             if (fileType !== '.mp3') {
                 throw new VerboseError('The provided attachment is not an mp3!');
@@ -53,8 +44,11 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>
                 commandName,
                 source: 'discord'
             };
+        }else {
+            throw new VerboseError(
+                'You must either attach an audio file or provide a youtube link!'
+            );
         }
-        return;
     }
 });
 interface AudioAddPreprocessed {

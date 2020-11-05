@@ -6,6 +6,7 @@ import { install } from 'source-map-support';
 import { config } from 'dotenv';
 import { ReadStream } from 'fs';
 import logger from './logger';
+import { InternalError } from '../src/common/errors/internal.error';
 
 // Install source-map support for stacktrace
 install({ hookRequire: true });
@@ -75,33 +76,33 @@ class Firestore {
     public get<T>(path: string): Promise<T> {
         return Promise.resolve(this.firestore.doc(path).get())
             .then((data) => data.data() as T)
-            .catch((e) => {
+            .catch((e: Error) => {
                 logger.warn('Failed to get object from db', path, e);
-                throw e;
+                throw new InternalError(e.message);
             });
     }
     public store<T extends DocumentData>(data: T, path: string): Promise<void> {
         return Promise.resolve(this.firestore.doc(path).set(data))
             .then(() => logger.debug('Stored object in db', path, data))
-            .catch((e) => {
+            .catch((e: Error) => {
                 logger.warn('Failed to store object in db', path, data);
-                throw e;
+                throw new InternalError(e.message);
             });
     }
     public update<T extends DocumentData>(data: T, path: string): Promise<void> {
         return Promise.resolve(this.firestore.doc(path).set(data, { merge: true }))
             .then(() => logger.debug('Stored object in db', path, data))
-            .catch((e) => {
+            .catch((e: Error) => {
                 logger.warn('Failed to store object in db', path, data, e);
-                throw e;
+                throw new InternalError(e.message);
             });
     }
     public delete(path: string): Promise<void> {
         return Promise.resolve(this.firestore.doc(path).delete())
             .then(() => logger.debug('Deleted db object', path))
-            .catch((e) => {
+            .catch((e: Error) => {
                 logger.warn('Failed to delete db object', path, e);
-                throw e;
+                throw new InternalError(e.message);
             });
     }
 }

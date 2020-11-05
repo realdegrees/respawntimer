@@ -4,7 +4,7 @@ import { TriggerOptions } from './types/trigger-options';
 import { DirectMessage, GuildMessage, Reaction } from './reaction';
 import Bot from '../bot';
 import Firebase from '../../lib/firebase';
-import { escapeRegex, fetchPrefix } from './util';
+import { escapeRegex, fetchPrefix, getSampleTriggerCommand } from './util';
 import { NoMatchError } from './errors/no-match.error';
 import { VerboseError } from './errors/verbose.error';
 
@@ -30,37 +30,93 @@ export class Trigger {
             .forEach((reactions) => {
                 if (reactions) {
                     [
-                        ...reactions.direct,
-                        ...reactions.guild
+                        ...reactions.direct ?? [],
+                        ...reactions.guild ?? [],
+                        ...reactions.all ?? [],
                     ].forEach((reaction) => Reflect.set(reaction, 'trigger', this));
                 }
             });
     }
 
-    public react(message: Message): Promise<unknown[]> {
+    public async react(message: Message): Promise<unknown[]> {
         const subTrigger = message.content.split(' ')[0] || 'default';
-        if (subTrigger !== 'default') {
-            this.removeFromMessage(message, subTrigger);
-        } else {
-            return Promise.all(message.guild ?
-                this.reactions.default.guild
-                    .map((reaction) => reaction.run(message as GuildMessage)) :
-                this.reactions.default.direct
-                    .map((reaction) => reaction.run(message as DirectMessage)));
+
+        const [filteredDefaultReactions, filteredSubReactions] = [
+            this.filterReactions(this.reactions.default, {
+                guild: !!message.guild
+            }),
+            this.filterReactions(this.reactions.sub, {
+                guild: !!message.guild
+            })
+        ];
+        if (subTrigger === 'default') {
+            if (filteredDefaultReactions && [
+                filteredDefaultReactions.direct,
+                filteredDefaultReactions.guild,
+                filteredDefaultReactions.all
+            ].every((arr) => arr.length < 1)) {
+                return Promise.all([
+                    filteredDefaultReactions.direct.map((r) => r.run(message as DirectMessage)),
+                    filteredDefaultReactions.guild.map((r) => r.run(message as GuildMessage)),
+                    filteredDefaultReactions.all.map((r) => r.run(message as Message))
+                ]);
+
+
+            } else if (filteredSubReactions && message.guild) {
+                const guild = message.guild;
+                const commands = await Promise.all(
+                    [
+                        // ...filteredSubReactions.direct, // TODO: Try to make this more generic
+                        ...filteredSubReactions.guild,
+                        // ...filteredSubReactions.all
+                    ].map(async (reaction) =>
+                        await getSampleTriggerCommand(
+                            this,
+                            guild, {
+                            subTrigger: reaction.name
+                        })
+                    ));
+
+                throw new VerboseError('This is not a standalone command try one of these:\n' +
+                    commands.join(' / '));
+            } else {
+                throw new VerboseError('You cannot use this command in direct messages');
+            }
         }
-        if (!this.reactions.sub) {
+
+
+        this.removeFromMessage(message, subTrigger);
+
+        if (!filteredSubReactions) {
             return Promise.reject(
                 new VerboseError(
                     `You cannot run this command with "${subTrigger}"`));
         }
 
-        return Promise.all(message.guild ?
-            this.reactions.sub.guild
-                .filter((reaction) => reaction.name === subTrigger)
-                .map((reaction) => reaction.run(message as GuildMessage)) :
-            this.reactions.sub.direct
-                .filter((reaction) => reaction.name === subTrigger)
-                .map((reaction) => reaction.run(message as DirectMessage)));
+        return Promise.all([
+            ...filteredSubReactions.direct
+                .filter((r) => r.name === subTrigger)
+                .map((r) => r.run(message as DirectMessage)),
+            ...filteredSubReactions.guild
+                .filter((r) => r.name === subTrigger)
+                .map((r) => r.run(message as GuildMessage)),
+            ...filteredSubReactions.all
+                .filter((r) => r.name === subTrigger)
+                .map((r) => r.run(message as Message))
+        ]);
+    }
+
+    private filterReactions(
+        item: ReactionMapItem | undefined,
+        options?: {
+            guild?: boolean;
+            nameFilter?: string
+        }): Required<ReactionMapItem> | undefined {
+        return item ? {
+            direct: !options?.guild ? item.direct ?? [] : [],
+            guild: options?.guild ? item.guild ?? [] : [],
+            all: item.all ?? [],
+        } : undefined;
     }
 
     public patchOptions(options: TriggerOptions): void {
@@ -208,9 +264,11 @@ type ReactionMap = {
 };
 type ReactionMapItem = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    guild: Reaction<GuildMessage, any>[];
+    readonly guild?: Reaction<GuildMessage, any>[];
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    direct: Reaction<DirectMessage, any>[];
+    readonly direct?: Reaction<DirectMessage, any>[];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    readonly all?: Reaction<Message, any>[]
 };
 export type TriggerCondition = (
     message: Message,
