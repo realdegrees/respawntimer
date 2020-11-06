@@ -8,6 +8,7 @@ import { escapeRegex, fetchPrefix, getSampleTriggerCommand } from './util';
 import { NoMatchError } from './errors/no-match.error';
 import { VerboseError } from './errors/verbose.error';
 
+// TODO: Add trigger.on, trigger.emit so one reaction can stop another one for example
 export class Trigger {
     // Set via reflection, do not use in constructor
     public readonly bot!: Omit<Bot, 'use'>;
