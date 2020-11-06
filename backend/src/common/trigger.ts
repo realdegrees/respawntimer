@@ -136,50 +136,38 @@ export class Trigger {
             .then((message) => this.checkCustomCondition(message));
     }
 
-
-
-    private checkCommand(message: Message): Promise<Message> {
+    private async checkCommand(message: Message): Promise<Message> {
+        if (!this.options?.commandOptions) {
+            return message;
+        }
         const content = message.content;
-        return new Promise((resolve, reject) => {
-            if (!this.options?.commandOptions) {
-                resolve(message);
-                return;
+        const prefix = !this.options.commandOptions.ignorePrefix ?
+            await fetchPrefix(message.guild, this.db) : '';
+        const match = this.options.commandOptions.match;
+
+        const command = this.options.commandOptions.command
+            .map((command) => prefix + command)
+            .find((command) => this.matches(content, command, match));
+        if (command) {
+            this.removeFromMessage(message, command);
+            return message;
+        } else {
+            throw new NoMatchError();
+        }
+    }
+    private matches(content: string, command: string, match: TriggerMatch): boolean {
+        const result = ((): boolean => {
+            switch (match) {
+                case TriggerMatch.CONTAINS:
+                    return content.includes(command);
+                case TriggerMatch.EQUALS:
+                    return !!content.match(new RegExp(`^${escapeRegex(command)}$`));
+                case TriggerMatch.STARTS_WITH:
+                    return !!content.match(new RegExp(`^${escapeRegex(command)} .*`)) ||
+                        !!content.match(new RegExp(`^${escapeRegex(command)}$`));
             }
-
-            this.options.commandOptions.command.forEach(async (commandValue) => {
-                const prefix = !this.options?.commandOptions?.ignorePrefix && message.guild?.id ?
-                    await fetchPrefix(message.guild.id, this.db) : '';
-                const command = prefix + commandValue;
-
-                switch (this.options?.commandOptions?.match) {
-                    case TriggerMatch.CONTAINS:
-                        if (content.includes(command)) {
-                            this.removeFromMessage(message, command);
-                            resolve(message);
-                            return;
-                        }
-                        break;
-                    case TriggerMatch.EQUALS:
-                        if (content.match(new RegExp(`^${escapeRegex(command)}$`))) {
-                            this.removeFromMessage(message, command);
-                            resolve(message);
-                            return;
-                        }
-                        break;
-                    case TriggerMatch.STARTS_WITH:
-                        if (
-                            content.match(new RegExp(`^${escapeRegex(command)} .*`)) ||
-                            content.match(new RegExp(`^${escapeRegex(command)}$`))
-                        ) {
-                            this.removeFromMessage(message, command);
-                            resolve(message);
-                            return;
-                        }
-                        break;
-                }
-                reject(new NoMatchError());
-            });
-        });
+        })();
+        return result;
     }
     /**
      * Removes the specified text from the message and cleans whitespaces

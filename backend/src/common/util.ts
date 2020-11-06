@@ -30,7 +30,7 @@ export const getSampleTriggerCommand = (
             '';
         if (commandOptions?.command.length && commandOptions.command.length > 0) {
             if (!commandOptions.ignorePrefix) {
-                fetchPrefix(guild.id, trigger.db)
+                fetchPrefix(guild, trigger.db)
                     .then((prefix) =>
                         resolve(
                             prefix +
@@ -72,9 +72,9 @@ export const reflectVariables = (
         Reflect.set(object, key, value);
     });
 };
-export const fetchPrefix = (guildId: string, db: Firebase): Promise<string> =>
-    db.firestore.get<GuildSettings>([
-        guildId,
+export const fetchPrefix = (guild: Guild | null, db: Firebase): Promise<string> => {
+    return guild ? db.firestore.get<GuildSettings>([
+        guild.id,
         'config'
     ].join('/'))
         .then((settings) => settings.prefix)
@@ -82,10 +82,11 @@ export const fetchPrefix = (guildId: string, db: Firebase): Promise<string> =>
             db.firestore.store<GuildSettings>({
                 prefix: '!'
             }, [
-                guildId,
+                guild,
                 'config'
             ].join('/')).then(() => '!')
-        );
+        ): Promise.resolve('!');
+};
 
 export const escapeRegex = (text: string): string => {
     return text.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
