@@ -73,7 +73,7 @@ class Firestore {
         this.firestore = firebase.firestore();
     }
 
-    public get<T>(path: string): Promise<T> {
+    public get<T>(path: string): Promise<T | undefined> {
         return Promise.resolve(this.firestore.doc(path).get())
             .then((data) => data.data() as T)
             .catch((e: Error) => {

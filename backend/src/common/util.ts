@@ -77,15 +77,15 @@ export const fetchPrefix = (guild: Guild | null, db: Firebase): Promise<string> 
         guild.id,
         'config'
     ].join('/'))
-        .then((settings) => settings.prefix)
-        .catch(() =>
+        .then(async (settings) =>
+            settings?.prefix ??
             db.firestore.store<GuildSettings>({
                 prefix: '!'
             }, [
                 guild,
                 'config'
             ].join('/')).then(() => '!')
-        ): Promise.resolve('!');
+        ) : Promise.resolve('!');
 };
 
 export const escapeRegex = (text: string): string => {
