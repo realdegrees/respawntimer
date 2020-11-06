@@ -4,12 +4,14 @@ import ytdl from 'ytdl-core-discord';
 import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { getSampleTriggerCommand } from '../../common/util';
-import { AudioInfo } from './add.reaction';
+import { AudioInfo, AudioRange } from './add.reaction';
 
 const play = async (
     channel: VoiceChannel,
     audio: Readable | string,
-    options?: StreamOptions
+    options?: StreamOptions & {
+        time?: AudioRange;
+    }
 ): Promise<void> => {
     return channel.join().then((connection) =>
         new Promise((resolve, reject) =>
@@ -39,7 +41,8 @@ export const audioPlayReaction = new Reaction<
                     await ytdl(audio.url),
                 {
                     type: audio.source === 'youtube' ? 'opus' : 'unknown',
-                    volume: .5
+                    volume: .5,
+                    time: audio.time
                 }).finally(resetName);
         } catch (e) {
             throw new VerboseError(

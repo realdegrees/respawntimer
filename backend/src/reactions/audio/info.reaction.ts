@@ -1,0 +1,1 @@
+// Info about the specified sound command like duration etc.
