@@ -6,6 +6,7 @@ import { configurePrefixReaction } from './prefix.reaction';
 import { reflectVariables } from '../../common/util';
 import { GuildSettings } from '../../common/types';
 import { GuildMessage } from '../../common/reaction';
+import logger from '../../../lib/logger';
 
 describe('Configure', () => {
     let client: TestClient;
@@ -17,6 +18,12 @@ describe('Configure', () => {
         reflectVariables(configurePrefixReaction, { trigger: configureTrigger });
     });
     afterAll(async () => {
+        try {
+            await db.firestore.delete(client.guild.id);
+            logger.log(`${client.guild.id} deleted from db`);
+        } catch (e) {
+            logger.error(e);
+        }
         await client.destroy();
     });
 
