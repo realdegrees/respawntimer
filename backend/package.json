@@ -43,6 +43,7 @@
     "firebase": "^7.24.0",
     "node-fetch": "^2.6.1",
     "rxjs": "^6.6.3",
-    "source-map-support": "^0.5.19"
+    "source-map-support": "^0.5.19",
+    "ytdl-core-discord": "^1.2.4"
   }
 }

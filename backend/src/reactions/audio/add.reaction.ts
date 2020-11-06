@@ -1,5 +1,5 @@
 import { extname } from 'path';
-import youtubedl from 'youtube-dl';
+import ytdl from 'ytdl-core-discord';
 import logger from '../../../lib/logger';
 import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
@@ -22,16 +22,18 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioInfo>('add', asy
             throw new VerboseError('You didn\'t provide a name for your command');
         }
         if (url) {
-            await new Promise<youtubedl.Info>((resolve, reject) => {
-                youtubedl.getInfo(url, (err, info) => {
-                    err ? reject(err) : resolve(info);
-                });
-            }).catch(() => new VerboseError('The provided youtube link is invalid!'));
-            return {
-                command,
-                url,
-                source: 'youtube'
-            };
+            try {
+                await ytdl.getBasicInfo(url);
+                return {
+                    command,
+                    url,
+                    source: 'youtube'
+                };
+            } catch (e) {
+                throw new VerboseError(
+                    'The provided youtube link is invalid or the video is not available!'
+                );
+            }
         } else if (attachment) {
             const attachmentData = attachment;
             const fileType = extname(attachmentData.url);

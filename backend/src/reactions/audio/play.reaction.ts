@@ -1,44 +1,52 @@
+import { VoiceChannel } from 'discord.js';
 import fetch from 'node-fetch';
 import { Readable } from 'stream';
+import ytdl from 'ytdl-core-discord';
 import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { getSampleTriggerCommand } from '../../common/util';
 import { AudioInfo } from './add.reaction';
 
+const play = async (
+    channel: VoiceChannel,
+    audio: Readable
+): Promise<void> => {
+    return channel.join().then((connection) =>
+        new Promise((resolve, reject) =>
+            connection.play(audio, {
+                volume: 30
+            }).on('finish', () => {
+                connection.once('disconnect', () => {
+                    resolve();
+                });
+                connection.disconnect();
+            }).on('error', reject)));
+};
+
 export const audioPlayReaction = new Reaction<
     GuildMessage,
-    AudioInfo
->('play', async (message, context, audio) => {
-    if (audio.source === 'discord') {
-        const connection = await message.member.voice.channel?.join();
-
-        if (!connection) {
-            throw new VerboseError('You are not in a voicechannel.');
+    AudioInfo>('play', async (message, context, audio) => {
+        if (!message.member.voice.channel) {
+            throw new VerboseError('You are not in a voicechannel!');
         }
-        const buffer = await fetch(audio.url).then((res) => res.buffer());
-        const resetName = await context.trigger.bot.changeName(
-            audio.command,
-            message.guild
-        );
-        await new Promise((resolve) =>
-            connection.play(Readable.from(buffer), {
-                volume: 30,
-            }).on('finish', resolve));
-
-        await new Promise((resolve) => {
-            connection.once('disconnect', () => {
-                connection.dispatcher.destroy();
-                resolve();
-            });
-            connection.disconnect();
-        }).finally(resetName);
-    } else {
-        throw new VerboseError(
-            'This command uses a youtube link,' +
-            'this functionality is not yet implemented');
-    }
-}
-    , {
+        try {
+            const stream = audio.source === 'discord' ?
+                await fetch(audio.url)
+                    .then((res) => res.buffer())
+                    .then((buffer) => Readable.from(buffer)) :
+                await ytdl(audio.url);
+            const resetName = await context.trigger.bot.changeName(
+                audio.command,
+                message.guild
+            );
+            return play(message.member.voice.channel, stream)
+                .finally(resetName);
+        } catch (e) {
+            throw new VerboseError(
+                `Unable to play '${audio.command}' from source '${audio.source}'`
+            );
+        }
+    }, {
         pre: async (message, context) => {
             const command = message.content.trim();
             if (command === '') {
