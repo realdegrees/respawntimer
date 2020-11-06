@@ -44,6 +44,11 @@ class Bot {
                 throw new Error('Environment variable "DISCORD_CLIENT_TOKEN" not found!');
             }
 
+            client.on('error', (e) => {
+                logger.error(e);
+                process.exit(1);
+            });
+            
             client.login(discordToken)
                 .then(() => client.on('ready', resolve))
                 .then(() => new Bot(client, db))
