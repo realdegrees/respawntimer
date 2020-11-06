@@ -1,4 +1,4 @@
-import { VoiceChannel } from 'discord.js';
+import { StreamOptions, VoiceChannel } from 'discord.js';
 import fetch from 'node-fetch';
 import { Readable } from 'stream';
 import ytdl from 'ytdl-core-discord';
@@ -9,13 +9,12 @@ import { AudioInfo } from './add.reaction';
 
 const play = async (
     channel: VoiceChannel,
-    audio: Readable
+    audio: Readable | string,
+    options?: StreamOptions
 ): Promise<void> => {
     return channel.join().then((connection) =>
         new Promise((resolve, reject) =>
-            connection.play(audio, {
-                volume: 30
-            }).on('finish', () => {
+            connection.play(audio, options).on('finish', () => {
                 connection.once('disconnect', () => {
                     resolve();
                 });
@@ -30,17 +29,19 @@ export const audioPlayReaction = new Reaction<
             throw new VerboseError('You are not in a voicechannel!');
         }
         try {
-            const stream = audio.source === 'discord' ?
-                await fetch(audio.url)
-                    .then((res) => res.buffer())
-                    .then((buffer) => Readable.from(buffer)) :
-                await ytdl(audio.url);
             const resetName = await context.trigger.bot.changeName(
                 audio.command,
                 message.guild
             );
-            return play(message.member.voice.channel, stream)
-                .finally(resetName);
+            await play(
+                message.member.voice.channel,
+                audio.source === 'discord' ?
+                    audio.url :
+                    await ytdl(audio.url),
+                {
+                    type: audio.source === 'youtube' ? 'opus' : 'unknown',
+                    volume: .5
+                }).finally(resetName);
         } catch (e) {
             throw new VerboseError(
                 `Unable to play '${audio.command}' from source '${audio.source}'`
@@ -55,13 +56,20 @@ export const audioPlayReaction = new Reaction<
             return context.trigger.db.firestore.get<AudioInfo>(
                 [message.guild.id, 'audio', 'commands', command].join('/')
             )
-                .catch(async () => {
-                    const sample = await getSampleTriggerCommand(context.trigger, message.guild, {
-                        subTrigger: context.name
-                    });
-                    throw new VerboseError(
-                        `${command} is not a valid command! Use ${sample} list `
-                    );
+                .then(async (audio) => {
+                    if (!audio) {
+                        const sample = await getSampleTriggerCommand(
+                            context.trigger,
+                            message.guild, {
+                            subTrigger: context.name
+                        });
+                        throw new VerboseError(
+                            `'${command}' is not a valid command!\nHint: Use ${sample} list`
+                        );
+                    } else {
+                        return audio;
+                    }
+
                 });
         }
     });
