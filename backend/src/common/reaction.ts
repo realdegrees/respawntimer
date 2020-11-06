@@ -28,7 +28,8 @@ export class Reaction<
                 .then((hookInfo) => {
                     if (this.hooks?.pre && !hookInfo) {
                         throw new InternalError(
-                            'A pre hook was defined but did not return anything'
+                            'A pre hook was defined but did not return anything in ' + 
+                            `'${this.name}'`
                         );
                     }
                     return (this.onReact as ReactionCallback<
