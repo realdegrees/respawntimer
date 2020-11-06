@@ -26,7 +26,6 @@
     "@types/source-map-support": "^0.5.3",
     "@typescript-eslint/eslint-plugin": "^4.5.0",
     "@typescript-eslint/parser": "^4.5.0",
-    "@types/node-fetch": "^2.5.7",
     "djs-test-client": "^1.0.3",
     "eslint": "^7.12.0",
     "jest": "^26.6.1",
@@ -41,7 +40,6 @@
     "dotenv": "^8.2.0",
     "ffmpeg-static": "^4.2.7",
     "firebase": "^7.24.0",
-    "node-fetch": "^2.6.1",
     "rxjs": "^6.6.3",
     "source-map-support": "^0.5.19",
     "ytdl-core-discord": "^1.2.4"

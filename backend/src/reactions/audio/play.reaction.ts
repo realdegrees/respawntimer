@@ -1,5 +1,4 @@
 import { StreamOptions, VoiceChannel } from 'discord.js';
-import fetch from 'node-fetch';
 import { Readable } from 'stream';
 import ytdl from 'ytdl-core-discord';
 import { VerboseError } from '../../common/errors/verbose.error';
