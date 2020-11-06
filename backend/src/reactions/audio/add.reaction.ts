@@ -8,12 +8,19 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioInfo>('add', asy
     message,
     context,
     audio) => {
-    return context.trigger.db.firestore.update(
+    return context.trigger.db.firestore.store(
         audio,
-        [message.guild.id, 'audio', 'commands', audio.command].join('/')
+        [message.guild.id, 'audio', 'commands', audio.command].join('/'),
+
     )
         .then(() => message.channel.send('I stored your new command!'))
-        .catch((e) => logger.error(e));
+        .catch((e) => {
+            logger.error(e);
+            throw new VerboseError(
+                'Error storing the command, if the command already exists try \''
+                + audioUpdateReaction + '\' to change the command.'
+            );
+        });
 }, {
     pre: async (message) => {
         const [command, url] = message.content.split(' ');

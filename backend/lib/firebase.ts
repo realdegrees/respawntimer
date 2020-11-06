@@ -22,6 +22,12 @@ interface CollectionFilter {
     operator: FilterOperator;
     value: string;
 }
+
+export enum StoreType {
+    PATCH,
+    STORE,
+    OVERWRITE
+}
 class Firebase {
     private constructor(
         public readonly firestore: Firestore,
@@ -81,19 +87,28 @@ class Firestore {
                 throw new InternalError(e.message);
             });
     }
-    public store<T extends DocumentData>(data: T, path: string): Promise<void> {
-        return Promise.resolve(this.firestore.doc(path).set(data))
+    public store<T extends DocumentData>(
+        data: T,
+        path: string,
+        options: {
+            storeType: StoreType;
+        } = { storeType: StoreType.STORE }): Promise<void> {
+        return Promise.resolve(this.firestore.doc(path))
+            .then((ref) => options.storeType === StoreType.STORE ?
+                ref.get().then(async (doc) => {
+                    if (doc.exists) {
+                        throw new InternalError('Doc already exists');
+                    } else {
+                        return ref.set(data, {
+                            merge: options.storeType === StoreType.PATCH
+                        });
+                    }
+                }) : ref.set(data, {
+                    merge: options.storeType === StoreType.PATCH
+                }))
             .then(() => logger.debug('Stored object in db', path, data))
             .catch((e: Error) => {
-                logger.warn('Failed to store object in db', path, data);
-                throw new InternalError(e.message);
-            });
-    }
-    public update<T extends DocumentData>(data: T, path: string): Promise<void> {
-        return Promise.resolve(this.firestore.doc(path).set(data, { merge: true }))
-            .then(() => logger.debug('Stored object in db', path, data))
-            .catch((e: Error) => {
-                logger.warn('Failed to store object in db', path, data, e);
+                logger.warn('Failed to store object in db', path, data, e.message);
                 throw new InternalError(e.message);
             });
     }
