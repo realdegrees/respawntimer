@@ -1,4 +1,4 @@
-import { Guild, Message } from 'discord.js';
+import { Guild, GuildMember, Message } from 'discord.js';
 import { DefaultReaction } from '../reactions/default/default.reaction';
 import { InternalError } from './errors/internal.error';
 import { Trigger } from './types';
@@ -57,8 +57,9 @@ type ReactionCallback<T extends GuildMessage | DirectMessage, HookType> = (
     hookInfo: HookType
 ) => PromiseLike<unknown>;
 
-export interface GuildMessage extends Omit<Message, 'guild'> {
+export interface GuildMessage extends Omit<Message, 'guild' | 'member'> {
     guild: Guild;
+    member: GuildMember;
 }
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
-export interface DirectMessage extends Omit<Message, 'guild'> { }
+export interface DirectMessage extends Omit<Message, 'guild' | 'member'> { }

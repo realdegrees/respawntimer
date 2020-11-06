@@ -1,14 +1,43 @@
-import { Message } from 'discord.js';
-import { Url } from 'url';
+import fetch from 'node-fetch';
+import { Readable } from 'stream';
 import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { getSampleTriggerCommand } from '../../common/util';
-import { notImplementedReaction } from '../default/not-implemented.reaction';
+import { AudioInfo } from './add.reaction';
 
 export const audioPlayReaction = new Reaction<
     GuildMessage,
     AudioInfo
->('play', async (message, context, audio) => notImplementedReaction.run(message as Message)
+>('play', async (message, context, audio) => {
+    if (audio.source === 'discord') {
+        const connection = await message.member.voice.channel?.join();
+
+        if (!connection) {
+            throw new VerboseError('You are not in a voicechannel.');
+        }
+        const buffer = await fetch(audio.url).then((res) => res.buffer());
+        const resetName = await context.trigger.bot.changeName(
+            audio.command,
+            message.guild
+        );
+        await new Promise((resolve) =>
+            connection.play(Readable.from(buffer), {
+                volume: 30,
+            }).on('finish', resolve));
+
+        await new Promise((resolve) => {
+            connection.once('disconnect', () => {
+                connection.dispatcher.destroy();
+                resolve();
+            });
+            connection.disconnect();
+        }).finally(resetName);
+    } else {
+        throw new VerboseError(
+            'This command uses a youtube link,' +
+            'this functionality is not yet implemented');
+    }
+}
     , {
         pre: async (message, context) => {
             const command = message.content.trim();
@@ -29,7 +58,3 @@ export const audioPlayReaction = new Reaction<
         }
     });
 
-type AudioInfo = {
-    url: Url;
-    command: string;
-};

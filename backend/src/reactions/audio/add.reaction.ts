@@ -4,21 +4,21 @@ import logger from '../../../lib/logger';
 import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 
-export const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>('add', async (
+export const audioAddReaction = new Reaction<GuildMessage, AudioInfo>('add', async (
     message,
     context,
     audio) => {
-    return context.trigger.db.firestore.update({
-        url: audio.audioUrl,
-        source: audio.source
-    }, [message.guild.id, 'audio', 'commands', audio.commandName].join('/'))
+    return context.trigger.db.firestore.update(
+        audio,
+        [message.guild.id, 'audio', 'commands', audio.command].join('/')
+    )
         .then(() => message.channel.send('I stored your new command!'))
         .catch((e) => logger.error(e));
 }, {
     pre: async (message) => {
-        const [commandName, url] = message.content.split(' ');
+        const [command, url] = message.content.split(' ');
         const attachment = message.attachments.first();
-        if (!commandName) {
+        if (!command) {
             throw new VerboseError('You didn\'t provide a name for your command');
         }
         if (url) {
@@ -28,11 +28,11 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>
                 });
             }).catch(() => new VerboseError('The provided youtube link is invalid!'));
             return {
-                audioUrl: url,
-                commandName,
+                command,
+                url,
                 source: 'youtube'
             };
-        } else if(attachment){
+        } else if (attachment) {
             const attachmentData = attachment;
             const fileType = extname(attachmentData.url);
             if (fileType !== '.mp3') {
@@ -40,19 +40,20 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioAddPreprocessed>
             }
 
             return {
-                audioUrl: attachmentData.url,
-                commandName,
+                command,
+                url: attachmentData.url,
                 source: 'discord'
             };
-        }else {
+        } else {
             throw new VerboseError(
                 'You must either attach an audio file or provide a youtube link!'
             );
         }
     }
 });
-interface AudioAddPreprocessed {
-    commandName: string;
-    audioUrl: string;
+
+export interface AudioInfo {
+    url: string;
+    command: string;
     source: 'discord' | 'youtube';
 }
