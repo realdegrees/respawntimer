@@ -8,7 +8,7 @@ export const configurePrefixReaction = new Reaction<GuildMessage>(
         if (!message.content) {
             throw new VerboseError('You didn\'t provide the desired prefix!');
         }
-        if (message.content.length >= 1) {
+        if (message.content.length > 1) {
             throw new VerboseError('The prefix can only be one character!');
         }
         return context.trigger.db.firestore.store(
