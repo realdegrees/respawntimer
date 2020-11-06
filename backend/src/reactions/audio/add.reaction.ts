@@ -3,6 +3,8 @@ import ytdl from 'ytdl-core-discord';
 import logger from '../../../lib/logger';
 import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
+import { audioUpdateReaction } from './update.reaction';
+
 
 export const audioAddReaction = new Reaction<GuildMessage, AudioInfo>('add', async (
     message,
@@ -23,17 +25,51 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioInfo>('add', asy
         });
 }, {
     pre: async (message) => {
-        const [command, url] = message.content.split(' ');
+        const [
+            command,
+            url,
+            duration,
+            start,
+        ] = message.content.split(' ').map((arg) => arg.trim());
+
+
         const attachment = message.attachments.first();
         if (!command) {
             throw new VerboseError('You didn\'t provide a name for your command');
         }
+        if (duration && Number.isNaN(new Number(duration))) {
+            throw new VerboseError('The duration you provided is not a number');
+        }
+        if (start && Number.isNaN(new Number(start))) {
+            throw new VerboseError('The beginning timestamp you provided is not a number');
+        }
         if (url) {
+
+
             try {
-                await ytdl.getBasicInfo(url);
+                const info = await ytdl.getBasicInfo(url);
+
+                const startTime = (() => {
+                    const param = new URL(url).searchParams.get('t');
+                    const arg = start.length > 0 ? start : undefined;
+                    const startTime = new Number(
+                        arg ?? param ?? 0
+                    ).valueOf();
+                    return Number.isNaN(startTime) ? 0 : startTime;
+                })();
+                const endTime = duration ?
+                    startTime + new Number(duration).valueOf() :
+                    info.videoDetails.lengthSeconds;
+
+                const time = {
+                    start: startTime,
+                    end: endTime,
+                } as AudioRange;
+
                 return {
                     command,
                     url,
+                    time,
                     source: 'youtube'
                 };
             } catch (e) {
@@ -51,7 +87,8 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioInfo>('add', asy
             return {
                 command,
                 url: attachmentData.url,
-                source: 'discord'
+                source: 'discord',
+                fileType: fileType.replace('.', '')
             };
         } else {
             throw new VerboseError(
@@ -65,4 +102,12 @@ export interface AudioInfo {
     url: string;
     command: string;
     source: 'discord' | 'youtube';
+    fileType?: string;
+    time?: AudioRange;
+}
+export interface AudioRange {
+    /** Timestamp where the clip ends */
+    end: number;
+    /** Timestamp where the clip starts */
+    start: number;
 }
