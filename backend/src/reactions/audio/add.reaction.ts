@@ -66,10 +66,16 @@ export const audioAddReaction = new Reaction<GuildMessage, AudioInfo>('add', asy
                     end: endTime,
                 } as AudioRange;
 
+                const cleanUrl = (() => {
+                    const urlObj = new URL(url);
+                    urlObj.searchParams.delete('t');
+                    return urlObj.toString();
+                })();
+
                 return {
                     command,
-                    url,
                     time,
+                    url: cleanUrl,
                     source: 'youtube'
                 };
             } catch (e) {

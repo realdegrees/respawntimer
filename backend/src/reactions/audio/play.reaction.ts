@@ -1,6 +1,8 @@
 import { StreamOptions, VoiceChannel } from 'discord.js';
+import fetch from 'node-fetch';
 import { Readable } from 'stream';
 import ytdl from 'ytdl-core-discord';
+import logger from '../../../lib/logger';
 import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { getSampleTriggerCommand } from '../../common/util';
@@ -34,17 +36,24 @@ export const audioPlayReaction = new Reaction<
                 audio.command,
                 message.guild
             );
+            const stream = audio.source === 'discord' ?
+                await fetch(audio.url)
+                    .then((res) => res.body)
+                    .then((buffer) => Readable.from(buffer)) :
+                await ytdl(audio.url, {
+                    filter: (format) => format.container === 'webm'
+                });
+
             await play(
                 message.member.voice.channel,
-                audio.source === 'discord' ?
-                    audio.url :
-                    await ytdl(audio.url),
+                stream,
                 {
                     type: audio.source === 'youtube' ? 'opus' : 'unknown',
                     volume: .5,
                     time: audio.time
                 }).finally(resetName);
         } catch (e) {
+            logger.error(e);
             throw new VerboseError(
                 `Unable to play '${audio.command}' from source '${audio.source}'`
             );
