@@ -79,11 +79,23 @@ class Firestore {
         this.firestore = firebase.firestore();
     }
 
-    public get<T>(path: string): Promise<T | undefined> {
+    public get(path: string): Promise<unknown>;
+    public get<T extends DocumentData>(path: string): Promise<T | undefined>;
+    public get<T extends DocumentData>(path: string, defaultValue: T): Promise<T>;
+    public get<
+        T extends DocumentData
+    >(path: string, defaultValue?: T): Promise<T | undefined> {
         return Promise.resolve(this.firestore.doc(path).get())
-            .then((data) => data.data() as T)
+            .then((res) => res.data() as T | undefined)
+            .then((data) =>!data && defaultValue ?
+                this.store<T>(defaultValue, path) :
+                data
+            )
             .catch((e: Error) => {
                 logger.warn('Failed to get object from db', path, e);
+                if (defaultValue) {
+                    logger.warn('Failed to store object in db', path, e);
+                }
                 throw new InternalError(e.message);
             });
     }
@@ -92,7 +104,7 @@ class Firestore {
         path: string,
         options: {
             storeType: StoreType;
-        } = { storeType: StoreType.STORE }): Promise<void> {
+        } = { storeType: StoreType.STORE }): Promise<T> {
         return Promise.resolve(this.firestore.doc(path))
             .then((ref) => options.storeType === StoreType.STORE ?
                 ref.get().then(async (doc) => {
@@ -106,7 +118,10 @@ class Firestore {
                 }) : ref.set(data, {
                     merge: options.storeType === StoreType.PATCH
                 }))
-            .then(() => logger.debug('Stored object in db', path, data))
+            .then(() => {
+                logger.debug('Stored object in db', path, data);
+                return data;
+            })
             .catch((e: Error) => {
                 logger.warn('Failed to store object in db', path, data, e.message);
                 throw new InternalError(e.message);
