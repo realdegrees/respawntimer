@@ -1,12 +1,13 @@
 import { Message } from 'discord.js';
 import { TriggerMatch } from './types';
 import { TriggerOptions } from './types/trigger-options';
-import { DirectMessage, GuildMessage, Reaction } from './reaction';
+import { DirectMessage, GuildMessage } from './reaction';
 import Bot from '../bot';
 import Firebase from '../../lib/firebase';
 import { escapeRegex, fetchPrefix, getSampleTriggerCommand } from './util';
 import { NoMatchError } from './errors/no-match.error';
 import { VerboseError } from './errors/verbose.error';
+import { ReactionMap, ReactionMapItem } from './types/reaction-map';
 
 // TODO: Add trigger.on, trigger.emit so one reaction can stop another one for example
 export class Trigger {
@@ -292,23 +293,3 @@ export class Trigger {
         });
     }
 }
-type ReactionMap = {
-    readonly default: ReactionMapItem;
-    readonly sub?: ReactionMapItem;
-};
-type ReactionMapItem = {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readonly guild?: Reaction<GuildMessage, any>[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readonly direct?: Reaction<DirectMessage, any>[];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    readonly all?: Reaction<Message, any>[];
-};
-export type TriggerCondition = (
-    message: Message,
-    context: Trigger
-) => void;
-export type AsyncTriggerCondition = (
-    message: Message,
-    context: Trigger
-) => Promise<void>;

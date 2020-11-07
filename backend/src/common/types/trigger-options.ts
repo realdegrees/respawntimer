@@ -1,6 +1,6 @@
 import { TriggerMatch } from './trigger-match';
-import { AsyncTriggerCondition, TriggerCondition } from '../trigger';
 import { BitFieldResolvable, PermissionString } from 'discord.js';
+import { TriggerCondition } from './trigger-condition';
 
 export interface TriggerOptions {
     /** A short description of this command */
@@ -31,7 +31,7 @@ export interface TriggerOptions {
      * A custom condition check to determine if the command 
      * written by the user will trigger a bot response or not
      */
-    conditionCheck?: TriggerCondition | AsyncTriggerCondition;
+    conditionCheck?: TriggerCondition;
 }
 // TODO: Add 'triggerType' in order to create triggers 
 // TODO: for different events like guildJoined or channelJoined etc.
