@@ -4,7 +4,7 @@ import { Trigger } from '../../common/types';
 import { CommandOptions, TriggerOptions } from '../../common/types/trigger-options';
 import { fetchPrefix } from '../../common/util';
 
-export const helpReaction = new Reaction('help', async (message, context) => {
+export const helpReaction = new Reaction('', async (message, context) => {
     const prefix = await fetchPrefix(message.guild, context.trigger.db);
     const fields: EmbedFieldData[] = context.trigger.bot.getTriggers()
         .filter((trigger) =>
@@ -21,7 +21,7 @@ export const helpReaction = new Reaction('help', async (message, context) => {
         .map((trigger) => {
             const commands = trigger.options.commandOptions.command;
             const aliases =
-                commands.length >= 2 ? '_Aliases: ' +
+                commands.length >= 2 ? '_Alias: ' +
                     trigger.options.commandOptions.command.slice(1)
                         .map((command) => prefix + command)
                         .join(', ') + '_\n' : '';
@@ -32,8 +32,10 @@ export const helpReaction = new Reaction('help', async (message, context) => {
         });
     const embed = new MessageEmbed()
         .setColor('GREEN')
-        .setTitle('Casuals United Bot Help') // TODO: Fetch bot name
-        .setDescription('Command List')
-        .addFields(fields);
+        .setTitle(`${context.trigger.bot.getName(message.guild)} Help`) // TODO: Fetch bot name
+        .setDescription(
+            'List of possible commands.\n' +
+            'Use "<prefix><command> help" for additional info.'
+        ).addFields(fields);
     await message.channel.send(embed);
 });

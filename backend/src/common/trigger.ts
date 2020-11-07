@@ -41,9 +41,8 @@ export class Trigger {
             });
     }
 
-    public async react(message: Message): Promise<unknown[]> {
+    public async react(message: Message): Promise<unknown> {
         const subTrigger = message.content.split(' ')[0] || 'default';
-
         const [filteredDefaultReactions, filteredSubReactions] = [
             this.filterReactions(this.reactions.default, {
                 guild: !!message.guild
@@ -53,56 +52,23 @@ export class Trigger {
             })
         ];
         if (subTrigger === 'default') {
-            if (filteredDefaultReactions) {
-                return Promise.all([
-                    ...filteredDefaultReactions.direct.map((r) => r.run(message as DirectMessage)),
-                    ...filteredDefaultReactions.guild.map((r) => r.run(message as GuildMessage)),
-                    ...filteredDefaultReactions.all.map((r) => r.run(message as Message))
-                ]);
-            } else if (filteredSubReactions && message.guild) {
-                const guild = message.guild;
-                const commands = await Promise.all(
-                    [
-                        ...filteredSubReactions.direct,
-                        ...filteredSubReactions.guild,
-                        ...filteredSubReactions.all
-                    ].map(async (reaction) =>
-                        await getSampleTriggerCommand(
-                            this,
-                            guild, {
-                            subTrigger: reaction.name
-                        })
-                    ));
-
-                throw new VerboseError('This is not a standalone command try one of these:\n' +
-                    commands.join(' / '));
-            } else {
-                throw new VerboseError('You cannot use this command in direct messages');
-            }
+            return this.runDefaultReactions(
+                message,
+                filteredDefaultReactions,
+                filteredSubReactions);
+        } else if (subTrigger === 'help') {
+            return this.runHelp(
+                message,
+                filteredDefaultReactions,
+                filteredSubReactions
+            );
         } else {
-            this.removeFromMessage(message, subTrigger);
-
-            if (!filteredSubReactions) {
-                if (subTrigger !== 'default') {
-                    throw new VerboseError(`You cannot run this command with "${subTrigger}"`);
-                } else {
-                    throw new NoMatchError(
-                        `No reactions defined for <${this.options?.commandOptions?.command ?? ''}>`
-                    );
-                }
-            }
-
-            return Promise.all([
-                ...filteredSubReactions.direct
-                    .filter((r) => r.name === subTrigger)
-                    .map((r) => r.run(message as DirectMessage)),
-                ...filteredSubReactions.guild
-                    .filter((r) => r.name === subTrigger)
-                    .map((r) => r.run(message as GuildMessage)),
-                ...filteredSubReactions.all
-                    .filter((r) => r.name === subTrigger)
-                    .map((r) => r.run(message as Message))
-            ]);
+            return this.runSubReactions(
+                message,
+                subTrigger,
+                filteredDefaultReactions,
+                filteredSubReactions
+            );
         }
     }
 
@@ -117,6 +83,74 @@ export class Trigger {
             guild: options?.guild ? item.guild ?? [] : [],
             all: item.all ?? [],
         } : undefined;
+    }
+
+    private async runDefaultReactions(
+        message: Message,
+        filteredDefaultReactions?: Required<ReactionMapItem>,
+        filteredSubReactions?: Required<ReactionMapItem>): Promise<unknown> {
+        if (filteredDefaultReactions) {
+            return Promise.all([
+                ...filteredDefaultReactions.direct.map((r) => r.run(message as DirectMessage)),
+                ...filteredDefaultReactions.guild.map((r) => r.run(message as GuildMessage)),
+                ...filteredDefaultReactions.all.map((r) => r.run(message as Message))
+            ]);
+        } else if (filteredSubReactions && message.guild) {
+            const guild = message.guild;
+            const commands = await Promise.all(
+                [
+                    ...filteredSubReactions.direct,
+                    ...filteredSubReactions.guild,
+                    ...filteredSubReactions.all
+                ].map(async (reaction) =>
+                    await getSampleTriggerCommand(
+                        this,
+                        guild, {
+                        subTrigger: reaction.name
+                    })
+                ));
+
+            throw new VerboseError('This is not a standalone command try one of these:\n' +
+                commands.join(' / '));
+        } else {
+            throw new VerboseError('You cannot use this command in direct messages');
+        }
+    }
+    private runHelp(
+        message: Message,
+        filteredDefaultReactions?: Required<ReactionMapItem>,
+        filteredSubReactions?: Required<ReactionMapItem>): Promise<unknown> {
+        // TODO: implement help
+        return Promise.resolve();
+    }
+    private async runSubReactions(
+        message: Message,
+        subTrigger: string,
+        filteredDefaultReactions?: Required<ReactionMapItem>,
+        filteredSubReactions?: Required<ReactionMapItem>): Promise<unknown> {
+        this.removeFromMessage(message, subTrigger);
+
+        if (!filteredSubReactions) {
+            if (subTrigger !== 'default') {
+                throw new VerboseError(`You cannot run this command with "${subTrigger}"`);
+            } else {
+                throw new NoMatchError(
+                    `No reactions defined for <${this.options?.commandOptions?.command ?? ''}>`
+                );
+            }
+        }
+
+        return Promise.all([
+            ...filteredSubReactions.direct
+                .filter((r) => r.name === subTrigger)
+                .map((r) => r.run(message as DirectMessage)),
+            ...filteredSubReactions.guild
+                .filter((r) => r.name === subTrigger)
+                .map((r) => r.run(message as GuildMessage)),
+            ...filteredSubReactions.all
+                .filter((r) => r.name === subTrigger)
+                .map((r) => r.run(message as Message))
+        ]);
     }
 
     public patchOptions(options: TriggerOptions): void {

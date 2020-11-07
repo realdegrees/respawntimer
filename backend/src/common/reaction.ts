@@ -1,4 +1,5 @@
 import { Guild, GuildMember, Message } from 'discord.js';
+import logger from '../../lib/logger';
 import { DefaultReaction } from '../reactions/default/default.reaction';
 import { InternalError } from './errors/internal.error';
 import { Trigger } from './types';
@@ -15,7 +16,11 @@ export class Reaction<
         public readonly name: string,
         private onReact: ReactionCallback<MessageType, HookType> |
             DefaultReaction<MessageType, HookType>,
-        private hooks?: Hooks<MessageType, HookType>) { }
+        private hooks?: Hooks<MessageType, HookType>) { 
+            if(name === 'help'){
+                logger.warn('The reacton name help is reserved for the help callback!');
+            }
+        }
 
     public async run(message: MessageType): Promise<unknown> {
         // TODO: Possibly add context from preReactionHook 

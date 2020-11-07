@@ -15,7 +15,14 @@ const defaultBotName = 'Casuals United Bot';
  */
 class Bot {
     private readonly triggers: Trigger[] = [];
-    private constructor(private client: Client, private db: Firebase) {
+    private constructor(private client: Client, private db: Firebase) { }
+
+    public getName(guild: Guild | null): string {
+        if (!this.client.user) {
+            throw new InternalError('Client cannot be identified');
+        }
+        const member = guild?.member(this.client.user);
+        return member ? member.displayName : this.client.user.username;
     }
     /** 
      * @returns A function to reset the name
@@ -23,7 +30,7 @@ class Bot {
     public changeName(name: string, guild: Guild): Promise<() => Promise<GuildMember>> {
         return new Promise((resolve, reject) => {
             if (!this.client.user) {
-                reject(new InternalError('Client cannot be identified as guild member'));
+                reject(new InternalError('Client cannot be identified'));
                 return;
             }
             const member = guild.member(this.client.user);
