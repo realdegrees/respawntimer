@@ -62,9 +62,7 @@ export const audioPlayReaction = new Reaction<
                     if (!audio) {
                         const sample = await getSampleTriggerCommand(
                             context.trigger,
-                            message.guild, {
-                            subTrigger: context.name
-                        });
+                            message.guild);
                         throw new VerboseError(
                             `'${command}' is not a valid command!\nHint: Use ${sample} list`
                         );

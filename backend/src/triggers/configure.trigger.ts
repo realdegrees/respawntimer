@@ -7,7 +7,7 @@ export const configureTrigger = new Trigger({
         guild: [useSubtriggerReaction],
         direct: []
     },
-    sub: {
+    sub: { // TODO: add 'commands' subTrigger to list all commands in an embed (include status enabled/disabled)
         guild: [configurePrefixReaction],
         direct: []
     }

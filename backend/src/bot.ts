@@ -14,6 +14,7 @@ const defaultBotName = 'Casuals United Bot';
  * TODO: Add additional triggers like [channelJoined, guildJoined, etc.]
  */
 class Bot {
+    private readonly triggers: Trigger[] = [];
     private constructor(private client: Client, private db: Firebase) {
     }
     /** 
@@ -35,6 +36,7 @@ class Bot {
                 .then((member) => resolve(() => member.setNickname(defaultBotName)));
         });
     }
+
     public static async init(db: Firebase): Promise<Bot> {
         return new Promise((resolve, reject) => {
             const client = new Client();
@@ -48,7 +50,7 @@ class Bot {
                 logger.error(e);
                 process.exit(1);
             });
-            
+
             client.login(discordToken)
                 .then(() => client.on('ready', resolve))
                 .then(() => new Bot(client, db))
@@ -60,35 +62,41 @@ class Bot {
         // ! This reflection must be the first expression when registering a trigger!
         Reflect.set(trigger, 'bot', this);
         // ! This reflection must be the first expression when registering a trigger!
-        Reflect.set(trigger, 'db', this.db); +
+        Reflect.set(trigger, 'db', this.db);
 
-            this.client.on('message', (message) => {
-                if (message.author.bot) {
-                    return;
-                }
+        this.triggers.push(trigger);
 
-                // Runs a permision check on the trigger
-                // If successful, run the reaction
-                // If not, send the reason as a message
-                trigger.check(message)
-                    .then((message) => trigger.react(message))
-                    .catch((reason: VerboseError | InternalError | NoMatchError) => {
-                        if (reason instanceof NoMatchError) {
-                            return;
-                        }
-                        if (reason instanceof InternalError) {
-                            logger.error(reason);
-                            message.channel.send('An internal error occured!');
-                        }
-                        if (reason instanceof VerboseError) {
-                            message.channel.send(reason.message);
-                        }
-                    });
-            });
+        this.client.on('message', (message) => {
+            if (message.author.bot) {
+                return;
+            }
+
+            // Runs a permision check on the trigger
+            // If successful, run the reaction
+            // If not, send the reason as a message
+            trigger.check(message)
+                .then((message) => trigger.react(message))
+                .catch((reason: VerboseError | InternalError | NoMatchError) => {
+                    if (reason instanceof NoMatchError) {
+                        return;
+                    }
+                    if (reason instanceof InternalError) {
+                        logger.error(reason);
+                        message.channel.send('An internal error occured!');
+                    }
+                    if (reason instanceof VerboseError) {
+                        message.channel.send(reason.message);
+                    }
+                });
+        });
     }
 
     public use(triggers: Trigger[]): void {
         triggers.forEach(this.useTrigger.bind(this));
+    }
+
+    public getTriggers(): Trigger[] {
+        return this.triggers;
     }
 
 }

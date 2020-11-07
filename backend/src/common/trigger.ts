@@ -15,6 +15,8 @@ export class Trigger {
     // Set via reflection, do not use in constructor
     public readonly db!: Firebase;
 
+    private enabled = true;
+
     /**
      * Creates a new Trigger that issues the callback when a message 
      * is sent that passes the conditions provided in the options param
@@ -51,25 +53,19 @@ export class Trigger {
             })
         ];
         if (subTrigger === 'default') {
-            if (filteredDefaultReactions && [
-                filteredDefaultReactions.direct,
-                filteredDefaultReactions.guild,
-                filteredDefaultReactions.all
-            ].every((arr) => arr.length < 1)) {
+            if (filteredDefaultReactions) {
                 return Promise.all([
-                    filteredDefaultReactions.direct.map((r) => r.run(message as DirectMessage)),
-                    filteredDefaultReactions.guild.map((r) => r.run(message as GuildMessage)),
-                    filteredDefaultReactions.all.map((r) => r.run(message as Message))
+                    ...filteredDefaultReactions.direct.map((r) => r.run(message as DirectMessage)),
+                    ...filteredDefaultReactions.guild.map((r) => r.run(message as GuildMessage)),
+                    ...filteredDefaultReactions.all.map((r) => r.run(message as Message))
                 ]);
-
-
             } else if (filteredSubReactions && message.guild) {
                 const guild = message.guild;
                 const commands = await Promise.all(
                     [
-                        // ...filteredSubReactions.direct, // TODO: Try to make this more generic
+                        ...filteredSubReactions.direct,
                         ...filteredSubReactions.guild,
-                        // ...filteredSubReactions.all
+                        ...filteredSubReactions.all
                     ].map(async (reaction) =>
                         await getSampleTriggerCommand(
                             this,
@@ -83,28 +79,31 @@ export class Trigger {
             } else {
                 throw new VerboseError('You cannot use this command in direct messages');
             }
+        } else {
+            this.removeFromMessage(message, subTrigger);
+
+            if (!filteredSubReactions) {
+                if (subTrigger !== 'default') {
+                    throw new VerboseError(`You cannot run this command with "${subTrigger}"`);
+                } else {
+                    throw new NoMatchError(
+                        `No reactions defined for <${this.options?.commandOptions?.command ?? ''}>`
+                    );
+                }
+            }
+
+            return Promise.all([
+                ...filteredSubReactions.direct
+                    .filter((r) => r.name === subTrigger)
+                    .map((r) => r.run(message as DirectMessage)),
+                ...filteredSubReactions.guild
+                    .filter((r) => r.name === subTrigger)
+                    .map((r) => r.run(message as GuildMessage)),
+                ...filteredSubReactions.all
+                    .filter((r) => r.name === subTrigger)
+                    .map((r) => r.run(message as Message))
+            ]);
         }
-
-
-        this.removeFromMessage(message, subTrigger);
-
-        if (!filteredSubReactions) {
-            return Promise.reject(
-                new VerboseError(
-                    `You cannot run this command with "${subTrigger}"`));
-        }
-
-        return Promise.all([
-            ...filteredSubReactions.direct
-                .filter((r) => r.name === subTrigger)
-                .map((r) => r.run(message as DirectMessage)),
-            ...filteredSubReactions.guild
-                .filter((r) => r.name === subTrigger)
-                .map((r) => r.run(message as GuildMessage)),
-            ...filteredSubReactions.all
-                .filter((r) => r.name === subTrigger)
-                .map((r) => r.run(message as Message))
-        ]);
     }
 
     private filterReactions(
@@ -124,17 +123,29 @@ export class Trigger {
         Object.assign(this.options, options);
     }
 
+    public enable(): boolean {
+        return this.enabled = true;
+    }
+    public disable(): boolean {
+        return this.enabled = false;
+    }
+    // TODO: make use of this with the configure command to enable/disable specific commands
+    public isEnabled(): boolean {
+        return this.enabled;
+    }
+
     /**
      * Checks if this Trigger instance should issue its' 
      * callback based on the options provided in constructor
      * @param message 
      */
     public check(message: Message): Promise<Message> {
-        return this.checkCommand(message)
+        return this.enabled ? this.checkCommand(message)
             .then((message) => this.checkChannel(message))
             .then((message) => this.checkPermission(message))
             .then((message) => this.checkRoles(message))
-            .then((message) => this.checkCustomCondition(message));
+            .then((message) => this.checkCustomCondition(message)) :
+            Promise.reject(new VerboseError('This command is disabled.'));
     }
 
     private async checkCommand(message: Message): Promise<Message> {

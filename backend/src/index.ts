@@ -6,6 +6,7 @@ import logger from '../lib/logger';
 import { ping } from './triggers/ping.trigger';
 import { configureTrigger } from './triggers/configure.trigger';
 import { audioTrigger } from './triggers/audio.trigger';
+import { helpTrigger } from './triggers/help.trigger';
 install();
 config();
 
@@ -17,7 +18,8 @@ Promise.resolve()
         bot.use([
             ping,
             configureTrigger,
-            audioTrigger
+            audioTrigger,
+            helpTrigger
         ]);
     })
     .then(() => logger.info('Bot started successfully'))

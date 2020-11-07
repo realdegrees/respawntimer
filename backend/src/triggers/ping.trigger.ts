@@ -1,5 +1,5 @@
 import { Trigger, TriggerMatch } from '../common/types';
-import { pong } from '../reactions/pong.reaction';
+import { pong } from '../reactions/pong/pong.reaction';
 
 export const ping = new Trigger({
     default: {

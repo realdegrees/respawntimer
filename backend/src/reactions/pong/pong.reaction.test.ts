@@ -1,8 +1,8 @@
 import { TestClient } from 'djs-test-client';
 import { pong } from './pong.reaction';
-import { ping } from '../triggers/ping.trigger';
-import { getSampleTriggerCommand } from '../common/util';
-import { GuildMessage } from '../common/reaction';
+import { ping } from '../../triggers/ping.trigger';
+import { getSampleTriggerCommand } from '../../common/util';
+import { GuildMessage } from '../../common/reaction';
 
 describe('Pong Reaction', () => {
     let client: TestClient;

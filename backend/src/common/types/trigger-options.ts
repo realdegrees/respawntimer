@@ -3,6 +3,8 @@ import { AsyncTriggerCondition, TriggerCondition } from '../trigger';
 import { BitFieldResolvable, PermissionString } from 'discord.js';
 
 export interface TriggerOptions {
+    /** A short description of this command */
+    description?: string;
     commandOptions?: CommandOptions;
     /** The channels that should be exlcuded/included from the command 
      * Must use channelIds
