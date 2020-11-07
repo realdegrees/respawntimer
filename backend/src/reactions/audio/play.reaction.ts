@@ -25,14 +25,14 @@ const play = async (
             }).on('error', reject)));
 };
 
-export const audioPlayReaction = new Reaction<
+export const audioPlayReaction = Reaction.create<
     GuildMessage,
-    AudioInfo>('play', async (message, context, audio) => {
+    AudioInfo>('play', async (message, trigger, audio) => {
         if (!message.member.voice.channel) {
             throw new VerboseError('You are not in a voicechannel!');
         }
         try {
-            const resetName = await context.trigger.bot.changeName(
+            const resetName = await trigger.bot.changeName(
                 audio.command,
                 message.guild
             );
@@ -40,9 +40,7 @@ export const audioPlayReaction = new Reaction<
                 await fetch(audio.url)
                     .then((res) => res.body)
                     .then((buffer) => Readable.from(buffer)) :
-                await ytdl(audio.url, {
-                    filter: (format) => format.container === 'webm'
-                });
+                await ytdl(audio.url);
 
             await play(
                 message.member.voice.channel,
@@ -59,18 +57,18 @@ export const audioPlayReaction = new Reaction<
             );
         }
     }, {
-        pre: async (message, context) => {
+            pre: async (message, trigger) => {
             const command = message.content.trim();
             if (command === '') {
                 throw new VerboseError('You didn\'t specify the audio you want to play!');
             }
-            return context.trigger.db.firestore.get<AudioInfo>(
+            return trigger.db.firestore.get<AudioInfo>(
                 [message.guild.id, 'audio', 'commands', command].join('/')
             )
                 .then(async (audio) => {
                     if (!audio) {
                         const sample = await getSampleTriggerCommand(
-                            context.trigger,
+                            trigger,
                             message.guild);
                         throw new VerboseError(
                             `'${command}' is not a valid command!\nHint: Use ${sample} list`

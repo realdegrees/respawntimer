@@ -72,13 +72,13 @@ export const reflectVariables = (
         Reflect.set(object, key, value);
     });
 };
-export const fetchPrefix = (guild: Guild | null, db: Firebase): Promise<string> => {
+export const fetchPrefix = async (guild: Guild | null, db: Firebase): Promise<string> => {
     return guild ? db.firestore.get<GuildSettings>([
         guild.id,
         'config'
     ].join('/'), {
         prefix: '!'
-    }).then((settings) => settings.prefix)
+    }).then((settings) => settings.prefix) : '!';
 };
 
 export const escapeRegex = (text: string): string => {

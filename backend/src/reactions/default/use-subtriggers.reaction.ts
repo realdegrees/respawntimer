@@ -2,13 +2,13 @@ import { GuildMessage, Reaction } from '../../common/reaction';
 import { getSampleTriggerCommand } from '../../common/util';
 
 // TODO: Check if message is guild message and adapt getSampleTriggerCommand
-export const useSubtriggerReaction = new Reaction<GuildMessage>('usage',
-    async (message, context) => {
-        const reactions = context.trigger.reactions.sub?.guild ?? [];
+export const useSubtriggerReaction = Reaction.create<GuildMessage>('usage',
+    async (message, trigger) => {
+        const reactions = trigger.reactions.sub?.guild ?? [];
         const commands = await Promise.all(
             reactions.map(async (reaction) =>
                 await getSampleTriggerCommand(
-                    context.trigger,
+                    trigger,
                     message.guild, {
                     subTrigger: reaction.name
                 })

@@ -2,16 +2,16 @@ import { StoreType } from '../../../lib/firebase';
 import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 
-export const configurePrefixReaction = new Reaction<GuildMessage>(
+export const configurePrefixReaction = Reaction.create<GuildMessage>(
     'prefix',
-    async (message, context) => {
+    async (message, trigger) => {
         if (!message.content) {
             throw new VerboseError('You didn\'t provide the desired prefix!');
         }
         if (message.content.length > 1) {
             throw new VerboseError('The prefix can only be one character!');
         }
-        return context.trigger.db.firestore.store(
+        return trigger.db.firestore.store(
             {
                 prefix: message.content
             },

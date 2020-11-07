@@ -5,12 +5,13 @@ import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { audioUpdateReaction } from './update.reaction';
 
+const defaultMaxLength = 10;
 
-export const audioAddReaction = new Reaction<GuildMessage, AudioInfo>('add', async (
+export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>('add', async (
     message,
-    context,
+    trigger,
     audio) => {
-    return context.trigger.db.firestore.store(
+    return trigger.db.firestore.store(
         audio,
         [message.guild.id, 'audio', 'commands', audio.command].join('/'),
 
