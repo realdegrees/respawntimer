@@ -14,7 +14,11 @@
     "build:watch": "tsc --watch",
     "lint:fix": "eslint . --fix --ext .ts",
     "lint": "eslint . --ext .ts",
-    "test": "jest --runInBand --forceExit --detectOpenHandles"
+    "test": "jest --runInBand --forceExit --detectOpenHandles",
+    "db:wipetest": "node ./dist/cli/db.js -t",
+    "db:wipederelict": "node ./dist/cli/db.js -d",
+    "db:wipeguild": "node ./dist/cli/db.js -g",
+    "db:forcewipe": "node ./dist/cli/db.js -f"
   },
   "keywords": [],
   "author": "",

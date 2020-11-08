@@ -4,8 +4,10 @@
 import { Client } from 'discord.js';
 import { exit } from 'process';
 import yargs from 'yargs';
+import { Z_UNKNOWN } from 'zlib';
 import Firebase from '../lib/firebase';
 import { GuildSettings } from '../src/common/types';
+import { debug } from '../src/common/util';
 
 const getClient = (): Promise<Client> => {
     return new Promise((resolve, reject) => {
@@ -18,7 +20,7 @@ const getClient = (): Promise<Client> => {
 
         client.on('error', (e) => {
             console.error(e);
-            process.exit(1);
+            process.exit(0);
         });
 
         client.login(discordToken)
@@ -38,7 +40,7 @@ const getClient = (): Promise<Client> => {
         // console.log('Found ' + guilds.length + ' in db!');
         guilds.forEach((guild) => console.log(guild.id));
 
-        if(!args.test && !args.guild && !args.derelict && !args.force){
+        if (!args.test && !args.guild && !args.derelict && !args.force) {
             console.warn(
                 'You are about to delete all guilds from the database! Aborting.\n' +
                 'Use the force argument (-f | --force) to force delete!'
@@ -47,20 +49,44 @@ const getClient = (): Promise<Client> => {
         }
 
 
-        const deletions = guilds
-            .filter((guild) => args.guild ?
-                guild.id === args.guild :
-                true)
-            .filter((guild) => args.derelict ?
-                !client.guilds.cache.has(guild.id) :
-                true)
-            .filter((guild) => {
-                const guildRef = client.guilds.cache.get(guild.id);
-                return args.test ?
-                    guildRef?.ownerID === client.user?.id && guildRef?.name.startsWith('test') :
-                    true;
+        const deletions = await Promise.resolve(guilds)
+            .then((guilds) => {
+                const filtered = guilds.filter((guild) => args.guild ?
+                    guild.id === args.guild :
+                    true);
+                if (filtered[0]?.id === args.guild) {
+                    console.debug(`Found guild with id ${args.guild}`);
+                } else if (args.guild) {
+                    console.info(`Guild with id ${args.guild}`);
+                }
+
+                return filtered;
             })
-            .map((guild) => db.firestore.delete(['guilds', guild.id].join('/')));
+            .then((guilds) => {
+                const filtered = guilds.filter((guild) => args.derelict ?
+                    !client.guilds.cache.has(guild.id) :
+                    true
+                );
+                if (args.derelict && filtered.length !== guilds.length) {
+                    console.debug(`Found ${filtered.length} derelict guilds.`);
+                }
+                return filtered;
+            })
+            .then((guilds) => {
+                const filtered = guilds.filter((guild) => {
+                    const guildRef = client.guilds.cache.get(guild.id);
+                    return args.test ?
+                        guildRef?.ownerID === client.user?.id && guildRef?.name.startsWith('test') :
+                        true;
+                });
+                if (args.test && filtered.length !== guilds.length) {
+                    console.debug(`Found ${filtered.length} test guilds.`);
+                }
+                return filtered;
+            })
+            .then((guilds) =>
+                guilds.map((guild) => db.firestore.delete(['guilds', guild.id].join('/')))
+            );
 
         await Promise.all(deletions);
         console.info(`Deleted ${deletions.length} guilds from the database.`);
