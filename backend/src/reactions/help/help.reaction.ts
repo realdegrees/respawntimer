@@ -4,9 +4,11 @@ import { Trigger } from '../../common/types';
 import { CommandOptions, TriggerOptions } from '../../common/types/trigger-options';
 import { fetchPrefix } from '../../common/util';
 
-export const helpReaction = Reaction.create('', async (message, trigger) => {
-    const prefix = await fetchPrefix(message.guild, trigger.db);
-    const fields: EmbedFieldData[] = trigger.bot.getTriggers()
+export const helpReaction = Reaction.create({
+    name: '_help'
+}, async (context) => {
+        const prefix = await fetchPrefix(context.message.guild, context.trigger.db);
+        const fields: EmbedFieldData[] = context.trigger.bot.getTriggers()
         .filter((trigger) =>
             trigger.options?.commandOptions &&
             trigger.options.commandOptions.command.length >= 1 &&
@@ -32,10 +34,10 @@ export const helpReaction = Reaction.create('', async (message, trigger) => {
         });
     const embed = new MessageEmbed()
         .setColor('GREEN')
-        .setTitle(`${trigger.bot.getName(message.guild)} Help`) // TODO: Fetch bot name
+        .setTitle(`${context.trigger.bot.getName(context.message.guild)} Help`) // TODO: Fetch bot name
         .setDescription(
             'List of possible commands.\n' +
             'Use "<prefix><command> help" for additional info.'
         ).addFields(fields);
-    await message.channel.send(embed);
+        await context.message.channel.send(embed);
 });

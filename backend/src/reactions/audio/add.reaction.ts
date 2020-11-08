@@ -5,18 +5,16 @@ import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { audioUpdateReaction } from './update.reaction';
 
-const defaultMaxLength = 10;
 
-export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>('add', async (
-    message,
-    trigger,
+export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>({ name: 'add' }, async (
+    context,
     audio) => {
-    return trigger.db.firestore.store(
+    return context.trigger.db.firestore.store(
         audio,
-        [message.guild.id, 'audio', 'commands', audio.command].join('/'),
+        [context.message.guild.id, 'audio', 'commands', audio.command].join('/'),
 
     )
-        .then(() => message.channel.send('I stored your new command!'))
+        .then(() => context.message.channel.send('I stored your new command!'))
         .catch((e) => {
             logger.error(e);
             throw new VerboseError(
@@ -25,16 +23,16 @@ export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>('add', 
             );
         });
 }, {
-    pre: async (message) => {
+    pre: async (context) => {
         const [
             command,
             url,
             duration,
             start,
-        ] = message.content.split(' ').map((arg) => arg.trim());
+        ] = context.message.content.split(' ').map((arg) => arg.trim());
 
 
-        const attachment = message.attachments.first();
+        const attachment = context.message.attachments.first();
         if (!command) {
             throw new VerboseError('You didn\'t provide a name for your command');
         }

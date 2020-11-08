@@ -12,11 +12,11 @@ export class Reaction<
     public readonly trigger!: Trigger;
 
     private constructor(
-        public readonly name: string,
+        public readonly options: ReactionOptions,
         private onReact: ReactionCallback<MessageType, PreHookType> |
             Reaction<MessageType, PreHookType>,
         private hooks?: Partial<Hooks<MessageType, PreHookType, PostHookType>>) {
-        if (name === 'help') {
+        if (options.name === 'help') {
             logger.warn('The reacton name help is reserved for the help callback!');
         }
     }
@@ -25,7 +25,7 @@ export class Reaction<
         MessageType extends (GuildMessage | DirectMessage) = Message
     >(
         /** What is printed when the command is used wrong, only include  */
-        name: string,
+        options: ReactionOptions,
         onReact: ReactionCallback<MessageType> |
             Reaction<MessageType>
     ): Reaction<MessageType>;
@@ -36,7 +36,7 @@ export class Reaction<
         PostHookType = undefined
     >(
         /** What is printed when the command is used wrong, only include  */
-        name: string,
+        options: ReactionOptions,
         onReact: ReactionCallback<MessageType, PreHookType> |
             Reaction<MessageType, PreHookType>,
         hooks: RequiredPartial<Hooks<MessageType, PreHookType, PostHookType>, 'pre'>
@@ -48,7 +48,7 @@ export class Reaction<
         PreHookType = undefined
     >(
         /** What is printed when the command is used wrong, only include  */
-        name: string,
+        options: ReactionOptions,
         onReact: ReactionCallback<MessageType, PreHookType> |
             Reaction<MessageType, PreHookType>,
         hooks: RequiredPartial<Hooks<MessageType, PreHookType, PostHookType>, 'post'>
@@ -61,12 +61,12 @@ export class Reaction<
         PostHookType = undefined
     >(
         /** What is printed when the command is used wrong, only include  */
-        name: string,
+        options: ReactionOptions,
         onReact: ReactionCallback<MessageType, PreHookType> |
             Reaction<MessageType, PreHookType>,
         hooks?: RequireAtLeastOne<Hooks<MessageType, PreHookType, PostHookType>>
     ): Reaction<MessageType, PreHookType, PostHookType> {
-        return new Reaction(name, onReact, hooks);
+        return new Reaction(options, onReact, hooks);
     }
 
     public async run(message: MessageType): Promise<unknown> {
@@ -76,17 +76,24 @@ export class Reaction<
         return this.onReact instanceof Reaction ?
             this.onReact.run(message) :
             Promise.resolve()
-                .then(() => this.hooks?.pre?.(message, this.trigger))
+                .then(() => this.hooks?.pre?.(
+                    Object.assign({ message, trigger: this.trigger }, this.options))
+                )
                 .then((hookInfo) => {
                     return (this.onReact as ReactionCallback<
                         MessageType, PreHookType
-                        >)(message, this.trigger, hookInfo as PreHookType);
+                    >)(
+                        Object.assign({ message, trigger: this.trigger }, this.options),
+                        hookInfo as PreHookType
+                    );
                 })
-                .then(() => this.hooks?.post?.(message, this.trigger));
+                .then(() => this.hooks?.post?.(
+                    Object.assign({ message, trigger: this.trigger }, this.options)
+                ));
     }
     public getTriggerString(guild: Guild): Promise<string> {
         return getSampleTriggerCommand(this.trigger, guild, {
-            subTrigger: this.name
+            subTrigger: this.options.name
         });
     }
 }
@@ -95,16 +102,14 @@ interface Hooks<T extends GuildMessage | DirectMessage, PreHookType, PostHookTyp
     post: PostHookCallback<T, PostHookType>;
 }
 type PostHookCallback<T extends GuildMessage | DirectMessage, HookType> = (
-    message: T,
-    trigger: Trigger
+    context: ReactionOptions & { message: T } & { trigger: Trigger }
 ) => PromiseLike<HookType>;
 type PreHookCallback<T extends GuildMessage | DirectMessage, HookType> = (
-    message: T,
-    trigger: Trigger
+    context: ReactionOptions & { message: T } & { trigger: Trigger }
+
 ) => PromiseLike<HookType>;
 type ReactionCallback<T extends GuildMessage | DirectMessage, HookType = undefined> = (
-    message: T,
-    trigger: Trigger,
+    context: ReactionOptions & { message: T } & { trigger: Trigger },
     hookInfo: HookType
 ) => PromiseLike<unknown>;
 
@@ -114,3 +119,12 @@ export interface GuildMessage extends Omit<Message, 'guild' | 'member'> {
 }
 // eslint-disable-next-line @typescript-eslint/no-empty-interface
 export interface DirectMessage extends Omit<Message, 'guild' | 'member'> { }
+export interface ReactionOptions {
+    readonly name: string;
+    // TODO: automatically parse args according to the defined number 
+    // TODO: and pass them together with the context
+    // TODO: also maybe exclude the arg names or make new property 'argsParsed'
+    readonly args?: {
+        readonly [position: number]: string;
+    };
+}

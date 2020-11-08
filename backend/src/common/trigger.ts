@@ -67,7 +67,6 @@ export class Trigger {
             return this.runSubReactions(
                 message,
                 subTrigger,
-                filteredDefaultReactions,
                 filteredSubReactions
             );
         }
@@ -107,7 +106,7 @@ export class Trigger {
                     await getSampleTriggerCommand(
                         this,
                         guild, {
-                        subTrigger: reaction.name
+                        subTrigger: reaction.options.name
                     })
                 ));
 
@@ -127,7 +126,6 @@ export class Trigger {
     private async runSubReactions(
         message: Message,
         subTrigger: string,
-        filteredDefaultReactions?: Required<ReactionMapItem>,
         filteredSubReactions?: Required<ReactionMapItem>): Promise<unknown> {
         this.removeFromMessage(message, subTrigger);
 
@@ -143,13 +141,13 @@ export class Trigger {
 
         return Promise.all([
             ...filteredSubReactions.direct
-                .filter((r) => r.name === subTrigger)
+                .filter((r) => r.options.name === subTrigger)
                 .map((r) => r.run(message as DirectMessage)),
             ...filteredSubReactions.guild
-                .filter((r) => r.name === subTrigger)
+                .filter((r) => r.options.name === subTrigger)
                 .map((r) => r.run(message as GuildMessage)),
             ...filteredSubReactions.all
-                .filter((r) => r.name === subTrigger)
+                .filter((r) => r.options.name === subTrigger)
                 .map((r) => r.run(message as Message))
         ]);
     }

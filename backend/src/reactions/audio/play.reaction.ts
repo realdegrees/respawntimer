@@ -32,14 +32,14 @@ const play = async (
 
 export const audioPlayReaction = Reaction.create<
     GuildMessage,
-    AudioInfo>('play', async (message, trigger, audio) => {
-        if (!message.member.voice.channel) {
+    AudioInfo>({name: 'play'}, async (context, audio) => {
+        if (!context.message.member.voice.channel) {
             throw new VerboseError('You are not in a voicechannel!');
         }
         try {
-            const resetName = await trigger.bot.changeName(
+            const resetName = await context.trigger.bot.changeName(
                 audio.command,
-                message.guild
+                context.message.guild
             );
             const stream = audio.source === 'discord' ?
                 await fetch(audio.url)
@@ -48,7 +48,7 @@ export const audioPlayReaction = Reaction.create<
                 await ytdl(audio.url);
 
             await play(
-                message.member.voice.channel,
+                context.message.member.voice.channel,
                 stream,
                 {
                     type: audio.source === 'youtube' ? 'opus' : 'unknown',
@@ -62,19 +62,19 @@ export const audioPlayReaction = Reaction.create<
             );
         }
     }, {
-        pre: async (message, trigger) => {
-            const command = message.content.trim();
+        pre: async (context) => {
+            const command = context.message.content.trim();
             if (command === '') {
                 throw new VerboseError('You didn\'t specify the audio you want to play!');
             }
-            return trigger.db.firestore.get<AudioInfo>(
-                [message.guild.id, 'audio', 'commands', command].join('/')
+            return context.trigger.db.firestore.get<AudioInfo>(
+                [context.message.guild.id, 'audio', 'commands', command].join('/')
             )
                 .then(async (audio) => {
                     if (!audio) {
                         const sample = await getSampleTriggerCommand(
-                            trigger,
-                            message.guild);
+                            context.trigger,
+                            context.message.guild);
                         throw new VerboseError(
                             `'${command}' is not a valid command!\nHint: Use ${sample} list`
                         );
