@@ -17,12 +17,17 @@ const play = async (
 ): Promise<void> => {
     return channel.join().then((connection) =>
         new Promise((resolve, reject) =>
-            connection.play(audio, options).on('finish', () => {
-                connection.once('disconnect', () => {
-                    resolve();
-                });
-                connection.disconnect();
-            }).on('error', reject)));
+            connection.play(audio, options)
+                .on('start', () => {
+                    connection.once('disconnect', () => {
+                        resolve();
+                    });
+                })
+                .on('finish', () => {
+                    connection.disconnect();
+                })
+                .on('error', reject)
+        ));
 };
 
 export const audioPlayReaction = Reaction.create<
@@ -57,7 +62,7 @@ export const audioPlayReaction = Reaction.create<
             );
         }
     }, {
-            pre: async (message, trigger) => {
+        pre: async (message, trigger) => {
             const command = message.content.trim();
             if (command === '') {
                 throw new VerboseError('You didn\'t specify the audio you want to play!');

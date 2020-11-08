@@ -24,6 +24,13 @@ class Bot {
         const member = guild?.member(this.client.user);
         return member ? member.displayName : this.client.user.username;
     }
+
+    public member(guild: Guild): GuildMember | null {
+        if (!this.client.user) {
+            throw new InternalError('Client cannot be identified');
+        }
+        return guild.member(this.client.user);
+    }
     /** 
      * @returns A function to reset the name
      */

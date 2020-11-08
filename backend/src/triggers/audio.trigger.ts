@@ -3,6 +3,7 @@ import { useSubtriggerReaction } from '../reactions/default/use-subtriggers.reac
 import { audioAddReaction } from '../reactions/audio/add.reaction';
 import { audioPlayReaction } from '../reactions/audio/play.reaction';
 import { audioListReaction } from '../reactions/audio/list.reaction';
+import { audioStopReaction } from '../reactions/audio/stop.reaction';
 
 export const audioTrigger = new Trigger({
     default: {
@@ -10,7 +11,7 @@ export const audioTrigger = new Trigger({
         direct: []
     },
     sub: {
-        guild: [audioAddReaction, audioPlayReaction],
+        guild: [audioAddReaction, audioPlayReaction, audioStopReaction],
         all: [audioListReaction]
     }
 }, {

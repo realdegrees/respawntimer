@@ -1,6 +1,5 @@
 import { Guild, GuildMember, Message } from 'discord.js';
 import logger from '../../lib/logger';
-import { DefaultReaction } from '../reactions/default/default-reaction';
 import { Trigger } from './types';
 import { RequireAtLeastOne, RequiredPartial } from './types/required';
 import { getSampleTriggerCommand } from './util';
@@ -12,10 +11,10 @@ export class Reaction<
     // Set via reflection, do not use in constructor
     public readonly trigger!: Trigger;
 
-    public constructor(
+    private constructor(
         public readonly name: string,
         private onReact: ReactionCallback<MessageType, PreHookType> |
-            DefaultReaction<MessageType, PreHookType>,
+            Reaction<MessageType, PreHookType>,
         private hooks?: Partial<Hooks<MessageType, PreHookType, PostHookType>>) {
         if (name === 'help') {
             logger.warn('The reacton name help is reserved for the help callback!');
@@ -28,7 +27,7 @@ export class Reaction<
         /** What is printed when the command is used wrong, only include  */
         name: string,
         onReact: ReactionCallback<MessageType> |
-            DefaultReaction<MessageType>
+            Reaction<MessageType>
     ): Reaction<MessageType>;
 
     public static create<
@@ -39,7 +38,7 @@ export class Reaction<
         /** What is printed when the command is used wrong, only include  */
         name: string,
         onReact: ReactionCallback<MessageType, PreHookType> |
-            DefaultReaction<MessageType, PreHookType>,
+            Reaction<MessageType, PreHookType>,
         hooks: RequiredPartial<Hooks<MessageType, PreHookType, PostHookType>, 'pre'>
     ): Reaction<MessageType, PreHookType, PostHookType>;
 
@@ -51,7 +50,7 @@ export class Reaction<
         /** What is printed when the command is used wrong, only include  */
         name: string,
         onReact: ReactionCallback<MessageType, PreHookType> |
-            DefaultReaction<MessageType, PreHookType>,
+            Reaction<MessageType, PreHookType>,
         hooks: RequiredPartial<Hooks<MessageType, PreHookType, PostHookType>, 'post'>
     ): Reaction<MessageType, PreHookType, PostHookType>;
 
@@ -64,7 +63,7 @@ export class Reaction<
         /** What is printed when the command is used wrong, only include  */
         name: string,
         onReact: ReactionCallback<MessageType, PreHookType> |
-            DefaultReaction<MessageType, PreHookType>,
+            Reaction<MessageType, PreHookType>,
         hooks?: RequireAtLeastOne<Hooks<MessageType, PreHookType, PostHookType>>
     ): Reaction<MessageType, PreHookType, PostHookType> {
         return new Reaction(name, onReact, hooks);
