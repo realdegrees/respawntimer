@@ -66,7 +66,6 @@ class Bot {
             });
 
             client.login(discordToken)
-                .then(() => client.on('ready', resolve))
                 .then(() => new Bot(client, db))
                 .then(resolve)
                 .catch(reject);

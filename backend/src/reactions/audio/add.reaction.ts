@@ -10,9 +10,8 @@ export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>({ name:
     context,
     audio) => {
     return context.trigger.db.firestore.store(
-        audio,
-        [context.message.guild.id, 'audio', 'commands', audio.command].join('/'),
-
+        ['guilds', context.message.guild.id, 'audio', audio.command].join('/'),
+        audio
     )
         .then(() => context.message.channel.send('I stored your new command!'))
         .catch((e) => {

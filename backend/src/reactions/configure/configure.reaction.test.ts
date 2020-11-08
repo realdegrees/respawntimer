@@ -32,8 +32,8 @@ describe('Configure', () => {
         const channel = await client.createTextChannel('prefixTest');
         const message = await client.sendMessage(channel, '$');
         await configurePrefixReaction.run(message as GuildMessage);
-        const dbSettings = await db.firestore.get<GuildSettings>(
-            [client.guild.id, 'config'].join('/')
+        const dbSettings = await db.firestore.doc<GuildSettings>(
+            ['guilds', client.guild.id].join('/')
         );
         expect(dbSettings?.prefix).toEqual(newPrefix);
     });

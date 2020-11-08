@@ -1,6 +1,6 @@
 import { Guild, User } from 'discord.js';
 import Firebase from '../../lib/firebase';
-import { GuildSettings, Trigger } from './types';
+import { defaultGuildSettings, GuildSettings, Trigger } from './types';
 
 const includesArg = (arg: string): boolean => {
     return !!process.argv.find((a: string) => [arg, `-${arg}`, `--${arg}`].includes(a));
@@ -73,12 +73,10 @@ export const reflectVariables = (
     });
 };
 export const fetchPrefix = async (guild: Guild | null, db: Firebase): Promise<string> => {
-    return guild ? db.firestore.get<GuildSettings>([
-        guild.id,
-        'config'
-    ].join('/'), {
-        prefix: '!'
-    }).then((settings) => settings.prefix) : '!';
+    return guild ? db.firestore.doc<GuildSettings>(
+        ['guilds', guild.id].join('/'),
+        defaultGuildSettings
+    ).then((settings) => settings.prefix) : '!';
 };
 
 export const escapeRegex = (text: string): string => {
@@ -96,7 +94,7 @@ export const mock = (text: string): string => {
 /** requires number between 0 and 1 */
 export const executeWithChance = <T>(chance: number, callback: () => T): T | undefined => {
     const rnd = Math.random();
-    if(chance > rnd) {
+    if (chance > rnd) {
         return callback();
     }
 };

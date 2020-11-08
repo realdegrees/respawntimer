@@ -67,8 +67,8 @@ export const audioPlayReaction = Reaction.create<
             if (command === '') {
                 throw new VerboseError('You didn\'t specify the audio you want to play!');
             }
-            return context.trigger.db.firestore.get<AudioInfo>(
-                [context.message.guild.id, 'audio', 'commands', command].join('/')
+            return context.trigger.db.firestore.doc<AudioInfo>(
+                ['guilds', context.message.guild.id, 'audio', command].join('/')
             )
                 .then(async (audio) => {
                     if (!audio) {

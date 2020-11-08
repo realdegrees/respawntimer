@@ -79,16 +79,79 @@ class Firestore {
         this.firestore = firebase.firestore();
     }
 
-    public get(path: string): Promise<unknown>;
-    public get<T extends DocumentData>(path: string): Promise<T | undefined>;
-    public get<T extends DocumentData>(path: string, defaultValue: T): Promise<T>;
-    public get<
+    public collection(
+        path: string
+    ): Promise<{
+        id: string;
+        data: unknown;
+    }[]>;
+
+    public collection<T extends DocumentData>(
+        path: string
+    ): Promise<{
+        id: string;
+        data: T;
+    }[]>;
+
+    public collection<T extends DocumentData>(
+        path: string,
+        ...defaultValue: {
+            id: string;
+            data: T;
+        }[]): Promise<{
+            id: string;
+            data: T;
+        }[]>;
+
+    public collection<
         T extends DocumentData
+    >(
+        path: string,
+        ...defaultValue: {
+            id: string;
+            data: T;
+        }[]): Promise<{
+            id: string;
+            data: T;
+        }[]> {
+        if (path.startsWith('/')) {
+            path = path.slice(1);
+        }
+        return Promise.resolve(this.firestore.collection(path).get())
+            .then((ref) => ref.docs)
+            .then((docs) => docs.length >= 1 ?
+                docs.map((doc) => ({
+                    id: doc.id,
+                    data: doc.data() as T
+                })) :
+                Promise.all(
+                    defaultValue.map((value) =>
+                        this.store<T>(path + value.id, value.data)
+                    )
+                ).then(() => defaultValue)
+            )
+            .catch((e: Error) => {
+                logger.warn('Failed to get collection docs from db', path, e);
+                if (defaultValue.length > 0) {
+                    logger.warn('Failed to store collection docs in db', path, e);
+                }
+                throw new InternalError(e.message);
+            });
+    }
+
+    public doc(path: string): Promise<unknown>;
+    public doc<T extends DocumentData>(path: string): Promise<T | undefined>;
+    public doc<T extends DocumentData>(path: string, defaultValue: T): Promise<T>;
+    public doc<
+        T extends DocumentData | DocumentData[]
     >(path: string, defaultValue?: T): Promise<T | undefined> {
+        if (path.startsWith('/')) {
+            path = path.slice(1);
+        }
         return Promise.resolve(this.firestore.doc(path).get())
             .then((res) => res.data() as T | undefined)
-            .then((data) =>!data && defaultValue ?
-                this.store<T>(defaultValue, path) :
+            .then((data) => !data && defaultValue ?
+                this.store<T>(path, defaultValue) :
                 data
             )
             .catch((e: Error) => {
@@ -99,9 +162,10 @@ class Firestore {
                 throw new InternalError(e.message);
             });
     }
+
     public store<T extends DocumentData>(
-        data: T,
         path: string,
+        data: T,
         options: {
             storeType: StoreType;
         } = { storeType: StoreType.STORE }): Promise<T> {
@@ -128,6 +192,9 @@ class Firestore {
             });
     }
     public delete(path: string): Promise<void> {
+        if (path.startsWith('/')) {
+            path = path.slice(1);
+        }
         return path.split('/').length % 2 === 0 ?
             Promise.resolve(this.firestore.doc(path).delete())
                 .then(() => logger.debug('Deleted db object', path))

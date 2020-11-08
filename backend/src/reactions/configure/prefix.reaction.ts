@@ -14,10 +14,8 @@ export const configurePrefixReaction = Reaction.create<GuildMessage>(
             throw new VerboseError('The prefix can only be one character!');
         }
         return context.trigger.db.firestore.store(
-            {
-                prefix: context.message.content
-            },
-            [context.message.guild.id, 'config'].join('/'),
+            ['guilds', context.message.guild.id].join('/'),
+            { prefix: context.message.content },
             { storeType: StoreType.PATCH }
         )
             .then(() => context.message.channel.send('I updated the prefix.'))
