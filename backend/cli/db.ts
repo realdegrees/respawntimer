@@ -29,18 +29,36 @@ const getClient = (): Promise<Client> => {
 };
 
 (async (args) => {
-    try {
+    try {        
         const client = await getClient();
         const db = await Firebase.init();
 
-        const guilds = await db.firestore.collection<GuildSettings>('guilds');        
+        const guilds = await db.firestore.collection<GuildSettings>('guilds');
+
+        // console.log('Found ' + guilds.length + ' in db!');
+        guilds.forEach((guild) => console.log(guild.id));
+
+        if(!args.test && !args.guild && !args.derelict && !args.force){
+            console.warn(
+                'You are about to delete all guilds from the database! Aborting.\n' +
+                'Use the force argument (-f | --force) to force delete!'
+            );
+            process.exit(1);
+        }
+
 
         const deletions = guilds
-            .filter((guild) => args.guild ? guild.id === args.guild : true)
-            .filter((guild) => args.derelict ? !client.guilds.cache.has(guild.id) : true)
+            .filter((guild) => args.guild ?
+                guild.id === args.guild :
+                true)
+            .filter((guild) => args.derelict ?
+                !client.guilds.cache.has(guild.id) :
+                true)
             .filter((guild) => {
                 const guildRef = client.guilds.cache.get(guild.id);
-                return args.test ? guildRef?.ownerID === client.user?.id : true;
+                return args.test ?
+                    guildRef?.ownerID === client.user?.id && guildRef?.name.startsWith('test') :
+                    true;
             })
             .map((guild) => db.firestore.delete(['guilds', guild.id].join('/')));
 
@@ -64,14 +82,18 @@ const getClient = (): Promise<Client> => {
     .option('test', {
         alias: 't',
         describe: 'Removes all test guilds',
-        type: 'boolean',
-        default: false
+        type: 'boolean'
     })
     .option('derelict', {
         alias: 'd',
         describe: 'Removes all guilds from db where the bot is not a member of.',
-        type: 'boolean',
-        default: false
+        type: 'boolean'
     })
+    .option('force', {
+        alias: 'f',
+        describe: 'Removes all guilds from db where the bot is not a member of.',
+        type: 'boolean'
+    })
+    .conflicts('force', ['derelict', 'test', 'guild'])
     .help()
     .argv);
