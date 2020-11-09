@@ -1,4 +1,5 @@
 import { Guild, GuildMember, Message } from 'discord.js';
+import { number } from 'yargs';
 import logger from '../../lib/logger';
 import { Trigger } from './types';
 import { RequireAtLeastOne, RequiredPartial } from './types/required';
@@ -73,6 +74,12 @@ export class Reaction<
         // TODO: Possibly add context from preReactionHook 
         // TODO: and pass context from the reaction to the postReactionHook
         // TODO: Define what context might be useful for logs or whatever
+        message.content.split(' ').forEach((value, index) => {
+            if (this.options.args?.[index]) {
+                this.options.args[index].value = value;
+            }
+        });
+
         return this.onReact instanceof Reaction ?
             this.onReact.run(message) :
             Promise.resolve()
@@ -125,6 +132,10 @@ export interface ReactionOptions {
     // TODO: and pass them together with the context
     // TODO: also maybe exclude the arg names or make new property 'argsParsed'
     readonly args?: {
-        readonly [position: number]: string;
+        readonly [name: string]: {
+            position: number;
+            defaultValue?: string;
+            required?: boolean;
+        };
     };
 }

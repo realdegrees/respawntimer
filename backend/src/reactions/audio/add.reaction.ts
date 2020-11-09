@@ -6,7 +6,9 @@ import { GuildMessage, Reaction } from '../../common/reaction';
 import { audioUpdateReaction } from './update.reaction';
 
 
-export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>({ name: 'add' }, async (
+export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>({ 
+    name: 'add'
+}, async (
     context,
     audio) => {
     return context.trigger.db.firestore.store(
