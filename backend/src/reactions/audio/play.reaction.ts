@@ -1,34 +1,11 @@
-import { StreamOptions, VoiceChannel } from 'discord.js';
-import fetch from 'node-fetch';
-import { Readable } from 'stream';
-import ytdl from 'ytdl-core-discord';
 import logger from '../../../lib/logger';
 import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { getSampleTriggerCommand } from '../../common/util';
-import { AudioInfo, AudioRange } from './add.reaction';
+import { AudioInfo } from './add.reaction';
+import { download, play } from './audio-utils';
 
-const play = async (
-    channel: VoiceChannel,
-    audio: Readable | string,
-    options?: StreamOptions & {
-        time?: AudioRange;
-    }
-): Promise<void> => {
-    return channel.join().then((connection) =>
-        new Promise((resolve, reject) =>
-            connection.play(audio, options)
-                .on('start', () => {
-                    connection.once('disconnect', () => {
-                        resolve();
-                    });
-                })
-                .on('finish', () => {
-                    connection.disconnect();
-                })
-                .on('error', reject)
-        ));
-};
+
 
 export const audioPlayReaction = Reaction.create<
     GuildMessage,
@@ -41,11 +18,7 @@ export const audioPlayReaction = Reaction.create<
                 audio.command,
                 context.message.guild
             );
-            const stream = audio.source === 'discord' ?
-                await fetch(audio.url)
-                    .then((res) => res.body)
-                    .then((buffer) => Readable.from(buffer)) :
-                await ytdl(audio.url);
+            const stream = await download(audio);
 
             await play(
                 context.message.member.voice.channel,
