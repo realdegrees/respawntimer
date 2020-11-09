@@ -47,14 +47,13 @@ const getClient = (): Promise<Client> => {
             );
             process.exit(1);
         }
-
-
+        
         const deletions = await Promise.resolve(guilds)
             .then((guilds) => {
                 const filtered = guilds.filter((guild) => args.guild ?
                     guild.id === args.guild :
                     true);
-                if (filtered[0]?.id === args.guild) {
+                if (filtered[0] && filtered[0].id === args.guild) {
                     console.debug(`Found guild with id ${args.guild}`);
                 } else if (args.guild) {
                     console.info(`Guild with id ${args.guild}`);

@@ -19,8 +19,7 @@ describe('Configure', () => {
     });
     afterAll(async () => {
         try {
-            await db.firestore.delete(client.guild.id);
-            logger.log(`${client.guild.id} deleted from db`);
+            await db.firestore.delete(['guilds', client.guild.id].join('/'));
         } catch (e) {
             logger.error(e);
         }
