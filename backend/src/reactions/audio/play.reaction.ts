@@ -3,30 +3,24 @@ import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { getSampleTriggerCommand } from '../../common/util';
 import { AudioInfo } from './add.reaction';
-import { download, play } from './audio-utils';
+import { play } from './audio-utils';
 
 
 
 export const audioPlayReaction = Reaction.create<
     GuildMessage,
-    AudioInfo>({name: 'play'}, async (context, audio) => {
+    AudioInfo>({ name: 'play' }, async (context, audio) => {
         if (!context.message.member.voice.channel) {
             throw new VerboseError('You are not in a voicechannel!');
         }
         try {
-            const resetName = await context.trigger.bot.guildHelper.changeName(
-                audio.command,
-                context.message.guild
-            );
-            const stream = await download(audio);
-
             await play(
                 context.message.member.voice.channel,
-                stream,
+                audio,
+                context.trigger.bot,
                 {
-                    type: audio.source === 'youtube' ? 'opus' : 'unknown',
-                    volume: .5,
-                }).finally(resetName);
+                    volume: .5
+                });
         } catch (e) {
             logger.error(e);
             throw new VerboseError(

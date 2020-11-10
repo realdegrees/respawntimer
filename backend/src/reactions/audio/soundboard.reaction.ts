@@ -6,7 +6,7 @@ import { InternalError } from '../../common/errors/internal.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { unicodeEmojiAlphabet } from '../../common/util';
 import { AudioInfo } from './add.reaction';
-import { download, play } from './audio-utils';
+import { play } from './audio-utils';
 
 // TODO: Refactor
 
@@ -69,12 +69,10 @@ export const audioSoundBoardReaction = Reaction.create<
                 }
                 const voiceChannel = prompt.guild?.member(user)?.voice.channel;
                 if (voiceChannel) {
-                    download(audio.data)
-                        .then((stream) => play(voiceChannel, stream, {
-                            type: audio.data.source === 'youtube' ? 'opus' : 'unknown',
+                    reaction.users.remove(user)
+                        .then(() => play(voiceChannel, audio.data, context.trigger.bot, {
                             volume: .5,
-                        }))
-                        .then(() => !prompt.deleted ? reaction.users.remove(user) : undefined);
+                        }));
                 } else {
                     if (footerError) {
                         clearTimeout(footerError);
