@@ -1,3 +1,4 @@
+import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { getSampleTriggerCommand } from '../../common/util';
 
@@ -13,7 +14,7 @@ export const useSubtriggerReaction = Reaction.create<GuildMessage>({ name: 'usag
                     subTrigger: reaction.options.name
                 })
             ));
-        await context.message.channel.send(
+        throw new VerboseError(
             'This is not a standalone command try one of these:\n' +
             commands
         );

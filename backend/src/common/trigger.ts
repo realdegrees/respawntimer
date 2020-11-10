@@ -1,4 +1,4 @@
-import { Message } from 'discord.js';
+import { EmbedFieldData, Message, MessageEmbed } from 'discord.js';
 import { TriggerMatch } from './types';
 import { TriggerOptions } from './types/trigger-options';
 import { DirectMessage, GuildMessage } from './reaction';
@@ -8,6 +8,7 @@ import { escapeRegex, fetchPrefix, getSampleTriggerCommand } from './util';
 import { NoMatchError } from './errors/no-match.error';
 import { VerboseError } from './errors/verbose.error';
 import { ReactionMap, ReactionMapItem } from './types/reaction-map';
+import logger from '../../lib/logger';
 
 // TODO: Add trigger.on, trigger.emit so one reaction can stop another one for example
 export class Trigger {
@@ -95,20 +96,54 @@ export class Trigger {
             ]);
         } else if (message.guild) {
             const guild = message.guild;
-            if (this.options?.commandOptions){
-                throw new VerboseError('This is not a standalone command. Use _' + 
-                await fetchPrefix(guild, this.db) + this.options.commandOptions.command + ' help_');
+            if (this.options?.commandOptions) {
+                throw new VerboseError('This is not a standalone command. Use _' +
+                    await fetchPrefix(guild, this.db) +
+                    this.options.commandOptions.command + ' help_');
             }
         } else {
             throw new VerboseError('You cannot use this command in direct messages');
         }
     }
-    private runHelp(
+    private async runHelp(
         message: Message,
-        filteredDefaultReactions?: Required<ReactionMapItem>,
-        filteredSubReactions?: Required<ReactionMapItem>): Promise<unknown> {
-        // TODO: implement help
-        return Promise.resolve();
+        filteredDefaultReactions: Required<ReactionMapItem> | undefined,
+        filteredSubReactions: Required<ReactionMapItem> | undefined): Promise<unknown> {
+        const baseCommands = this.options?.commandOptions?.command ?? [];
+        if (baseCommands.length === 0) {
+            return;
+        }
+        const standard = baseCommands.splice(0, 1)[0];
+        const prefix = await fetchPrefix(message.guild, this.db);
+
+        const embed = new MessageEmbed()
+            .setTitle(standard.toUpperCase())
+            .setDescription((baseCommands.length > 0 ?
+                'Alias: ' + baseCommands.toString() + '\n' : '') +
+                'Use _' + prefix + standard + '<command> help_ for more information.');
+
+        const getFields = (reactions: Required<ReactionMapItem>): EmbedFieldData[] =>
+            [
+                ...message.guild ?
+                    reactions.guild :
+                    reactions.direct,
+                ...reactions.all
+            ].map((reaction) => ({
+                name: reaction.options.name,
+                value: reaction.options.shortDescription
+            } as EmbedFieldData));
+
+        if (!filteredDefaultReactions && !filteredSubReactions) {
+            logger.debug(
+                'Somebody tried to use a registered trigger but there are no related reactions.'
+            );
+            return;
+        } else if (!filteredSubReactions && filteredDefaultReactions) {
+            embed.addFields(getFields(filteredDefaultReactions));
+        } else if (filteredSubReactions) {
+            embed.addFields(getFields(filteredSubReactions));
+        }
+        await message.channel.send(embed);
     }
     private async runSubReactions(
         message: Message,

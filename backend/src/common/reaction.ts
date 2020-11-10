@@ -1,6 +1,8 @@
 import { Guild, GuildMember, Message } from 'discord.js';
 import { number } from 'yargs';
 import logger from '../../lib/logger';
+import { InternalError } from './errors/internal.error';
+import { VerboseError } from './errors/verbose.error';
 import { Trigger } from './types';
 import { RequireAtLeastOne, RequiredPartial } from './types/required';
 import { getSampleTriggerCommand } from './util';
@@ -108,7 +110,7 @@ export class Reaction<
                         sampleCommand,
                         trigger: this.trigger
                     }, this.options)
-                ));
+                ));;
     }
     public getTriggerString(guild: Guild): Promise<string> {
         return getSampleTriggerCommand(this.trigger, guild, {
@@ -140,6 +142,7 @@ export interface GuildMessage extends Omit<Message, 'guild' | 'member'> {
 export interface DirectMessage extends Omit<Message, 'guild' | 'member'> { }
 export interface ReactionOptions {
     readonly name: string;
+    readonly shortDescription: string;
     // TODO: automatically parse args according to the defined number 
     // TODO: and pass them together with the context
     // TODO: also maybe exclude the arg names or make new property 'argsParsed'
