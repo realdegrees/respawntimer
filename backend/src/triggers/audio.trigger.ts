@@ -6,6 +6,7 @@ import { audioListReaction } from '../reactions/audio/list.reaction';
 import { audioStopReaction } from '../reactions/audio/stop.reaction';
 import { audioSoundBoardReaction } from '../reactions/audio/soundboard.reaction';
 import { audioRemoveReaction } from '../reactions/audio/remove.reaction';
+import { audioImportReaction } from '../reactions/audio/import.reaction';
 
 export const audioTrigger = new Trigger({
     default: {
@@ -19,7 +20,8 @@ export const audioTrigger = new Trigger({
             audioStopReaction, 
             audioListReaction, 
             audioSoundBoardReaction,
-            audioRemoveReaction
+            audioRemoveReaction,
+            audioImportReaction
         ],
         all: []
     }

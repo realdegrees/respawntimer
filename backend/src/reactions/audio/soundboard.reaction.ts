@@ -1,4 +1,5 @@
 import { EmbedFieldData, EmojiResolvable, MessageEmbed, MessageReaction, User } from 'discord.js';
+import { Readable } from 'stream';
 import { clearTimeout, setTimeout } from 'timers';
 import logger from '../../../lib/logger';
 import { CommandAborted } from '../../common/errors/command-aborted';
@@ -7,7 +8,7 @@ import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { unicodeEmojiAlphabet } from '../../common/util';
 import { AudioInfo } from './add.reaction';
-import { play } from './audio-utils';
+import { download, play } from './audio-utils';
 
 // TODO: Refactor
 
@@ -37,18 +38,17 @@ export const audioSoundBoardReaction = Reaction.create<
             name: item.audio.data.command,
             value: item.emoji,
             inline: true
-        } as EmbedFieldData)))
-        .setFooter('You can delete the soundboard with  ' + cancelEmoji);
+        } as EmbedFieldData)));
 
-    const prompt = await context.message.channel.send(embed);
-    prompt.client.on('messageDelete', (message) => {
-        if (message.equals(prompt, prompt) && footerError) {
+    const soundboard = await context.message.channel.send(embed);
+    soundboard.client.on('messageDelete', (message) => {
+        if (message.equals(soundboard, soundboard) && footerError) {
             clearTimeout(footerError);
         }
     });
     return new Promise<{ id: string; data: AudioInfo }[]>((resolve) => {
         // Create a collector before the reactions are added
-        const reactionCollector = prompt.createReactionCollector(
+        const reactionCollector = soundboard.createReactionCollector(
             (_reaction: MessageReaction, user: User) => user.id !== context.trigger.bot.user?.id
         );
 
@@ -68,12 +68,18 @@ export const audioSoundBoardReaction = Reaction.create<
                 if (!audio) {
                     return;
                 }
-                const voiceChannel = prompt.guild?.member(user)?.voice.channel;
+                const voiceChannel = soundboard.guild?.member(user)?.voice.channel;
                 if (voiceChannel) {
                     reaction.users.remove(user)
                         .then(() => play(voiceChannel, audio.data, context.trigger.bot, {
                             volume: .5,
-                        }));
+                        }))
+                        .catch(() =>
+                            soundboard.edit(embed.setFooter('Error'))
+                                .then(() => new Promise((resolve) => setTimeout(resolve, 3000)))
+                                .then(() => soundboard.edit(embed.setFooter('')))
+                                .catch(logger.error)
+                        );
                 } else {
                     if (footerError) {
                         clearTimeout(footerError);
@@ -82,7 +88,7 @@ export const audioSoundBoardReaction = Reaction.create<
                     const footer = embed.footer;
                     reaction.users.remove(user)
                         .then(() =>
-                            prompt.edit(
+                            soundboard.edit(
                                 embed.setFooter(footer?.text + '\nYou\'re not in a voicechannel!')
                             ))
                         .then((prompt) =>
@@ -103,9 +109,9 @@ export const audioSoundBoardReaction = Reaction.create<
 
         const reactInOrder = async (): Promise<void> => {
             // React with all emojis for the user to control
-            await prompt.react(cancelEmoji);
+            await soundboard.react(cancelEmoji);
             for (const item of commandEmojiMap) {
-                await prompt.react(item.emoji);
+                await soundboard.react(item.emoji);
             }
         };
         reactInOrder()
@@ -118,13 +124,13 @@ export const audioSoundBoardReaction = Reaction.create<
         if (footerError) {
             clearTimeout(footerError);
         }
-        await prompt.delete();
+        await soundboard.delete();
         return items;
     }).catch(async (e) => {
         if (footerError) {
             clearTimeout(footerError);
         }
-        await prompt.delete();
+        await soundboard.delete();
         throw e;
     });
 }, {

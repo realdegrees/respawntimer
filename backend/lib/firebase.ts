@@ -80,14 +80,16 @@ class Firestore {
     }
 
     public collection(
-        path: string
+        path: string,
+        options?: CollectionFilter[]
     ): Promise<{
         id: string;
         data: unknown;
     }[]>;
 
     public collection<T extends DocumentData>(
-        path: string
+        path: string,
+        options?: CollectionFilter[]
     ): Promise<{
         id: string;
         data: T;
@@ -95,6 +97,7 @@ class Firestore {
 
     public collection<T extends DocumentData>(
         path: string,
+        options?: CollectionFilter[],
         ...defaultValue: {
             id: string;
             data: T;
@@ -107,6 +110,7 @@ class Firestore {
         T extends DocumentData
     >(
         path: string,
+        options?: CollectionFilter[],
         ...defaultValue: {
             id: string;
             data: T;
@@ -117,7 +121,7 @@ class Firestore {
         if (path.startsWith('/')) {
             path = path.slice(1);
         }
-        return Promise.resolve(this.firestore.collection(path).get())
+        return Promise.resolve(this.getFilteredCollection(this.firestore.collection(path)))
             .then((ref) => ref.docs)
             .then((docs) => docs.length >= 1 ?
                 docs.map((doc) => ({
@@ -137,6 +141,22 @@ class Firestore {
                 }
                 throw new InternalError(e.message);
             });
+    }
+
+    private getFilteredCollection(
+        collection: firebase.firestore.CollectionReference,
+        ...filters: CollectionFilter[]
+    ): Promise<firebase.firestore.QuerySnapshot> {
+        const filter = filters.pop();
+        return filter ?
+            Promise.resolve(collection.where(filter.property, filter.operator, filter.value))
+                .then((query) => {
+                    for (const filter of filters) {
+                        query = query.where(filter.property, filter.operator, filter.value);
+                    }
+                    return query.get();
+                }) :
+            collection.get();
     }
 
     public doc(path: string): Promise<unknown>;
