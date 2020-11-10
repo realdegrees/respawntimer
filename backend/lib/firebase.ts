@@ -191,22 +191,33 @@ class Firestore {
                 throw new InternalError(e.message);
             });
     }
-    public delete(path: string): Promise<void> {
+    public delete(path: string): Promise<boolean> {
         if (path.startsWith('/')) {
             path = path.slice(1);
         }
-        return path.split('/').length % 2 === 0 ?
-            Promise.resolve(this.firestore.doc(path).delete())
-                .then(() => logger.debug('Deleted db object', path))
-                .catch((e: Error) => {
-                    logger.warn('Failed to delete db object', path, e);
-                    throw new InternalError(e.message);
-                }) :
-            Promise.resolve(this.firestore.collection(path))
-                .then(async (ref) => {
-                    const docs = (await ref.get()).docs;
-                    await Promise.all(docs.map((doc) => this.delete(doc.ref.path)));
-                });
+
+        return new Promise((resolve, reject) => {
+            return path.split('/').length % 2 === 0 ?
+                Promise.resolve(this.firestore.doc(path).get())
+                    .then(async (doc) => {
+                        if (doc.exists) {
+                            await this.firestore.doc(path).delete();
+                            logger.debug('Deleted db object', path);
+                        } else {
+                            resolve(false);
+                        }
+                    })
+                    .then(() => resolve(true))
+                    .catch((e: Error) => {
+                        logger.warn('Failed to delete db object', path, e);
+                        reject(new InternalError(e.message));
+                    }) :
+                Promise.resolve(this.firestore.collection(path))
+                    .then(async (ref) => {
+                        const docs = (await ref.get()).docs;
+                        await Promise.all(docs.map((doc) => this.delete(doc.ref.path)));
+                    });
+        });
     }
 }
 

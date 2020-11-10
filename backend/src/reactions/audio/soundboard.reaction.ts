@@ -3,6 +3,7 @@ import { clearTimeout, setTimeout } from 'timers';
 import logger from '../../../lib/logger';
 import { CommandAborted } from '../../common/errors/command-aborted';
 import { InternalError } from '../../common/errors/internal.error';
+import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { unicodeEmojiAlphabet } from '../../common/util';
 import { AudioInfo } from './add.reaction';
@@ -141,6 +142,10 @@ export const audioSoundBoardReaction = Reaction.create<
                 emoji: emojis.pop()
             } as CommandEmojiItem));
 
+        if (commandEmojiMap.length === 0) {
+            throw new VerboseError('There are no audio commands on this server (yet).');
+        }
+
         let duration = 120;
         const footer = (remaining: number): string =>
             'This message will be deleted automatically in ' + remaining + ' seconds.';
@@ -181,18 +186,23 @@ export const audioSoundBoardReaction = Reaction.create<
             const reactionCollector = prompt.createReactionCollector(
                 (_reaction: MessageReaction, user: User) => user.id !== context.trigger.bot.user?.id
             );
-            reactionCollector.on('collect', (
+            reactionCollector.on('collect', async (
                 reaction: MessageReaction,
                 user: User
             ) => {
                 if (user.id !== context.message.member.id) {
-                    reaction.users.remove(user);
+                    await reaction.users.remove(user);
+                    reactionCollector.dispose(reaction, user);
                     return;
                 }
                 if (reaction.emoji.toString() === cancelEmoji) {
                     reactionCollector.stop();
                     reject(new CommandAborted());
                 } else if (reaction.emoji.toString() === confirmEmoji) {
+                    if (reactionCollector.collected.size === 1) {
+                        await reaction.users.remove(user);
+                        return;
+                    }
                     const soundboardItems = reactionCollector.collected
                         .map((reaction) =>
                             commandEmojiMap.find(

@@ -43,7 +43,7 @@ export class Trigger {
     }
 
     public async react(message: Message): Promise<unknown> {
-        const subTrigger = message.content.split(' ')[0] || 'default';
+        const subTrigger = message.content.split(' ')[0].trim() || 'default';
         const [filteredDefaultReactions, filteredSubReactions] = [
             this.filterReactions(this.reactions.default, {
                 guild: !!message.guild

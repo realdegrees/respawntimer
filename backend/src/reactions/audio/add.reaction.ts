@@ -27,9 +27,7 @@ export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>({
     pre: async (context) => {
         const [
             command,
-            url,
-            duration,
-            start,
+            url
         ] = context.message.content.split(' ').map((arg) => arg.trim());
 
 
@@ -37,12 +35,7 @@ export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>({
         if (!command) {
             throw new VerboseError('You didn\'t provide a name for your command');
         }
-        if (duration && Number.isNaN(new Number(duration))) {
-            throw new VerboseError('The duration you provided is not a number');
-        }
-        if (start && Number.isNaN(new Number(start))) {
-            throw new VerboseError('The beginning timestamp you provided is not a number');
-        }
+
         if (url) {
 
 
