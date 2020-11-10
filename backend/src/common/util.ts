@@ -1,4 +1,4 @@
-import { Guild, User } from 'discord.js';
+import { EmojiResolvable, Guild, User } from 'discord.js';
 import Firebase from '../../lib/firebase';
 import { defaultGuildSettings, GuildSettings, Trigger } from './types';
 
@@ -17,7 +17,7 @@ export const logging = ((): boolean => {
 })();
 export const getSampleTriggerCommand = (
     trigger: Trigger,
-    guild: Guild,
+    guild: Guild | null,
     options?: {
         subTrigger?: string;
         includeMentions?: User[];
@@ -97,4 +97,22 @@ export const executeWithChance = <T>(chance: number, callback: () => T): T | und
     if (chance > rnd) {
         return callback();
     }
+};
+
+export const shuffle = <T extends unknown[]>(arr: T): T => {
+    let j, temp;
+    for (let i = arr.length - 1; i > 0; i--) {
+        j = Math.floor(Math.random() * (i + 1));
+        temp = arr[j];
+        arr[j] = arr[i];
+        arr[i] = temp;
+    }
+    return arr;
+};
+
+export const unicodeEmojiAlphabet = (): EmojiResolvable[] => {
+    const unicodeA = 0x1F1E6;
+    return [...Array(26).keys()]
+        .map((value) => value + unicodeA)
+        .map((codepoint) => String.fromCodePoint(codepoint));
 };

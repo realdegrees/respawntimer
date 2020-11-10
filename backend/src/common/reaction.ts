@@ -74,28 +74,40 @@ export class Reaction<
         // TODO: Possibly add context from preReactionHook 
         // TODO: and pass context from the reaction to the postReactionHook
         // TODO: Define what context might be useful for logs or whatever
-        message.content.split(' ').forEach((value, index) => {
-            if (this.options.args?.[index]) {
-                this.options.args[index].value = value;
-            }
-        });
 
+        const sampleCommand = await getSampleTriggerCommand(
+            this.trigger,
+            (message as unknown as Message).guild, {
+            subTrigger: this.options.name
+        });
         return this.onReact instanceof Reaction ?
             this.onReact.run(message) :
             Promise.resolve()
                 .then(() => this.hooks?.pre?.(
-                    Object.assign({ message, trigger: this.trigger }, this.options))
+                    Object.assign({
+                        message,
+                        sampleCommand,
+                        trigger: this.trigger
+                    }, this.options))
                 )
                 .then((hookInfo) => {
                     return (this.onReact as ReactionCallback<
                         MessageType, PreHookType
                     >)(
-                        Object.assign({ message, trigger: this.trigger }, this.options),
+                        Object.assign({
+                            message,
+                            sampleCommand,
+                            trigger: this.trigger
+                        }, this.options),
                         hookInfo as PreHookType
                     );
                 })
                 .then(() => this.hooks?.post?.(
-                    Object.assign({ message, trigger: this.trigger }, this.options)
+                    Object.assign({
+                        message,
+                        sampleCommand,
+                        trigger: this.trigger
+                    }, this.options)
                 ));
     }
     public getTriggerString(guild: Guild): Promise<string> {
@@ -109,14 +121,14 @@ interface Hooks<T extends GuildMessage | DirectMessage, PreHookType, PostHookTyp
     post: PostHookCallback<T, PostHookType>;
 }
 type PostHookCallback<T extends GuildMessage | DirectMessage, HookType> = (
-    context: ReactionOptions & { message: T } & { trigger: Trigger }
+    context: ReactionOptions & { message: T; trigger: Trigger; sampleCommand: string }
 ) => PromiseLike<HookType>;
 type PreHookCallback<T extends GuildMessage | DirectMessage, HookType> = (
-    context: ReactionOptions & { message: T } & { trigger: Trigger }
+    context: ReactionOptions & { message: T; trigger: Trigger; sampleCommand: string }
 
 ) => PromiseLike<HookType>;
 type ReactionCallback<T extends GuildMessage | DirectMessage, HookType = undefined> = (
-    context: ReactionOptions & { message: T } & { trigger: Trigger },
+    context: ReactionOptions & { message: T; trigger: Trigger; sampleCommand: string },
     hookInfo: HookType
 ) => PromiseLike<unknown>;
 

@@ -55,8 +55,7 @@ export class Trigger {
         if (subTrigger === 'default') {
             return this.runDefaultReactions(
                 message,
-                filteredDefaultReactions,
-                filteredSubReactions);
+                filteredDefaultReactions);
         } else if (subTrigger === 'help') {
             return this.runHelp(
                 message,
@@ -87,31 +86,19 @@ export class Trigger {
 
     private async runDefaultReactions(
         message: Message,
-        filteredDefaultReactions?: Required<ReactionMapItem>,
-        filteredSubReactions?: Required<ReactionMapItem>): Promise<unknown> {
+        filteredDefaultReactions?: Required<ReactionMapItem>): Promise<unknown> {
         if (filteredDefaultReactions) {
             return Promise.all([
                 ...filteredDefaultReactions.direct.map((r) => r.run(message as DirectMessage)),
                 ...filteredDefaultReactions.guild.map((r) => r.run(message as GuildMessage)),
                 ...filteredDefaultReactions.all.map((r) => r.run(message as Message))
             ]);
-        } else if (filteredSubReactions && message.guild) {
+        } else if (message.guild) {
             const guild = message.guild;
-            const commands = await Promise.all(
-                [
-                    ...filteredSubReactions.direct,
-                    ...filteredSubReactions.guild,
-                    ...filteredSubReactions.all
-                ].map(async (reaction) =>
-                    await getSampleTriggerCommand(
-                        this,
-                        guild, {
-                        subTrigger: reaction.options.name
-                    })
-                ));
-
-            throw new VerboseError('This is not a standalone command try one of these:\n' +
-                commands.join(' / '));
+            if (this.options?.commandOptions){
+                throw new VerboseError('This is not a standalone command. Use _' + 
+                await fetchPrefix(guild, this.db) + this.options.commandOptions.command + ' help_');
+            }
         } else {
             throw new VerboseError('You cannot use this command in direct messages');
         }

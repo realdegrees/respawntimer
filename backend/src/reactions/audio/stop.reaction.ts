@@ -7,7 +7,8 @@ export const audioStopReaction = Reaction.create<GuildMessage>(
         name: 'stop'
     },
     async (context) => {
-        const connection = context.trigger.bot.member(context.message.guild)?.voice.connection;
+        const connection = context.trigger.bot.guildHelper
+            .member(context.message.guild)?.voice.connection;
         if (!connection) {
             throw new VerboseError('I\'m not even in a voicechannel bruh..');
         } else {

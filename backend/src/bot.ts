@@ -1,54 +1,29 @@
-import { Client, Guild, GuildMember } from 'discord.js';
+import { Client, User } from 'discord.js';
 import Firebase from '../lib/firebase';
 import logger from '../lib/logger';
+import { CommandAborted } from './common/errors/command-aborted';
 import { InternalError } from './common/errors/internal.error';
 import { NoMatchError } from './common/errors/no-match.error';
 import { VerboseError } from './common/errors/verbose.error';
 import { Trigger } from './common/types';
+import { GuildHelper } from './helpers/guild.helper';
 
 
-const defaultBotName = 'Casuals United Bot';
 /**
  * This class is used to register new Triggers with the bot
  * It is currently only capable of reacting to message triggers
  * TODO: Add additional triggers like [channelJoined, guildJoined, etc.]
  */
 class Bot {
+    public readonly guildHelper: GuildHelper;
+    public readonly user: User | null;
     private readonly triggers: Trigger[] = [];
-    private constructor(private client: Client, private db: Firebase) { }
-
-    public getName(guild: Guild | null): string {
-        if (!this.client.user) {
-            throw new InternalError('Client cannot be identified');
-        }
-        const member = guild?.member(this.client.user);
-        return member ? member.displayName : this.client.user.username;
-    }
-
-    public member(guild: Guild): GuildMember | null {
-        if (!this.client.user) {
-            throw new InternalError('Client cannot be identified');
-        }
-        return guild.member(this.client.user);
-    }
-    /** 
-     * @returns A function to reset the name
-     */
-    public changeName(name: string, guild: Guild): Promise<() => Promise<GuildMember>> {
-        return new Promise((resolve, reject) => {
-            if (!this.client.user) {
-                reject(new InternalError('Client cannot be identified'));
-                return;
-            }
-            const member = guild.member(this.client.user);
-            if (!member) {
-                reject(new InternalError('Client cannot be identified as guild member'));
-                return;
-            }
-            member
-                .setNickname(name)
-                .then((member) => resolve(() => member.setNickname(defaultBotName)));
-        });
+    private constructor(
+        private client: Client,
+        private db: Firebase
+    ) {
+        this.guildHelper = new GuildHelper(this.client);
+        this.user = this.client.user;
     }
 
     public static async init(db: Firebase): Promise<Bot> {
@@ -89,16 +64,17 @@ class Bot {
             // If not, send the reason as a message
             trigger.check(message)
                 .then((message) => trigger.react(message))
-                .catch((reason: VerboseError | InternalError | NoMatchError) => {
+                .catch((reason: Error | string) => {
                     if (reason instanceof NoMatchError) {
                         return;
-                    }
-                    if (reason instanceof InternalError) {
+                    } else if (reason instanceof InternalError) {
                         logger.error(reason);
                         message.channel.send('An internal error occured!');
-                    }
-                    if (reason instanceof VerboseError) {
+                    } else if (reason instanceof VerboseError) {
                         message.channel.send(reason.message);
+                    } else if (!(reason instanceof CommandAborted)) {
+                        // ! Critical Error
+                        logger.error(reason);
                     }
                 });
         });

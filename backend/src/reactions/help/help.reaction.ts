@@ -34,7 +34,7 @@ export const helpReaction = Reaction.create({
         });
     const embed = new MessageEmbed()
         .setColor('GREEN')
-        .setTitle(`${context.trigger.bot.getName(context.message.guild)} Help`) // TODO: Fetch bot name
+        .setTitle(`${context.trigger.bot.guildHelper.getName(context.message.guild)} Help`) // TODO: Fetch bot name
         .setDescription(
             'List of possible commands.\n' +
             'Use "<prefix><command> help" for additional info.'

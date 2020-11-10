@@ -14,7 +14,7 @@ export const audioPlayReaction = Reaction.create<
             throw new VerboseError('You are not in a voicechannel!');
         }
         try {
-            const resetName = await context.trigger.bot.changeName(
+            const resetName = await context.trigger.bot.guildHelper.changeName(
                 audio.command,
                 context.message.guild
             );
