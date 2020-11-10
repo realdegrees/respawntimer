@@ -4,10 +4,8 @@
 import { Client } from 'discord.js';
 import { exit } from 'process';
 import yargs from 'yargs';
-import { Z_UNKNOWN } from 'zlib';
 import Firebase from '../lib/firebase';
 import { GuildSettings } from '../src/common/types';
-import { debug } from '../src/common/util';
 
 const getClient = (): Promise<Client> => {
     return new Promise((resolve, reject) => {
