@@ -46,7 +46,7 @@
     "discord.js": "^12.4.1",
     "dotenv": "^8.2.0",
     "ffmpeg-static": "^4.2.7",
-    "firebase": "^7.24.0",
+    "firebase": "^8.0.1",
     "node-fetch": "^2.6.1",
     "rxjs": "^6.6.3",
     "source-map-support": "^0.5.19",
