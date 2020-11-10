@@ -6,7 +6,7 @@ import { GuildMessage, Reaction } from '../../common/reaction';
 import { audioUpdateReaction } from './update.reaction';
 
 
-export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>({ 
+export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>({
     name: 'add'
 }, async (
     context,
@@ -47,24 +47,7 @@ export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>({
 
 
             try {
-                const info = await ytdl.getBasicInfo(url);
-
-                const startTime = (() => {
-                    const param = new URL(url).searchParams.get('t');
-                    const arg = start.length > 0 ? start : undefined;
-                    const startTime = new Number(
-                        arg ?? param ?? 0
-                    ).valueOf();
-                    return Number.isNaN(startTime) ? 0 : startTime;
-                })();
-                const endTime = duration ?
-                    startTime + new Number(duration).valueOf() :
-                    info.videoDetails.lengthSeconds;
-
-                const time = {
-                    start: startTime,
-                    end: endTime,
-                } as AudioRange;
+                await ytdl.getBasicInfo(url);
 
                 const cleanUrl = (() => {
                     const urlObj = new URL(url);
@@ -74,7 +57,6 @@ export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>({
 
                 return {
                     command,
-                    time,
                     url: cleanUrl,
                     source: 'youtube'
                 };
@@ -109,7 +91,6 @@ export interface AudioInfo {
     command: string;
     source: 'discord' | 'youtube';
     fileType?: string;
-    time?: AudioRange;
 }
 export interface AudioRange {
     /** Timestamp where the clip ends */

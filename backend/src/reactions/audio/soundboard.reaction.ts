@@ -70,8 +70,11 @@ export const audioSoundBoardReaction = Reaction.create<
                 const voiceChannel = prompt.guild?.member(user)?.voice.channel;
                 if (voiceChannel) {
                     download(audio.data)
-                        .then((stream) => play(voiceChannel, stream))
-                        .then(() => !prompt.deleted ? reaction.users.remove(user): undefined);
+                        .then((stream) => play(voiceChannel, stream, {
+                            type: audio.data.source === 'youtube' ? 'opus' : 'unknown',
+                            volume: .5,
+                        }))
+                        .then(() => !prompt.deleted ? reaction.users.remove(user) : undefined);
                 } else {
                     if (footerError) {
                         clearTimeout(footerError);

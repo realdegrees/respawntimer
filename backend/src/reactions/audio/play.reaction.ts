@@ -26,7 +26,6 @@ export const audioPlayReaction = Reaction.create<
                 {
                     type: audio.source === 'youtube' ? 'opus' : 'unknown',
                     volume: .5,
-                    time: audio.time
                 }).finally(resetName);
         } catch (e) {
             logger.error(e);

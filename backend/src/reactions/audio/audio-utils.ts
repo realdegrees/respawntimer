@@ -1,15 +1,13 @@
 import { VoiceChannel, StreamOptions } from 'discord.js';
 import fetch from 'node-fetch';
 import { Readable } from 'stream';
-import { AudioInfo, AudioRange } from './add.reaction';
+import { AudioInfo } from './add.reaction';
 import ytdl from 'ytdl-core-discord';
 
 export const play = async (
     channel: VoiceChannel,
     audio: Readable | string,
-    options?: StreamOptions & {
-        time?: AudioRange;
-    }
+    options?: StreamOptions
 ): Promise<void> => {
     return channel.join().then((connection) =>
         new Promise((resolve, reject) =>
