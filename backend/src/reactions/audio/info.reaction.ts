@@ -5,6 +5,11 @@ import { Reaction } from '../../common/reaction';
 
 const audioInfoReaction = Reaction.create<
     Message
->({name: 'info'}, (context) => {
-    return Promise.resolve(5);
+>({
+    name: 'info',
+    shortDescription: 'Provides info on the specified audio command'
+}, {
+    message: (context) => {
+        return Promise.resolve(5);
+    }
 });

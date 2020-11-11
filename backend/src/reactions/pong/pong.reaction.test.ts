@@ -20,7 +20,7 @@ describe('Pong Reaction', () => {
             channel,
             content
         )) as GuildMessage;
-        await pong.run(input);
+        await pong.consumeMessage(input);
         const message = (await client.getMessages(channel, 1))[0];
         expect(message).toBeTruthy();
         expect(message.content).toEqual('pong');

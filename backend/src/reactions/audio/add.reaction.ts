@@ -7,22 +7,26 @@ import { audioUpdateReaction } from './update.reaction';
 
 
 export const audioAddReaction = Reaction.create<GuildMessage, AudioInfo>({
-    name: 'add'
-}, async (
-    context,
-    audio) => {
-    return context.trigger.db.firestore.store(
-        ['guilds', context.message.guild.id, 'audio', audio.command].join('/'),
-        audio
-    )
-        .then(() => context.message.channel.send('I stored your new command!'))
-        .catch((e) => {
-            logger.error(e);
-            throw new VerboseError(
-                'Error storing the command, if the command already exists try \''
-                + audioUpdateReaction + '\' to change the command.'
-            );
-        });
+    name: 'add',
+    shortDescription:
+        'Adds the specified youtube link or attached file as a command with the given name'
+}, {
+    message: async (
+        context,
+        audio) => {
+        return context.trigger.db.firestore.store(
+            ['guilds', context.message.guild.id, 'audio', audio.command].join('/'),
+            audio
+        )
+            .then(() => context.message.channel.send('I stored your new command!'))
+            .catch((e) => {
+                logger.error(e);
+                throw new VerboseError(
+                    'Error storing the command, if the command already exists try \''
+                    + audioUpdateReaction + '\' to change the command.'
+                );
+            });
+    }
 }, {
     pre: async (context) => {
         const [

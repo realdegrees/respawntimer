@@ -16,7 +16,9 @@ export const play = async (
     channel: VoiceChannel,
     audio: AudioInfo,
     bot: Omit<Bot, 'use'>,
-    options?: Omit<StreamOptions, 'type'>
+    options: Omit<StreamOptions, 'type'> = {
+        volume: .35
+    }
 ): Promise<void> => {
     const member = bot.guildHelper.member(channel.guild);
     const playId = [Date.now(), Math.round(Math.random() * 100)].join();

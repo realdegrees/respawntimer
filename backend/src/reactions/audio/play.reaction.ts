@@ -9,23 +9,28 @@ import { play } from './audio-utils';
 
 export const audioPlayReaction = Reaction.create<
     GuildMessage,
-    AudioInfo>({ name: 'play' }, async (context, audio) => {
-        if (!context.message.member.voice.channel) {
-            throw new VerboseError('You are not in a voicechannel!');
-        }
-        try {
-            await play(
-                context.message.member.voice.channel,
-                audio,
-                context.trigger.bot,
-                {
-                    volume: .5
-                });
-        } catch (e) {
-            logger.error(e);
-            throw new VerboseError(
-                `Unable to play '${audio.command}' from source '${audio.source}'`
-            );
+    AudioInfo>({
+        name: 'play',
+        shortDescription: 'Plays the speicifed audio in the users channel'
+    }, {
+        message: async (context, audio) => {
+            if (!context.message.member.voice.channel) {
+                throw new VerboseError('You are not in a voicechannel!');
+            }
+            try {
+                await play(
+                    context.message.member.voice.channel,
+                    audio,
+                    context.trigger.bot,
+                    {
+                        volume: .5
+                    });
+            } catch (e) {
+                logger.error(e);
+                throw new VerboseError(
+                    `Unable to play '${audio.command}' from source '${audio.source}'`
+                );
+            }
         }
     }, {
         pre: async (context) => {

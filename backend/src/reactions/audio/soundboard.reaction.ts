@@ -1,5 +1,4 @@
 import { EmbedFieldData, EmojiResolvable, MessageEmbed, MessageReaction, User } from 'discord.js';
-import { Readable } from 'stream';
 import { clearTimeout, setTimeout } from 'timers';
 import logger from '../../../lib/logger';
 import { CommandAborted } from '../../common/errors/command-aborted';
@@ -8,7 +7,7 @@ import { VerboseError } from '../../common/errors/verbose.error';
 import { GuildMessage, Reaction } from '../../common/reaction';
 import { unicodeEmojiAlphabet } from '../../common/util';
 import { AudioInfo } from './add.reaction';
-import { download, play } from './audio-utils';
+import { play } from './audio-utils';
 
 // TODO: Refactor
 
@@ -19,120 +18,125 @@ export const audioSoundBoardReaction = Reaction.create<
     GuildMessage,
     { id: string; data: AudioInfo }[]
 >({
-    name: 'soundboard'
-}, async (context, board) => {
-    let footerError: NodeJS.Timeout | undefined = undefined;
+    name: 'soundboard',
+    shortDescription:
+        'Prompts the user to define a list of audio commands and creates a soundboard from them'
+}, {
+    message: async (context, board) => {
+        let footerError: NodeJS.Timeout | undefined = undefined;
 
-    const emojis = unicodeEmojiAlphabet().reverse();
-    const commandEmojiMap = board
-        .map((audioDocument) => ({
-            audio: audioDocument,
-            emoji: emojis.pop()
-        } as CommandEmojiItem));
+        const emojis = unicodeEmojiAlphabet().reverse();
+        const commandEmojiMap = board
+            .map((audioDocument) => ({
+                audio: audioDocument,
+                emoji: emojis.pop()
+            } as CommandEmojiItem));
 
-    const embed = new MessageEmbed()
-        .setTitle('Soundboard')
-        .setDescription(
-            'React with the corresponding emojis to play the clip.')
-        .addFields(commandEmojiMap.map((item) => ({
-            name: item.audio.data.command,
-            value: item.emoji,
-            inline: true
-        } as EmbedFieldData)));
+        const embed = new MessageEmbed()
+            .setTitle('Soundboard')
+            .setDescription(
+                'React with the corresponding emojis to play the clip.')
+            .addFields(commandEmojiMap.map((item) => ({
+                name: item.audio.data.command,
+                value: item.emoji,
+                inline: true
+            } as EmbedFieldData)));
 
-    const soundboard = await context.message.channel.send(embed);
-    soundboard.client.on('messageDelete', (message) => {
-        if (message.equals(soundboard, soundboard) && footerError) {
-            clearTimeout(footerError);
-        }
-    });
-    return new Promise<{ id: string; data: AudioInfo }[]>((resolve) => {
-        // Create a collector before the reactions are added
-        const reactionCollector = soundboard.createReactionCollector(
-            (_reaction: MessageReaction, user: User) => user.id !== context.trigger.bot.user?.id
-        );
-
-        reactionCollector.on('collect', (
-            reaction: MessageReaction,
-            user: User
-        ) => {
-            if (reaction.emoji.toString() === cancelEmoji) {
-                reactionCollector.stop();
-                resolve();
-            } else {
-                const audio = commandEmojiMap.find((item) =>
-                    item.emoji === reaction.emoji.toString()
-                )?.audio;
-
-                // Someone reacted with an emojo that is not in the map
-                if (!audio) {
-                    return;
-                }
-                const voiceChannel = soundboard.guild?.member(user)?.voice.channel;
-                if (voiceChannel) {
-                    reaction.users.remove(user)
-                        .then(() => play(voiceChannel, audio.data, context.trigger.bot, {
-                            volume: .5,
-                        }))
-                        .catch(() =>
-                            soundboard.edit(embed.setFooter('Error'))
-                                .then(() => new Promise((resolve) => setTimeout(resolve, 3000)))
-                                .then(() => soundboard.edit(embed.setFooter('')))
-                                .catch(logger.error)
-                        );
-                } else {
-                    if (footerError) {
-                        clearTimeout(footerError);
-                        footerError = undefined;
-                    }
-                    const footer = embed.footer;
-                    reaction.users.remove(user)
-                        .then(() =>
-                            soundboard.edit(
-                                embed.setFooter(footer?.text + '\nYou\'re not in a voicechannel!')
-                            ))
-                        .then((prompt) =>
-                            new Promise<NodeJS.Timeout>((resolve, reject) => {
-                                const timeout = setTimeout(() => {
-                                    prompt.edit(embed.setFooter(footer?.text))
-                                        .then(() => resolve(timeout))
-                                        .catch(reject);
-                                }, 4000);
-                            }))
-                        .then((timeout) => {
-                            footerError = timeout;
-                        })
-                        .catch(logger.error);
-                }
+        const soundboard = await context.message.channel.send(embed);
+        soundboard.client.on('messageDelete', (message) => {
+            if (message.equals(soundboard, soundboard) && footerError) {
+                clearTimeout(footerError);
             }
         });
+        return new Promise<{ id: string; data: AudioInfo }[]>((resolve) => {
+            // Create a collector before the reactions are added
+            const reactionCollector = soundboard.createReactionCollector(
+                (_reaction: MessageReaction, user: User) => user.id !== context.trigger.bot.user?.id
+            );
 
-        const reactInOrder = async (): Promise<void> => {
-            // React with all emojis for the user to control
-            await soundboard.react(cancelEmoji);
-            for (const item of commandEmojiMap) {
-                await soundboard.react(item.emoji);
-            }
-        };
-        reactInOrder()
-            .catch((e) => {
-                if (reactionCollector.collected.size <= 0) {
-                    throw new InternalError(e);
+            reactionCollector.on('collect', (
+                reaction: MessageReaction,
+                user: User
+            ) => {
+                if (reaction.emoji.toString() === cancelEmoji) {
+                    reactionCollector.stop();
+                    resolve();
+                } else {
+                    const audio = commandEmojiMap.find((item) =>
+                        item.emoji === reaction.emoji.toString()
+                    )?.audio;
+
+                    // Someone reacted with an emojo that is not in the map
+                    if (!audio) {
+                        return;
+                    }
+                    const voiceChannel = soundboard.guild?.member(user)?.voice.channel;
+                    if (voiceChannel) {
+                        reaction.users.remove(user)
+                            .then(() => play(voiceChannel, audio.data, context.trigger.bot, {
+                                volume: .5,
+                            }))
+                            .catch(() =>
+                                soundboard.edit(embed.setFooter('Error'))
+                                    .then(() => new Promise((resolve) => setTimeout(resolve, 3000)))
+                                    .then(() => soundboard.edit(embed.setFooter('')))
+                                    .catch(logger.error)
+                            );
+                    } else {
+                        if (footerError) {
+                            clearTimeout(footerError);
+                            footerError = undefined;
+                        }
+                        const footer = embed.footer;
+                        reaction.users.remove(user)
+                            .then(() =>
+                                soundboard.edit(
+                                    embed.setFooter(
+                                        footer?.text + '\nYou\'re not in a voicechannel!')
+                                ))
+                            .then((prompt) =>
+                                new Promise<NodeJS.Timeout>((resolve, reject) => {
+                                    const timeout = setTimeout(() => {
+                                        prompt.edit(embed.setFooter(footer?.text))
+                                            .then(() => resolve(timeout))
+                                            .catch(reject);
+                                    }, 4000);
+                                }))
+                            .then((timeout) => {
+                                footerError = timeout;
+                            })
+                            .catch(logger.error);
+                    }
                 }
             });
-    }).then(async (items) => {
-        if (footerError) {
-            clearTimeout(footerError);
-        }
-        await soundboard.delete();
-        return items;
-    }).catch(async (e) => {
-        if (footerError) {
-            clearTimeout(footerError);
-        }
-        await soundboard.delete();
-        throw e;
-    });
+
+            const reactInOrder = async (): Promise<void> => {
+                // React with all emojis for the user to control
+                await soundboard.react(cancelEmoji);
+                for (const item of commandEmojiMap) {
+                    await soundboard.react(item.emoji);
+                }
+            };
+            reactInOrder()
+                .catch((e) => {
+                    if (reactionCollector.collected.size <= 0) {
+                        throw new InternalError(e);
+                    }
+                });
+        }).then(async (items) => {
+            if (footerError) {
+                clearTimeout(footerError);
+            }
+            await soundboard.delete();
+            return items;
+        }).catch(async (e) => {
+            if (footerError) {
+                clearTimeout(footerError);
+            }
+            await soundboard.delete();
+            throw e;
+        });
+    }
 }, {
     /** 
     * Prompts the user to select all audio commands to go on the soundboard

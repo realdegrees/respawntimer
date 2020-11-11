@@ -63,7 +63,7 @@ class Bot {
             // If successful, run the reaction
             // If not, send the reason as a message
             trigger.check(message)
-                .then((message) => trigger.react(message))
+                .then((message) => trigger.message(message))
                 .catch((reason: Error | string) => {
                     if (reason instanceof NoMatchError) {
                         return;
@@ -77,6 +77,10 @@ class Bot {
                         logger.error(reason);
                     }
                 });
+        });
+        this.client.on('messageReactionAdd', (reaction, user) => {
+            trigger.reaction(reaction, user)
+                .catch(logger.error);
         });
     }
 

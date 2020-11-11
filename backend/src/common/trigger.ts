@@ -1,10 +1,13 @@
-import { EmbedFieldData, Message, MessageEmbed } from 'discord.js';
+import {
+    EmbedFieldData, Message,
+    MessageEmbed, MessageReaction, PartialUser, User
+} from 'discord.js';
 import { TriggerMatch } from './types';
 import { TriggerOptions } from './types/trigger-options';
 import { DirectMessage, GuildMessage } from './reaction';
 import Bot from '../bot';
 import Firebase from '../../lib/firebase';
-import { escapeRegex, fetchPrefix, getSampleTriggerCommand } from './util';
+import { escapeRegex, fetchPrefix } from './util';
 import { NoMatchError } from './errors/no-match.error';
 import { VerboseError } from './errors/verbose.error';
 import { ReactionMap, ReactionMapItem } from './types/reaction-map';
@@ -30,7 +33,6 @@ export class Trigger {
         public readonly options?: TriggerOptions,
     ) {
         // ! This reflection must be the first expression on instantiation
-
         Object.values(reactions)
             .forEach((reactions) => {
                 if (reactions) {
@@ -43,7 +45,7 @@ export class Trigger {
             });
     }
 
-    public async react(message: Message): Promise<unknown> {
+    public async message(message: Message): Promise<unknown> {
         const subTrigger = message.content.split(' ')[0].trim() || 'default';
         const [filteredDefaultReactions, filteredSubReactions] = [
             this.filterReactions(this.reactions.default, {
@@ -71,6 +73,25 @@ export class Trigger {
             );
         }
     }
+    public reaction(reaction: MessageReaction, user: User | PartialUser): Promise<unknown> {
+        return Promise.resolve();
+        // const [filteredDefaultReactions, filteredSubReactions] = [
+        //     this.filterReactions(this.reactions.default, {
+        //         guild: !!reaction.message.guild
+        //     }),
+        //     this.filterReactions(this.reactions.sub, {
+        //         guild: !!reaction.message.guild
+        //     })
+        // ];
+        // [
+        //     ...filteredDefaultReactions?.all ?? [],
+        //     ...filteredDefaultReactions?.guild ?? [],
+        //     ...filteredDefaultReactions?.direct ?? [],
+        //     ...filteredSubReactions?.all ?? [],
+        //     ...filteredSubReactions?.guild ?? [],
+        //     ...filteredSubReactions?.direct ?? [],
+        // ].map((r) => r.consumeReaction(reaction, user))
+    }
 
     private filterReactions(
         item: ReactionMapItem | undefined,
@@ -90,9 +111,12 @@ export class Trigger {
         filteredDefaultReactions?: Required<ReactionMapItem>): Promise<unknown> {
         if (filteredDefaultReactions) {
             return Promise.all([
-                ...filteredDefaultReactions.direct.map((r) => r.run(message as DirectMessage)),
-                ...filteredDefaultReactions.guild.map((r) => r.run(message as GuildMessage)),
-                ...filteredDefaultReactions.all.map((r) => r.run(message as Message))
+                ...filteredDefaultReactions.direct.map(
+                    (r) => r.consumeMessage(message as DirectMessage)),
+                ...filteredDefaultReactions.guild.map(
+                    (r) => r.consumeMessage(message as GuildMessage)),
+                ...filteredDefaultReactions.all.map(
+                    (r) => r.consumeMessage(message as Message))
             ]);
         } else if (message.guild) {
             const guild = message.guild;
@@ -114,13 +138,16 @@ export class Trigger {
             return;
         }
         const standard = baseCommands.splice(0, 1)[0];
-        const prefix = await fetchPrefix(message.guild, this.db);
 
         const embed = new MessageEmbed()
             .setTitle(standard.toUpperCase())
             .setDescription((baseCommands.length > 0 ?
-                'Alias: ' + baseCommands.toString() + '\n' : '') +
-                'Use _' + prefix + standard + '<command> help_ for more information.');
+                'Alias: ' +
+                baseCommands.toString() + '\n' : '') +
+                'Prefix Required? ' +
+                (this.options?.commandOptions?.ignorePrefix ? 'No' : 'Yes') + '\n' +
+                'Required Match: ' +
+                this.options?.commandOptions?.match.toString());
 
         const getFields = (reactions: Required<ReactionMapItem>): EmbedFieldData[] =>
             [
@@ -128,10 +155,12 @@ export class Trigger {
                     reactions.guild :
                     reactions.direct,
                 ...reactions.all
-            ].map((reaction) => ({
-                name: reaction.options.name,
-                value: reaction.options.shortDescription
-            } as EmbedFieldData));
+            ]
+                .filter((reaction) => reaction.options.name.length > 0)
+                .map((reaction) => ({
+                    name: reaction.options.name,
+                    value: reaction.options.shortDescription ?? '<No description>'
+                } as EmbedFieldData));
 
         if (!filteredDefaultReactions && !filteredSubReactions) {
             logger.debug(
@@ -139,9 +168,15 @@ export class Trigger {
             );
             return;
         } else if (!filteredSubReactions && filteredDefaultReactions) {
-            embed.addFields(getFields(filteredDefaultReactions));
+            const fields = getFields(filteredDefaultReactions);
+            if (fields.length > 0) {
+                embed.addFields(fields);
+            }
         } else if (filteredSubReactions) {
-            embed.addFields(getFields(filteredSubReactions));
+            const fields = getFields(filteredSubReactions);
+            if (fields.length > 0) {
+                embed.addFields(fields);
+            }
         }
         await message.channel.send(embed);
     }
@@ -164,13 +199,13 @@ export class Trigger {
         return Promise.all([
             ...filteredSubReactions.direct
                 .filter((r) => r.options.name === subTrigger)
-                .map((r) => r.run(message as DirectMessage)),
+                .map((r) => r.consumeMessage(message as DirectMessage)),
             ...filteredSubReactions.guild
                 .filter((r) => r.options.name === subTrigger)
-                .map((r) => r.run(message as GuildMessage)),
+                .map((r) => r.consumeMessage(message as GuildMessage)),
             ...filteredSubReactions.all
                 .filter((r) => r.options.name === subTrigger)
-                .map((r) => r.run(message as Message))
+                .map((r) => r.consumeMessage(message as Message))
         ]);
     }
 

@@ -5,10 +5,11 @@ import { executeWithChance, getSampleTriggerCommand } from '../../common/util';
 import { AudioInfo } from './add.reaction';
 import { audioSoundBoardReaction } from './soundboard.reaction';
 
-export const audioListReaction = Reaction.create<GuildMessage>(
-    {
-        name: 'list'
-    }, async (context) => {
+export const audioListReaction = Reaction.create<GuildMessage>({
+    name: 'list',
+    shortDescription: 'List all available user-added audio commands'
+}, {
+    message: async (context) => {
         const commands = await context.trigger.db.firestore
             .collection<AudioInfo>(['guilds', context.message.guild.id, 'audio'].join('/'));
         if (commands.length === 0) {
@@ -32,4 +33,5 @@ export const audioListReaction = Reaction.create<GuildMessage>(
                     subTrigger: audioSoundBoardReaction.options.name
                 }));
         await context.message.channel.send(embed);
-    });
+    }
+});

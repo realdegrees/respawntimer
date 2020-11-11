@@ -1,5 +1,5 @@
 export enum TriggerMatch {
-    CONTAINS,
-    STARTS_WITH,
-    EQUALS
+    CONTAINS = 'contains',
+    STARTS_WITH = 'startsWith',
+    EQUALS = 'equals'
 }
