@@ -20,17 +20,6 @@ export const play = async (
         volume: .35
     }
 ): Promise<void> => {
-    const member = bot.guildHelper.member(channel.guild);
-    const playId = [Date.now(), Math.round(Math.random() * 100)].join();
-    queue.push(playId);
-    while (queue[0] !== playId) {
-        const connection = member?.voice.connection;
-        connection ?
-            await new Promise((resolve) => connection.on('disconnect', resolve)) :
-            await new Promise((resolve) => setTimeout(resolve, 200));
-    }
-
-
     const stream = await download(audio);
 
     const resetName = await bot.guildHelper.changeName(
@@ -48,17 +37,13 @@ export const play = async (
                     });
                 })
                 .on('finish', () => {
-                    removeFromQueue(playId);
                     connection.disconnect();
                 })
                 .on('error', reject)
         )).catch((e) => {
             throw e;
         }).finally(async () => {
-            removeFromQueue(playId);
-            if (queue.length < 1) {
-                await resetName();
-            }
+            await resetName();
         });
 };
 
