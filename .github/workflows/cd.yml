@@ -22,6 +22,7 @@ jobs:
           name: dist
           path: backend/dist
   dockerize:
+    needs: build
     env:
       FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
       DISCORD_CLIENT_TOKEN: ${{ secrets.DISCORD_CLIENT_TOKEN }}
