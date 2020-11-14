@@ -9,4 +9,4 @@ COPY . .
 RUN rm -rf src
 # Start
 ENV NODE_ENV prod
-ENTRYPOINT [ "node", "./dist/index.js" ]
+ENTRYPOINT [ "node", "./dist/src/index.js" ]
