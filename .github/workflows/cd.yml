@@ -23,10 +23,6 @@ jobs:
           path: backend/dist
   dockerize:
     needs: build
-    env:
-      FIREBASE_CONFIG: ${{ secrets.FIREBASE_CONFIG }}
-      DISCORD_CLIENT_TOKEN: ${{ secrets.DISCORD_CLIENT_TOKEN }}
-      TEST_GUILD_ID: ${{ secrets.TEST_GUILD_ID }}
     runs-on: self-hosted
     steps:
       - name: Checkout repository
