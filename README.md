@@ -11,10 +11,10 @@ Setting up the environment variables is essential for the project to run.
 You can create a file named `.env` in the [backend](backend) folder to provide the required environment variables.
 
 In production the environment variables should not be passed with the `.env` file.  
-It is preferred to use a secure solution like a docker container.
+It is preferred to use a secure(er) solution like a docker container.
 
 ### Discord bot token *(required)*
-1. Get the client token from your discord bot
+1. Get the client token from your discord bot (Preferably a seperate bot for developing purposes)
 2. Copy the client token and save it in an environment variable named `DISCORD_CLIENT_TOKEN`
 
 Example

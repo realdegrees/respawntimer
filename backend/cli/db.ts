@@ -6,6 +6,8 @@ import { exit } from 'process';
 import yargs from 'yargs';
 import Firebase from '../lib/firebase';
 import { GuildSettings } from '../src/common/types';
+import { config } from 'dotenv';
+config();
 
 const getClient = (): Promise<Client> => {
     return new Promise((resolve, reject) => {
