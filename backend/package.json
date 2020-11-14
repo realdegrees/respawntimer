@@ -18,7 +18,8 @@
     "db:wipetest": "node ./dist/cli/db.js -t",
     "db:wipederelict": "node ./dist/cli/db.js -d",
     "db:wipeguild": "node ./dist/cli/db.js -g",
-    "db:forcewipe": "node ./dist/cli/db.js -f"
+    "db:forcewipe": "node ./dist/cli/db.js -f",
+    "dockerize": "docker build . -t cu-bot -f ../docker/Dockerfile"
   },
   "keywords": [],
   "author": "",
