@@ -11,7 +11,7 @@ export const audioPlayReaction = Reaction.create<
     GuildMessage,
     AudioInfo>({
         name: 'play',
-        shortDescription: 'Plays the speicifed audio in the users channel'
+        shortDescription: 'Plays the specified audio in the users channel'
     }, {
         message: async (context, audio) => {
             if (!context.message.member.voice.channel) {
