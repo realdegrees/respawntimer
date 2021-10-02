@@ -48,4 +48,4 @@ jobs:
           context: backend
           file: docker/Dockerfile
           push: true
-          tags: docker.realdegrees.dev/cu-bot:latest
+          tags: docker.realdegrees.dev/ic-bot:latest

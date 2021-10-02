@@ -5,8 +5,9 @@ import { install } from 'source-map-support';
 import logger from '../lib/logger';
 import { ping } from './triggers/ping.trigger';
 import { configureTrigger } from './triggers/configure.trigger';
-import { audioTrigger } from './triggers/audio.trigger';
 import { helpTrigger } from './triggers/help.trigger';
+import { depositTrigger } from './triggers/deposit.trigger';
+import { withdrawTrigger } from './triggers/withdraw.trigger';
 install();
 config();
 
@@ -18,8 +19,9 @@ Promise.resolve()
         bot.use([
             ping,
             configureTrigger,
-            audioTrigger,
-            helpTrigger
+            helpTrigger,
+            depositTrigger,
+            withdrawTrigger
         ]);
     })
     .then(() => logger.info('Bot started successfully'))
