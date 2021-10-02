@@ -46,7 +46,7 @@ export class Trigger {
     }
 
     public async message(message: Message): Promise<unknown> {
-        const subTrigger = message.content.split(' ')[0].trim() || 'default';
+        const args = message.content.split(' ');
         const [filteredDefaultReactions, filteredSubReactions] = [
             this.filterReactions(this.reactions.default, {
                 guild: !!message.guild
@@ -55,11 +55,13 @@ export class Trigger {
                 guild: !!message.guild
             })
         ];
-        if (subTrigger === 'default') {
+        if (!args[0] || !Number.isNaN(parseInt(args[0]))) {
             return this.runDefaultReactions(
                 message,
-                filteredDefaultReactions);
-        } else if (subTrigger === 'help') {
+                args,
+                filteredDefaultReactions
+            );
+        } else if (args[0] === 'help') {
             return this.runHelp(
                 message,
                 filteredDefaultReactions,
@@ -68,7 +70,7 @@ export class Trigger {
         } else {
             return this.runSubReactions(
                 message,
-                subTrigger,
+                args,
                 filteredSubReactions
             );
         }
@@ -108,15 +110,16 @@ export class Trigger {
 
     private async runDefaultReactions(
         message: Message,
+        args: string[],
         filteredDefaultReactions?: Required<ReactionMapItem>): Promise<unknown> {
         if (filteredDefaultReactions) {
             return Promise.all([
                 ...filteredDefaultReactions.direct.map(
-                    (r) => r.consumeMessage(message as DirectMessage)),
+                    (r) => r.consumeMessage(message as DirectMessage, args)),
                 ...filteredDefaultReactions.guild.map(
-                    (r) => r.consumeMessage(message as GuildMessage)),
+                    (r) => r.consumeMessage(message as GuildMessage, args)),
                 ...filteredDefaultReactions.all.map(
-                    (r) => r.consumeMessage(message as Message))
+                    (r) => r.consumeMessage(message as Message, args))
             ]);
         } else if (message.guild) {
             const guild = message.guild;
@@ -182,9 +185,10 @@ export class Trigger {
     }
     private async runSubReactions(
         message: Message,
-        subTrigger: string,
+        args: string[],
         filteredSubReactions?: Required<ReactionMapItem>): Promise<unknown> {
-        this.removeFromMessage(message, subTrigger);
+        // this.removeFromMessage(message, subTrigger);
+        const subTrigger = args[0];
 
         if (!filteredSubReactions) {
             if (subTrigger !== 'default') {
@@ -199,13 +203,13 @@ export class Trigger {
         return Promise.all([
             ...filteredSubReactions.direct
                 .filter((r) => r.options.name === subTrigger)
-                .map((r) => r.consumeMessage(message as DirectMessage)),
+                .map((r) => r.consumeMessage(message as DirectMessage, args)),
             ...filteredSubReactions.guild
                 .filter((r) => r.options.name === subTrigger)
-                .map((r) => r.consumeMessage(message as GuildMessage)),
+                .map((r) => r.consumeMessage(message as GuildMessage, args)),
             ...filteredSubReactions.all
                 .filter((r) => r.options.name === subTrigger)
-                .map((r) => r.consumeMessage(message as Message))
+                .map((r) => r.consumeMessage(message as Message, args))
         ]);
     }
 
@@ -242,7 +246,7 @@ export class Trigger {
         if (!this.options?.commandOptions) {
             return message;
         }
-        const content = message.content;
+        const content = message.content.split(' ')[0].trim();
         const prefix = !this.options.commandOptions.ignorePrefix ?
             await fetchPrefix(message.guild, this.db) : '';
         const match = this.options.commandOptions.match;

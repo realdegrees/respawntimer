@@ -14,7 +14,7 @@ In production the environment variables should not be passed with the `.env` fil
 It is preferred to use a secure(er) solution like a docker container.
 
 ### Discord bot token *(required)*
-1. Get the client token from your discord bot (Preferably a seperate bot for developing purposes)
+1. Get the client token from your discord bot (Note: Not ClientID from the App, it must be from a "Bot")
 2. Copy the client token and save it in an environment variable named `DISCORD_CLIENT_TOKEN`
 
 Example

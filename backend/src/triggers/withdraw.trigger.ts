@@ -1,9 +1,9 @@
 import { Trigger, TriggerMatch } from '../common/types';
-import { depositReaction } from '../reactions/deposit/deposit.reaction';
+import { withdrawReaction } from '../reactions/withdraw/withdraw.reaction';
 
 export const withdrawTrigger = new Trigger({
     default: {
-        all: [depositReaction]
+        all: [withdrawReaction]
     }
 }, {
     commandOptions: {

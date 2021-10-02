@@ -75,7 +75,7 @@ export class Reaction<
     }
 
 
-    public async consumeMessage(message: MessageType): Promise<unknown> {
+    public async consumeMessage(message: MessageType, args: string[]): Promise<unknown> {
         // TODO: Possibly add context from preReactionHook 
         // TODO: and pass context from the reaction to the postReactionHook
         // TODO: Define what context might be useful for logs or whatever
@@ -86,11 +86,12 @@ export class Reaction<
             subTrigger: this.options.name
         });
         return this.on.message instanceof Reaction ?
-            this.on.message.consumeMessage(message) :
+            this.on.message.consumeMessage(message, args) :
             Promise.resolve()
                 .then(() => this.hooks?.pre?.(
                     Object.assign({
                         message,
+                        args,
                         sampleCommand,
                         trigger: this.trigger
                     }, this.options))
@@ -101,6 +102,7 @@ export class Reaction<
                     >)(
                         Object.assign({
                             message,
+                            args,
                             sampleCommand,
                             trigger: this.trigger
                         }, this.options),
@@ -110,6 +112,7 @@ export class Reaction<
                 .then(() => this.hooks?.post?.(
                     Object.assign({
                         message,
+                        args,
                         sampleCommand,
                         trigger: this.trigger
                     }, this.options)
@@ -139,6 +142,7 @@ interface Hooks<T extends GuildMessage | DirectMessage, PreHookType, PostHookTyp
 type PostHookCallback<T extends GuildMessage | DirectMessage, HookType> = (
     context: ReactionOptions & {
         message: T;
+        args: string[];
         trigger: Trigger;
         sampleCommand: string;
     }
@@ -146,6 +150,7 @@ type PostHookCallback<T extends GuildMessage | DirectMessage, HookType> = (
 type PreHookCallback<T extends GuildMessage | DirectMessage, HookType> = (
     context: ReactionOptions & {
         message: T;
+        args: string[];
         trigger: Trigger;
         sampleCommand: string;
     }
@@ -154,6 +159,7 @@ type PreHookCallback<T extends GuildMessage | DirectMessage, HookType> = (
 type MessageCallback<T extends GuildMessage | DirectMessage, HookType = undefined> = (
     context: ReactionOptions & {
         message: T;
+        args: string[];
         trigger: Trigger;
         sampleCommand: string;
     },
