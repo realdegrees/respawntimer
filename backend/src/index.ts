@@ -1,30 +1,22 @@
 import Bot from './bot';
-import Firebase from '../lib/firebase';
 import { config } from 'dotenv';
 import { install } from 'source-map-support';
 import logger from '../lib/logger';
-import { ping } from './triggers/ping.trigger';
-import { configureTrigger } from './triggers/configure.trigger';
-import { helpTrigger } from './triggers/help.trigger';
-import { depositTrigger } from './triggers/deposit.trigger';
-import { withdrawTrigger } from './triggers/withdraw.trigger';
+import { Permissions } from 'discord.js';
 install();
 config();
 
 
 Promise.resolve()
-    .then(() => Firebase.init())
-    .then((db) => Bot.init(db))
-    .then((bot) => {
-        bot.use([
-            ping,
-            configureTrigger,
-            helpTrigger,
-            depositTrigger,
-            withdrawTrigger
-        ]);
-    })
-    .then(() => logger.info('Bot started successfully'))
+    //.then(() => Firebase.init())
+    .then(() => Bot.init())
+    .then((bot) => logger.info('Bot started successfully | ' + bot.user?.client.generateInvite({
+        scopes: ['bot', 'applications.commands'],
+        permissions: [
+            Permissions.FLAGS.SEND_MESSAGES,
+            Permissions.FLAGS.SPEAK,
+            Permissions.FLAGS.VIEW_CHANNEL]
+    })))
     .catch((error) => {
         logger.error('The bot is unable to start!');
         logger.error(error);

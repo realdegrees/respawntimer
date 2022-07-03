@@ -1,5 +1,4 @@
 /* eslint-disable no-console */
-import chalk from 'chalk';
 import { production, debug, logging } from '../src/common/util';
 import { install } from 'source-map-support';
 
@@ -96,7 +95,6 @@ const log = (level: Level,
     preLogHook();
 
     const timestamp = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '');
-    const coloredMessage = chalk.hex(level)(message);
     const stack = getStackTrace(fromStack);
     stack.length = Math.min(stack.length, stackTraceDepth); // Applies the stackTraceDepth limit
 
@@ -106,7 +104,7 @@ const log = (level: Level,
         emptyStackTraces++;
     }
 
-    logFunc(level)(`[${timestamp}] ${coloredMessage} ${stackSequence}`);
+    logFunc(level)(`[${timestamp}] ${message} ${stackSequence}`);
     logParams(timestamp.length, level, params);
 
     afterLogHook();

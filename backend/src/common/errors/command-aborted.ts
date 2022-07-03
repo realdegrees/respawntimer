@@ -1,1 +1,0 @@
-export class CommandAborted extends Error {}
