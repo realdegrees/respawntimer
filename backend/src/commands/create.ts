@@ -1,86 +1,90 @@
 /* eslint-disable max-len */
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { getVoiceConnection, joinVoiceChannel } from '@discordjs/voice';
-import { APIRole, RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
-import { ButtonInteraction, CacheType, Client, CommandInteraction, Guild, GuildTextBasedChannel, Message, MessageActionRow, MessageButton, MessageEmbed, Role, TextBasedChannel, TextChannel, VoiceBasedChannel, VoiceChannel } from 'discord.js';
+import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
+import { CacheType, Client, CommandInteraction, Interaction, Message, MessageActionRow, MessageButton, MessageEmbed, VoiceBasedChannel } from 'discord.js';
 import logger from '../../lib/logger';
 import audioplayer from '../audioplayer';
 import { Command } from '../common/command';
 import intervalText from '../common/intervalText';
 
-
 const buttonIds = {
     toggle: 'toggle',
     voice: 'voice'
 };
-let messages: {
-    id: string;
-    message: Message;
-    role: Role | APIRole | null;
-    channel: GuildTextBasedChannel;
-    guild: Guild | null;
-    voice: boolean;
-}[] = [];
 
 export class CommandCreate extends Command {
     public constructor(protected client: Client) {
         super('create', 'Creates a wartimer widget in the current channel', client);
 
-        client.on('interactionCreate', async interaction => {
-            if (!interaction.isButton() || !interaction.channel) return;
-            const [buttonId, messageId] = interaction.customId.split('-');
-            const role = messages.find((m) => m.id === messageId)?.role;
+        client.on('interactionCreate', interaction => {
+            this.onInteraction(interaction);
+        });
+    }
+    private async onInteraction(interaction: Interaction): Promise<void> {
+        if (!interaction.isButton() || !interaction.channel) {
+            return;
+        }
+        if (!interaction.guild) {
+            if (interaction.isRepliable()) {
+                interaction.reply({ ephemeral: true, content: 'Unable to complete request' });
+            }
+            return;
+        }
+        const [buttonId, messageId] = interaction.customId.split('-');
+        const guild = interaction.guild;
 
-            if (role && (await interaction.guild?.members.fetch(interaction.user))?.roles.cache.every((r) => r.name !== role.name)) {
+        try {
+            const roleName = interaction.message.embeds[0].footer?.text.split('@')[1];
+            if (roleName && !(await interaction.guild.members.fetch(interaction.user)).roles.cache.some((r) => r.name === roleName)) {
                 interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions Qseng.' });
                 logger.info('Insufficient Permissions');
                 return;
             }
+        } catch {
+            // Do nothing
+        }
 
-            interaction.channel.messages.fetch(messageId)
-                .then(async (message) => {
-                    switch (buttonId) {
-                        case buttonIds.toggle: {
-                            if (interaction.component.style === 'SUCCESS') {
-                                this.startMessageUpdate(message);
-                            } else if (interaction.component.style === 'DANGER') {
-                                this.stopMessageUpdate(message);
-                                this.stopVoice(message, true);
-                            }
-                            break;
+        interaction.channel.messages.fetch(messageId)
+            .then(async (message) => {
+                switch (buttonId) {
+                    case buttonIds.toggle: {
+                        if (interaction.component.style === 'SUCCESS') {
+                            this.startMessageUpdate(guild.id, message);
+                        } else if (interaction.component.style === 'DANGER') {
+                            this.stopMessageUpdate(message);
+                            this.stopVoice(guild.id, message, true);
                         }
-                        case buttonIds.voice: {
-                            const channel = (await interaction.guild?.members.fetch(interaction.user))?.voice.channel;
-                            if (!channel) {
-                                interaction.reply({ ephemeral: true, content: 'You are not in a voice channel!' });
-                                return;
-                            }
-                            if (interaction.component.style === 'SUCCESS') {
-                                this.startMessageUpdate(message, true);
-                                this.startVoice(channel, message);
-                            } else if (interaction.component.style === 'DANGER') {
-                                this.stopVoice(message);
-                            }
-                            break;
-                        }
+                        break;
                     }
-                    interaction.deferUpdate();
-                })
-                .catch(() => {
-                    interaction.reply({ ephemeral: true, content: 'Unable to fetch the message' });
-                });
-        });
+                    case buttonIds.voice: {
+                        const channel = (await interaction.guild?.members.fetch(interaction.user))?.voice.channel;
+                        if (!channel) {
+                            interaction.reply({ ephemeral: true, content: 'You are not in a voice channel!' });
+                            return;
+                        }
+                        if (interaction.component.style === 'SUCCESS') {
+                            this.startMessageUpdate(guild.id, message, true);
+                            this.startVoice(channel, message);
+                        } else if (interaction.component.style === 'DANGER') {
+                            this.stopVoice(guild.id, message);
+                        }
+                        break;
+                    }
+                }
+                interaction.deferUpdate();
+            })
+            .catch(() => {
+                interaction.reply({ ephemeral: true, content: 'Unable to fetch the message' });
+            });
     }
-    private stopVoice(message: Message, skipButtonUpdate = false): void {
+    private stopVoice(guildId: string, message: Message, skipButtonUpdate = false): void {
         if (!skipButtonUpdate) {
             message.edit({
                 components: [this.getButtons(false, true, message.id)]
             });
         }
-        const messageData = messages.find((m) => m.id === message.id && m.voice);
-        if (messageData?.guild?.id) {
-            getVoiceConnection(messageData.guild.id)?.destroy();
-        }
+        getVoiceConnection(guildId)?.destroy();
     }
     private startVoice(channel: VoiceBasedChannel, message: Message): void {
         const connection = joinVoiceChannel({
@@ -93,45 +97,43 @@ export class CommandCreate extends Command {
         message.edit({
             components: [this.getButtons(false, false, message.id)]
         });
-        const messageData = messages.find((m) => m.id === message.id);
-        if (messageData) {
-            messageData.voice = true;
-        }
     }
-    private startMessageUpdate(message: Message, skipButtonUpdate = false): void {
+    private startMessageUpdate(guildId: string, message: Message, skipButtonUpdate = false): void {
         // Toggle the button text
         if (!skipButtonUpdate) {
             message.edit({
-                embeds: [new MessageEmbed({
-                    title: 'Starting...',
-                })],
-                components: [this.getButtons(false, true, message.id)]
+                embeds: [message.embeds[0].setTitle('Starting...')],
+                components: [this.getButtons(false, !getVoiceConnection(guildId), message.id)]
+            }).catch(() => {
+                logger.log('Unsubscribing, message does not exist');
+                intervalText.unsubscribe(message.id);
             });
         }
         // Subscribe the message to updates
-        intervalText.subscribe(message.id, (title, description) => {
+        intervalText.subscribe(message.id, guildId, (title, description) => {
             message.edit({
                 embeds: [message.embeds[0]
                     .setTitle(title)
                     .setDescription(description)],
             }).catch(() => {
+                logger.log('Unsubscribing, message does not exist');
                 intervalText.unsubscribe(message.id);
-                this.stopVoice(message, true);
-                messages = messages.filter((m) => m.id === message.id);
-                logger.error('Tried to update deleted channel, removing this channel.');
+            });
+        }, () => {
+            // Unsubscribed by the interval handler
+            message.edit({
+                embeds: [message.embeds[0]
+                    .setTitle('Respawn Timer')
+                    .setDescription('')],
+                components: [this.getButtons(true, true, message.id)]
+            }).catch(() => {
+                logger.log('Unable to edit message, already unsubscribed');
             });
         });
     }
     private stopMessageUpdate(message: Message): void {
         // Unsubscribe from updates
         intervalText.unsubscribe(message.id);
-        // Change message to default
-        message.edit({
-            embeds: [message.embeds[0]
-                .setTitle('Respawn Timer')
-                .setDescription('')],
-            components: [this.getButtons(true, true, message.id)]
-        });
     }
     private getButtons(toggleState: boolean, voiceState: boolean, messageId: string): MessageActionRow {
         return new MessageActionRow()
@@ -174,25 +176,25 @@ export class CommandCreate extends Command {
             return;
         }
 
-        const messageData = messages.find((m) => m.guild?.id === guild.id);
-        try {
-            const msg = await messageData?.message.fetch(true);
-            if (msg) {
-                interaction.reply({
-                    content:
-                        'You can only have one widget per server!\nPlease delete the existing widget first:\n' + msg.url,
-                    ephemeral: true
-                });
-                return;
-            }
-        } catch {
-            if (messageData) {
-                intervalText.unsubscribe(messageData.id);
-                messages = messages.filter((m) => m.id === messageData.id);
-            }
-        }
+        // const messageData = messages.find((m) => m.guild?.id === guild.id);
+        // try {
+        //     const msg = await messageData?.message.fetch(true);
+        //     if (msg) {
+        //         interaction.reply({
+        //             content:
+        //                 'You can only have one widget per server!\nPlease delete the existing widget first:\n' + msg.url,
+        //             ephemeral: true
+        //         });
+        //         return;
+        //     }
+        // } catch {
+        //     if (messageData) {
+        //         intervalText.unsubscribe(messageData.id);
+        //         messages = messages.filter((m) => m.id === messageData.id);
+        //     }
+        // }
 
-        
+
         channel.send({
             embeds: [new MessageEmbed({
                 title: 'Respawn Timer',
@@ -215,15 +217,7 @@ export class CommandCreate extends Command {
                     footer: { text: 'ID: ' + message.id + (role ? '\nManager Role: @' + role.name : '') }
                 })]
             })
-        ).then((message) => {
-            messages.push({
-                id: message.id,
-                channel: message.channel as TextChannel,
-                guild: guild,
-                role,
-                message,
-                voice: false
-            });
+        ).then(() => {
             return interaction.reply({ content: 'Success', ephemeral: true });
         });
     }

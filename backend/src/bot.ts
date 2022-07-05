@@ -3,6 +3,7 @@ import { Routes } from 'discord-api-types/v9';
 import { Client, Intents, User } from 'discord.js';
 import logger from '../lib/logger';
 import { CommandCreate } from './commands/create';
+import { CommandSet } from './commands/set';
 import { Command } from './common/command';
 
 
@@ -31,7 +32,10 @@ class Bot {
             const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES] });
             const token = process.env['DISCORD_CLIENT_TOKEN'];
             const clientId = process.env['DISCORD_CLIENT_ID'];
-            const commands = [new CommandCreate(client)];
+            const commands = [
+                new CommandCreate(client),
+                new CommandSet(client)
+            ];
 
             if (!token) {
                 throw new Error('Environment variable "DISCORD_CLIENT_TOKEN" not found!');
@@ -53,8 +57,7 @@ class Bot {
                     Routes.applicationCommands(clientId),
                     { body: commands.map((command) => command.build()) }
                 ).then(() => {
-                    logger.info('Commands registered');
-
+                    logger.info(commands.length + ' Commands registered');
                 });
             });
 

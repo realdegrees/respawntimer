@@ -19,7 +19,7 @@ export const getRespawnInfo = (): {
     timeTotal: number;
     timeTotalNext: number;
     remainingRespawns: number;
-    timeLeftTotalMinutes: number;
+    timeLeftTotalSeconds: number;
 } => {
     const start = new Date();
     start.setMinutes(start.getMinutes() >= 30 ? 30 : 0);
@@ -28,7 +28,7 @@ export const getRespawnInfo = (): {
     const now = new Date();
 
     const timePassedSeconds = Math.round((now.getTime() - start.getTime()) / 1000);
-    let timestampIndex = 0;
+    let timestampIndex = -1;
     for (let index = 0; index < timestamps.length; index++) {
         if (timePassedSeconds > timestamps[index]) {
             timestampIndex = index;
@@ -42,14 +42,14 @@ export const getRespawnInfo = (): {
     const timeTotalNext = timestamps[timestampIndex + 2] ?
         timestamps[timestampIndex + 2] - timestamps[timestampIndex + 1] : -1;
     const remainingRespawns = timestamps.length - 1 - timestampIndex;
-    const timeLeftTotalMinutes = 30 - (now.getMinutes() - start.getMinutes());
+    const timeLeftTotalSeconds = 30 * 60 - timePassedSeconds;
 
     return {
         timeLeft: clamp(respawnTimestamp - timePassedSeconds, 0, Infinity),
         timeTotal,
         timeTotalNext,
         remainingRespawns,
-        timeLeftTotalMinutes
+        timeLeftTotalSeconds
     };
 };
 export const clamp = (val: number, min: number, max: number): number => {

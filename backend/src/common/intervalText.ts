@@ -1,6 +1,7 @@
 import logger from '../../lib/logger';
 import audioplayer from '../audioplayer';
-import { getRespawnInfo } from './util';
+import applicationSettings from './applicationSettings';
+import { clamp, getRespawnInfo } from './util';
 
 const settings = {
     barWidth: 25,
@@ -9,7 +10,9 @@ const settings = {
 };
 let subscribers: {
     id: string;
+    guildId: string;
     cb: (title: string, description: string) => void;
+    onUnsubscribe: () => void;
 }[] = [];
 
 class IntervalText {
@@ -18,29 +21,35 @@ class IntervalText {
     }
     private interval(): void {
         const data = getRespawnInfo();
+        const timeLeftMinutes = Math.floor(data.timeLeftTotalSeconds / 60);
+        const timeLeftSeconds = data.timeLeftTotalSeconds - timeLeftMinutes * 60;
         const description = '**' +
             this.getBar(data.timeTotal, data.timeLeft) + '**\n\n' +
             'This Respawn Duration: **' + (data.timeTotal >= 0 ? data.timeTotal : '-') + '**\n' +
             'Next Respawn Duration: **' + (data.timeTotalNext >= 0 ? data.timeTotalNext : '-') + '**\n' +
-            'Minutes Left in War: **' + data.timeLeftTotalMinutes + '**';
+            'Respawns Left: **' + data.remainingRespawns + '**\n' +
+            'Time Left in War: **' + (timeLeftMinutes > 9 ? timeLeftMinutes : '0' + timeLeftMinutes) + ':' +
+            (timeLeftSeconds > 9 ? timeLeftSeconds : '0' + timeLeftSeconds) + '**';
         const title = this.getTitle(data.remainingRespawns, data.timeLeft);
 
         // Audioplayer only plays at the second marks provided by available sound files
         // Skip any announcements higher than 35% of the total time 
-        if(data.timeLeft / data.timeTotal < 0.65 && data.remainingRespawns > 0){
+        if (data.timeLeft / data.timeTotal < 0.65 && data.remainingRespawns > 0) {
             audioplayer.play(data.timeLeft);
         }
         subscribers.forEach((subscriber) => {
             // Update subscribers but skip update every other second if timeLeft is alrger than 5
-            if (data.timeLeft > 5 && data.timeLeft % 2 === 0) return;
+            if (data.timeLeft > 5 && data.timeLeft % applicationSettings.get(subscriber.guildId).delay !== 0) {
+                return;
+            }
             subscriber.cb(title, description);
         });
     }
     private getBar(timeTotal: number, timeLeft: number): string {
         const progress = Math.round(settings.barWidth * ((timeTotal - timeLeft) / timeTotal));
         return '**[' +
-            settings.barIconFull.repeat(progress) +
-            settings.barIconEmpty.repeat(settings.barWidth - progress) +
+            settings.barIconFull.repeat(clamp(progress, 0, settings.barWidth)) +
+            settings.barIconEmpty.repeat(clamp(settings.barWidth - progress, 0, settings.barWidth)) +
             ']**';
     }
     private getTitle(remainingRespawns: number, timeLeft: number): string {
@@ -49,19 +58,32 @@ class IntervalText {
         const info = remainingRespawns === 1 ? '(LAST RESPAWN)' : '';
         return 'ᐳ '.concat(respawn, spaces, info);
     }
-    public subscribe(id: string, cb: (title: string, description: string) => void): (() => void) | undefined {
+    public subscribe(
+        id: string,
+        guildId: string,
+        cb: (title: string, description: string) => void,
+        onUnsubscribe: () => void
+    ): (() => void) | undefined {
         if (subscribers.find((s) => s.id === id)) {
             return;
         }
+        const existingGuildSubscriber = subscribers.find((s) => s.guildId === guildId);
+        if (existingGuildSubscriber) {
+            this.unsubscribe(existingGuildSubscriber.id);
+        }
+
         subscribers.push({
             id,
-            cb
+            cb,
+            guildId,
+            onUnsubscribe
         });
         return () => {
             this.unsubscribe(id);
         };
     }
     public unsubscribe(id: string): void {
+        subscribers.find((subscriber) => subscriber.id === id)?.onUnsubscribe();
         subscribers = subscribers.filter((subscriber) => subscriber.id !== id);
     }
 }
