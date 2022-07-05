@@ -1,5 +1,4 @@
 import { EmojiResolvable } from 'discord.js';
-import logger from '../../lib/logger';
 import { timers as timestamps } from './timer';
 
 const includesArg = (arg: string): boolean => {
@@ -16,18 +15,19 @@ export const logging = ((): boolean => {
     return includesArg('logging');
 })();
 export const getRespawnInfo = (): {
-    timeToRespawn: number;
-    currRespawnTimer: number;
-    nextRespawnTimer: number;
+    timeLeft: number;
+    timeTotal: number;
+    timeTotalNext: number;
     remainingRespawns: number;
+    timeLeftTotalMinutes: number;
 } => {
     const start = new Date();
     start.setMinutes(start.getMinutes() >= 30 ? 30 : 0);
     start.setSeconds(0);
     start.setMilliseconds(0);
-    const current = new Date();
+    const now = new Date();
 
-    const timePassedSeconds = Math.round((current.getTime() - start.getTime()) / 1000);
+    const timePassedSeconds = Math.round((now.getTime() - start.getTime()) / 1000);
     let timestampIndex = 0;
     for (let index = 0; index < timestamps.length; index++) {
         if (timePassedSeconds > timestamps[index]) {
@@ -37,17 +37,19 @@ export const getRespawnInfo = (): {
 
     const respawnTimestamp = timestamps[timestampIndex + 1] ?
         timestamps[timestampIndex + 1] : -1;
-    const currRespawnTimer = timestamps[timestampIndex + 1] ?
+    const timeTotal = timestamps[timestampIndex + 1] ?
         timestamps[timestampIndex + 1] - timestamps[timestampIndex] : -1;
-    const nextRespawnTimer = timestamps[timestampIndex + 2] ?
+    const timeTotalNext = timestamps[timestampIndex + 2] ?
         timestamps[timestampIndex + 2] - timestamps[timestampIndex + 1] : -1;
     const remainingRespawns = timestamps.length - 1 - timestampIndex;
+    const timeLeftTotalMinutes = 30 - (now.getMinutes() - start.getMinutes());
 
     return {
-        timeToRespawn: respawnTimestamp - timePassedSeconds,
-        currRespawnTimer,
-        nextRespawnTimer,
-        remainingRespawns
+        timeLeft: clamp(respawnTimestamp - timePassedSeconds, 0, Infinity),
+        timeTotal,
+        timeTotalNext,
+        remainingRespawns,
+        timeLeftTotalMinutes
     };
 };
 export const clamp = (val: number, min: number, max: number): number => {

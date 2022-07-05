@@ -2,7 +2,8 @@ import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v9';
 import { Client, Intents, User } from 'discord.js';
 import logger from '../lib/logger';
-import { commands } from './commands';
+import { CommandCreate } from './commands/create';
+import { Command } from './common/command';
 
 
 /**
@@ -12,9 +13,10 @@ import { commands } from './commands';
  */
 class Bot {
     public readonly user: User | null;
+
     private constructor(
         private client: Client,
-        private token: string
+        commands: Command[]
     ) {
         this.user = this.client.user;
 
@@ -29,6 +31,7 @@ class Bot {
             const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES] });
             const token = process.env['DISCORD_CLIENT_TOKEN'];
             const clientId = process.env['DISCORD_CLIENT_ID'];
+            const commands = [new CommandCreate(client)];
 
             if (!token) {
                 throw new Error('Environment variable "DISCORD_CLIENT_TOKEN" not found!');
@@ -56,9 +59,11 @@ class Bot {
             });
 
             client.login(token)
-                .then(() => new Bot(client, token))
+                .then(() => new Bot(client, commands))
                 .then(resolve)
                 .catch(reject);
+
+
         });
     }
 }

@@ -3,6 +3,7 @@ import { AudioPlayerStatus,
     createAudioResource, VoiceConnection } from '@discordjs/voice';
 import fs from 'fs';
 import path from 'path';
+import logger from '../lib/logger';
 
 let isPlaying = false;
 
@@ -14,9 +15,11 @@ class AudioPlayer {
     public constructor(private player = createAudioPlayer()) {
         this.sounds = [...loadFiles()];
         this.player.on(AudioPlayerStatus.Playing, () => {
+            logger.log('Playing audio');
             isPlaying = true;
         });
         this.player.on(AudioPlayerStatus.Idle, () => {
+            logger.log('Audio Idle');
             isPlaying = false;
             this.sounds = [...loadFiles()];
 
@@ -38,7 +41,7 @@ const loadFiles = (): {
 }[] => {
     const sounds = [];
     const directoryPath = path.resolve(process.cwd(), 'dist/audio');
-
+    logger.log('loading files');
     for (let i = 0; i < 60; i++) {
         const filePath = directoryPath + '/' + i + '.mp3';
         try {
