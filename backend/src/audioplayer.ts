@@ -9,7 +9,7 @@ const volume = 0.7;
 
 class AudioPlayer {
     private sounds: {
-        timestamp: number;
+        id: string;
         audio: AudioResource;
         path: string;
     }[] = [];
@@ -30,8 +30,16 @@ class AudioPlayer {
             // this.sounds = [...loadFiles()];
         });
     }
-    public play(timestamp: number): void {
-        const sound = this.sounds.find((sound) => sound.timestamp === timestamp);
+    public playCountdown(timestamp: number): void {
+        const sound = this.sounds.find((sound) => sound.id === timestamp.toString());
+        const audio = sound?.audio;
+        if (audio && !isPlaying) {
+            this.player.play(audio);
+            // sound.audio = createAudioResource(sound.path);
+        }
+    }
+    public playRespawnCount(count: number): void {
+        const sound = this.sounds.find((sound) => sound.id === 'respawn-' + count);
         const audio = sound?.audio;
         if (audio && !isPlaying) {
             this.player.play(audio);
@@ -43,24 +51,36 @@ class AudioPlayer {
     }
 }
 const loadFiles = (): {
-    timestamp: number;
+    id: string;
     audio: AudioResource;
     path: string;
 }[] => {
     const sounds = [];
     const directoryPath = path.resolve(process.cwd(), 'dist/audio');
-    for (let i = 0; i < 60; i++) {
-        const filePath = directoryPath + '/' + i + '.mp3';
+    for (let i = -1; i < 60; i++) {
+        const filePathCountdown = directoryPath + '/' + i + '.mp3';
+        const filePathRespawnCount = directoryPath + '/respawn-' + i + '.mp3';
         try {
-            if (fs.lstatSync(filePath).isFile()) {
-                const audio = createAudioResource(filePath, {
+            if (fs.lstatSync(filePathCountdown).isFile()) {
+                const audio = createAudioResource(filePathCountdown, {
                     inlineVolume: true
                 });
                 audio.volume?.setVolume(volume);
                 sounds.push({
-                    timestamp: i,
+                    id: i.toString(),
                     audio: audio,
-                    path: filePath
+                    path: filePathCountdown
+                });
+            }
+            if (fs.lstatSync(filePathRespawnCount).isFile()) {
+                const audio = createAudioResource(filePathRespawnCount, {
+                    inlineVolume: true
+                });
+                audio.volume?.setVolume(volume);
+                sounds.push({
+                    id: 'respawn-' + i,
+                    audio: audio,
+                    path: filePathRespawnCount
                 });
             }
         } catch (e) {
