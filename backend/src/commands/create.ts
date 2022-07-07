@@ -11,7 +11,7 @@ const buttonIds = {
     voice: 'voice'
 };
 
-const widgets: Widget[] = [];
+let widgets: Widget[] = [];
 
 export class CommandCreate extends Command {
     public constructor(protected client: Client) {
@@ -30,11 +30,10 @@ export class CommandCreate extends Command {
             await interaction.reply({ ephemeral: true, content: 'Unable to complete request' });
             return;
         }
-        const [buttonId, messageId] = interaction.customId.split('-');
+        const [buttonId] = interaction.customId.split('-');
         const guild = interaction.guild;
 
-
-        await interaction.channel.messages.fetch(messageId)
+        await interaction.channel.messages.fetch(interaction.message.id)
             .then((message) => new Promise<Widget>((res) => {
                 // Check if widget entry exists for this widget, create if not
                 const widget = widgets.find((widget) => widget.getId() === interaction.message.id);
@@ -42,7 +41,7 @@ export class CommandCreate extends Command {
                     new Widget(message, guild, undefined, (widget) => {
                         widgets.push(widget);
                         res(widget);
-                    });
+                    }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
                 }else {
                     res(widget);
                 }
@@ -101,7 +100,7 @@ export class CommandCreate extends Command {
                     ephemeral: true,
                     content: 'Widget created.'
                 });
-            });
+            }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
         });
     }
 }

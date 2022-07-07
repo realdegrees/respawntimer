@@ -3,6 +3,7 @@ import { AudioPlayerStatus,
     createAudioResource, VoiceConnection } from '@discordjs/voice';
 import fs from 'fs';
 import path from 'path';
+import applicationSettings from './common/applicationSettings';
 
 const volume = 0.7;
 
@@ -25,17 +26,22 @@ class AudioPlayer {
             // this.sounds = [...loadFiles()];
         });
     }
+    public setVolume(volume: number): void {
+        this.sounds.forEach((sound) => {
+            sound.audio.volume?.setVolume(volume);
+        });
+    }
     public playCountdown(timestamp: number): void {
         const sound = this.sounds.find((sound) => sound.id === timestamp.toString());
         const audio = sound?.audio;
-        if (audio) {
+        if (audio && !audio.ended) {
             this.player.play(audio);
         }
     }
     public playRespawnCount(count: number): void {
         const sound = this.sounds.find((sound) => sound.id === 'respawn-' + count);
         const audio = sound?.audio;
-        if (audio) {
+        if (audio && !audio.ended) {
             this.player.play(audio);
         }
     }
