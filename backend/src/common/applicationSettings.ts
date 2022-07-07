@@ -14,7 +14,7 @@ class ApplicationSettings {
 
     private store: SettingsStore = {
         'default': {
-            delay: 1
+            delay: 2
         }
     };
     public constructor() {

@@ -109,5 +109,11 @@ class IntervalText {
         }
         return true;
     }
+    public updateSubscription(oldId: string, newId: string): void {
+        const sub = subscribers.find((s) => s.id === oldId);
+        if(sub){
+            sub.id = newId;
+        }
+    }
 }
 export default new IntervalText();
