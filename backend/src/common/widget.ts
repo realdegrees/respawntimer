@@ -46,7 +46,7 @@ export class Widget {
         await this.message.edit({
             components: [this.getButtons()],
             embeds: [this.message.embeds[0].setFooter({
-                text: 'ID: ' + this.message.id + (this.managerRole ? '\nManager Role: @' + this.managerRole.name : '')
+                text: this.managerRole ? 'Manager Role: @' + this.managerRole.name : ''
             })]
         }).then((message) => {
             this.message = message;
