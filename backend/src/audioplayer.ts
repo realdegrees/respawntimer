@@ -5,6 +5,7 @@ import fs from 'fs';
 import path from 'path';
 
 let isPlaying = false;
+const volume = 0.7;
 
 class AudioPlayer {
     private sounds: {
@@ -20,7 +21,11 @@ class AudioPlayer {
         this.player.on(AudioPlayerStatus.Idle, () => {
             isPlaying = false;
             this.sounds.forEach((sound) => {
-                if(sound.audio.ended) sound.audio = createAudioResource(sound.path);
+                const audio = createAudioResource(sound.path, {
+                    inlineVolume: true
+                });
+                audio.volume?.setVolume(volume);
+                if(sound.audio.ended) sound.audio = audio;
             });
             // this.sounds = [...loadFiles()];
         });
@@ -48,9 +53,13 @@ const loadFiles = (): {
         const filePath = directoryPath + '/' + i + '.mp3';
         try {
             if (fs.lstatSync(filePath).isFile()) {
+                const audio = createAudioResource(filePath, {
+                    inlineVolume: true
+                });
+                audio.volume?.setVolume(volume);
                 sounds.push({
                     timestamp: i,
-                    audio: createAudioResource(filePath),
+                    audio: audio,
                     path: filePath
                 });
             }
