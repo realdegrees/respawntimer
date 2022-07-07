@@ -3,7 +3,6 @@ import { AudioPlayerStatus,
     createAudioResource, VoiceConnection } from '@discordjs/voice';
 import fs from 'fs';
 import path from 'path';
-import logger from '../lib/logger';
 
 let isPlaying = false;
 
@@ -11,6 +10,7 @@ class AudioPlayer {
     private sounds: {
         timestamp: number;
         audio: AudioResource;
+        path: string;
     }[] = [];
     public constructor(private player = createAudioPlayer()) {
         this.sounds = [...loadFiles()];
@@ -19,14 +19,18 @@ class AudioPlayer {
         });
         this.player.on(AudioPlayerStatus.Idle, () => {
             isPlaying = false;
-            this.sounds = [...loadFiles()];
-
+            this.sounds.forEach((sound) => {
+                if(sound.audio.ended) sound.audio = createAudioResource(sound.path);
+            });
+            // this.sounds = [...loadFiles()];
         });
     }
     public play(timestamp: number): void {
-        const audio = this.sounds.find((sound) => sound.timestamp === timestamp)?.audio;
+        const sound = this.sounds.find((sound) => sound.timestamp === timestamp);
+        const audio = sound?.audio;
         if (audio && !isPlaying) {
             this.player.play(audio);
+            // sound.audio = createAudioResource(sound.path);
         }
     }
     public subscribe(connection: VoiceConnection): void {
@@ -36,6 +40,7 @@ class AudioPlayer {
 const loadFiles = (): {
     timestamp: number;
     audio: AudioResource;
+    path: string;
 }[] => {
     const sounds = [];
     const directoryPath = path.resolve(process.cwd(), 'dist/audio');
@@ -45,7 +50,8 @@ const loadFiles = (): {
             if (fs.lstatSync(filePath).isFile()) {
                 sounds.push({
                     timestamp: i,
-                    audio: createAudioResource(filePath)
+                    audio: createAudioResource(filePath),
+                    path: filePath
                 });
             }
         } catch (e) {
