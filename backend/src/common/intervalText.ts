@@ -1,6 +1,7 @@
 import logger from '../../lib/logger';
 import audioplayer from '../audioplayer';
 import applicationSettings from './applicationSettings';
+import { timers } from './timer';
 import { clamp, getRespawnInfo } from './util';
 
 const settings = {
@@ -37,8 +38,12 @@ class IntervalText {
         if (data.timeLeft / data.timeTotal < 0.60 && data.remainingRespawns > 0) {
             audioplayer.playCountdown(data.timeLeft);
         }
-        if(data.timeTotal - data.timeLeft === 3) {
+        if (data.timeTotal - data.timeLeft === 3) {
             audioplayer.playRespawnCount(data.remainingRespawns);
+        }
+        if (data.remainingRespawns === 0 && 1800 - timers[timers.length - 1] - data.timeLeftTotalSeconds === 3){
+            // Plays last respawn sound
+            audioplayer.playRespawnCount(-1);
         }
         for (const subscriber of subscribers) {
             // Update delay > 10 seconds is decided by the settings, 
@@ -46,7 +51,7 @@ class IntervalText {
             if (
                 data.timeLeft % applicationSettings.get(subscriber.guildId).delay !== 0 ||
                 data.remainingRespawns === 0 &&
-                    new Date().getSeconds() % applicationSettings.get(subscriber.guildId).delay !== 0
+                new Date().getSeconds() % applicationSettings.get(subscriber.guildId).delay !== 0
             ) {
                 return;
             }

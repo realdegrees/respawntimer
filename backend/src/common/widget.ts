@@ -17,10 +17,6 @@ const buttonIds = {
 export class Widget {
     private toggleState = false;
     private voiceState = false;
-    private updateQueue: {
-        title?: string;
-        description?: string;
-    } | undefined;
     private isUpdating = false;
     private deferButtonQueue: ((
         options?: InteractionDeferUpdateOptions | undefined
@@ -63,12 +59,13 @@ export class Widget {
             return this.guild.roles.cache.find((role) => role.name === roleName);
         }
     }
-    private getButtons(): MessageActionRow {
+    private getButtons(disabled = false): MessageActionRow {
         return new MessageActionRow()
             .addComponents(new MessageButton()
                 .setCustomId(buttonIds.toggle + '-' + this.message.id)
                 .setLabel(this.toggleState ? 'ℹ️' : 'ℹ️')
-                .setStyle(this.toggleState ? 'DANGER' : 'SUCCESS'))
+                .setStyle(this.toggleState ? 'DANGER' : 'SUCCESS')
+                .setDisabled(disabled))
             .addComponents(new MessageButton()
                 .setCustomId(buttonIds.voice + '-' + this.message.id)
                 .setLabel(this.voiceState ? '🔇' : '🔊')
@@ -79,50 +76,64 @@ export class Widget {
     }
     public update(title?: string, description?: string): void {
         if (this.isUpdating) {
-            if (title || description) {
-                if (this.updateQueue) {
-                    logger.warn('Too many queued updates on Widget ' + this.getId());
-                }
-                this.updateQueue = { title, description };
-            }
             return;
         }
         this.isUpdating = true;
+        const beforeEditTimestamp = Date.now();
         this.message.edit({
             components: [this.getButtons()],
             embeds: [this.message.embeds[0]
                 .setTitle(title ?? this.message.embeds[0].title ?? 'Respawn Timer')
                 .setDescription(description ?? this.message.embeds[0].description ?? '')]
-        }).catch(() => {
-            this.isUpdating = false;
-            intervalText.unsubscribe(this.message.id);
-            logger.log('Unable to edit message ' + this.message.id + ' unsubscribing updates.');
-        }).finally(() => {
+        }).then((message) => {
+            this.message = message;
             this.deferButtonQueue.forEach((def) => def());
             this.deferButtonQueue = [];
-            this.isUpdating = false;
-            if (this.updateQueue) {
-                this.update(this.updateQueue.title, this.updateQueue.description);
-                this.updateQueue = undefined;
+
+            if (Date.now() - beforeEditTimestamp > 2500) {
+                logger.info('Response took too long, taking timeout');
+                this.message.edit({
+                    components: [this.getButtons(true)],
+                    embeds: [this.message.embeds[0]
+                        .setTitle('Slow Discord API Response')
+                        .setDescription(
+                            'Resetting.. (10s)\nThis only affects the widget.\nAudio announcements still work.'
+                        )]
+                });
+                setTimeout(() => {
+                    logger.info('Resuming updates after timeout');
+                    this.isUpdating = false;
+                }, 10000)
+                    ;
+            } else {
+                this.isUpdating = false;
             }
+        }).catch(() => {
+            intervalText.unsubscribe(this.message.id);
+            logger.log('Unable to edit message ' + this.message.id + ' unsubscribing updates.');
         });
     }
     public resetEmbed(): void {
+        this.isUpdating = false;
         this.toggleState = false;
         this.message.edit({
             components: [this.getButtons()],
             embeds: [this.message.embeds[0]
                 .setTitle('Respawn Timer')
                 .setDescription(this.voiceState ? 'Audio On' : '')]
+        }).then(() => {
+            this.deferButtonQueue.forEach((def) => def());
+            this.deferButtonQueue = [];
         });
-        this.deferButtonQueue.forEach((def) => def());
-        this.deferButtonQueue = [];
     }
     public async toggle(interaction: ButtonInteraction): Promise<void> {
         if (!await this.checkPermission(interaction)) {
             await interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions Qseng.' });
             return;
         }
+        this.deferButtonQueue.forEach((def) => def());
+        this.deferButtonQueue = [];
+
         this.toggleState = !this.toggleState;
         this.deferButtonQueue.push(interaction.deferUpdate.bind(interaction));
         if (this.toggleState) {
@@ -136,6 +147,9 @@ export class Widget {
             await interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions Qseng.' });
             return;
         }
+        this.deferButtonQueue.forEach((def) => def());
+        this.deferButtonQueue = [];
+
         this.voiceState = !this.voiceState;
         if (this.voiceState) {
             try {
