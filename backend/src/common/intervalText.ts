@@ -41,9 +41,9 @@ class IntervalText {
         if (data.timeTotal - data.timeLeft === 3) {
             audioplayer.playRespawnCount(data.remainingRespawns);
         }
-        if (data.remainingRespawns === 0 && 1800 - timers[timers.length - 1] - data.timeLeftTotalSeconds === 3){
+        if (data.remainingRespawns === 0 && 1800 - timers[timers.length - 1] - data.timeLeftTotalSeconds === 5){
             // Plays last respawn sound
-            audioplayer.playRespawnCount(-1);
+            audioplayer.playRespawnCount(0);
         }
         for (const subscriber of subscribers) {
             // Update delay > 10 seconds is decided by the settings, 
