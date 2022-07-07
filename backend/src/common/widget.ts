@@ -39,11 +39,15 @@ export class Widget {
         private managerRole: Role | APIRole | null | undefined,
         onReady: (widget: Widget) => void
     ) {
+        this.init(onReady);
+    }
+    private async init(onReady: (widget: Widget) => void): Promise<void> {
         this.managerRole = this.managerRole ?? this.parseManagerRole();
-        message.edit({
+        await new Promise((res) => setTimeout(res, 500));
+        await this.message.edit({
             components: [this.getButtons()],
-            embeds: [message.embeds[0].setFooter({
-                text: 'ID: ' + message.id + (this.managerRole ? '\nManager Role: @' + this.managerRole.name : '')
+            embeds: [this.message.embeds[0].setFooter({
+                text: 'ID: ' + this.message.id + (this.managerRole ? '\nManager Role: @' + this.managerRole.name : '')
             })]
         }).then((message) => {
             this.message = message;
@@ -63,7 +67,7 @@ export class Widget {
         return new MessageActionRow()
             .addComponents(new MessageButton()
                 .setCustomId(buttonIds.toggle + '-' + this.message.id)
-                .setLabel(this.toggleState ? 'Stop' : 'Start')
+                .setLabel(this.toggleState ? 'ℹ️' : 'ℹ️')
                 .setStyle(this.toggleState ? 'DANGER' : 'SUCCESS'))
             .addComponents(new MessageButton()
                 .setCustomId(buttonIds.voice + '-' + this.message.id)
