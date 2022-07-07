@@ -4,7 +4,6 @@ import { AudioPlayerStatus,
 import fs from 'fs';
 import path from 'path';
 
-let isPlaying = false;
 const volume = 0.7;
 
 class AudioPlayer {
@@ -15,11 +14,7 @@ class AudioPlayer {
     }[] = [];
     public constructor(private player = createAudioPlayer()) {
         this.sounds = [...loadFiles()];
-        this.player.on(AudioPlayerStatus.Playing, () => {
-            isPlaying = true;
-        });
         this.player.on(AudioPlayerStatus.Idle, () => {
-            isPlaying = false;
             this.sounds.forEach((sound) => {
                 const audio = createAudioResource(sound.path, {
                     inlineVolume: true
@@ -33,17 +28,15 @@ class AudioPlayer {
     public playCountdown(timestamp: number): void {
         const sound = this.sounds.find((sound) => sound.id === timestamp.toString());
         const audio = sound?.audio;
-        if (audio && !isPlaying) {
+        if (audio) {
             this.player.play(audio);
-            // sound.audio = createAudioResource(sound.path);
         }
     }
     public playRespawnCount(count: number): void {
         const sound = this.sounds.find((sound) => sound.id === 'respawn-' + count);
         const audio = sound?.audio;
-        if (audio && !isPlaying) {
+        if (audio) {
             this.player.play(audio);
-            // sound.audio = createAudioResource(sound.path);
         }
     }
     public subscribe(connection: VoiceConnection): void {
