@@ -14,21 +14,14 @@
     "build:watch": "tsc --watch",
     "lint:fix": "eslint . --fix --ext .ts",
     "lint": "eslint . --ext .ts",
-    "test": "jest --runInBand --forceExit --detectOpenHandles",
-    "db:wipetest": "node ./dist/cli/db.js -t",
-    "db:wipederelict": "node ./dist/cli/db.js -d",
-    "db:wipeguild": "node ./dist/cli/db.js -g",
-    "db:forcewipe": "node ./dist/cli/db.js -f",
-    "dockerize": "docker build . -t cu-bot -f ../docker/Dockerfile"
+    "dockerize": "docker build . -t wartimer -f ../docker/Dockerfile"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "devDependencies": {
     "@types/dotenv": "8.2.0",
-    "@types/jest": "28.1.4",
     "@types/node": "18.0.0",
-    "@types/node-fetch": "2.6.2",
     "@types/source-map-support": "0.5.4",
     "@types/yargs": "17.0.10",
     "@typescript-eslint/eslint-plugin": "5.30.3",
@@ -48,13 +41,7 @@
     "discord.js": "^13.8.1",
     "dotenv": "16.0.1",
     "ffmpeg-static": "^5.0.2",
-    "firebase": "^9.8.4",
-    "node-fetch": "3.2.6",
-    "rxjs": "7.5.5",
     "source-map-support": "0.5.21",
     "tweetnacl": "^1.0.3"
-  },
-  "bin": {
-    "db": "dist/cli/db.js"
   }
 }
