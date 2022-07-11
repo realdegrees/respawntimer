@@ -9,7 +9,8 @@ import { Widget } from '../common/widget';
 const buttonIds = {
     toggle: 'toggle',
     voice: 'voice',
-    reload: 'reload'
+    reload: 'reload',
+    info: 'info'
 };
 
 let widgets: Widget[] = [];
@@ -58,6 +59,20 @@ export class CommandCreate extends Command {
                         break;
                     case buttonIds.reload:
                         widget.recreateMessage(true);
+                        break;
+                    case buttonIds.info:
+                        interaction.reply({
+                            ephemeral: true,
+                            embeds: [new MessageEmbed({
+                                title: 'Widget Info',
+                                description: 'Button 1 - Starts/Stops Text Updates\n' +
+                                    'Button 2 - Starts/Stops Audio Updates\n' +
+                                    'Button 3 - Reloads the Widget\n' +
+                                    'Button 4 - Sends Widget Info\n\n' +
+                                    'Respawn Timer Data Source: https://respawntimer.com\n' + 
+                                    'Support: Dennis D. Grees#4778'
+                            })]
+                        });
                         break;
                 }
             })

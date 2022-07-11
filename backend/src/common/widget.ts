@@ -12,7 +12,8 @@ import intervalText from './intervalText';
 const buttonIds = {
     toggle: 'toggle',
     voice: 'voice',
-    reload: 'reload'
+    reload: 'reload',
+    info: 'info'
 };
 const resetDurationSeconds = 7;
 const timeoutDurationSeconds = 3;
@@ -76,7 +77,7 @@ export class Widget {
         return new MessageActionRow()
             .addComponents(new MessageButton()
                 .setCustomId(buttonIds.toggle + '-' + this.message.id)
-                .setLabel(this.toggleState ? 'ℹ️' : 'ℹ️')
+                .setLabel(this.toggleState ? '■' : '▶')
                 .setStyle(this.toggleState ? 'DANGER' : 'SUCCESS')
                 .setDisabled(disableToggle))
             .addComponents(new MessageButton()
@@ -87,6 +88,10 @@ export class Widget {
             .addComponents(new MessageButton()
                 .setCustomId(buttonIds.reload + '-' + this.message.id)
                 .setLabel('⟳')
+                .setStyle('PRIMARY'))
+            .addComponents(new MessageButton()
+                .setCustomId(buttonIds.info + '-' + this.message.id)
+                .setLabel('ℹ️')
                 .setStyle('SECONDARY'));
     }
     public getId(): string {
