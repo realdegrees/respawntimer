@@ -1,10 +1,9 @@
 ### Build Step
 # pull the Node.js Docker image
-FROM node:16.2 as builder
+FROM python:3-alpine as builder
 
-# Copy audio files
-WORKDIR /usr/src/dist/audio
-COPY src/audio .
+# Add node
+RUN apk add --update npm
 
 # change working directory
 WORKDIR /usr/src/app
@@ -25,11 +24,15 @@ RUN npm run build
 # pull the Node.js Docker image
 FROM python:3-alpine
 
+# Add node
+RUN apk add --update npm
+
 # change working directory
 WORKDIR /app
 
 # copy files from previous step
 COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/audio ./audio
 COPY --from=builder /usr/src/app/package.json .
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 
