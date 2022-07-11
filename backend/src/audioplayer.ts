@@ -57,7 +57,7 @@ const loadFiles = (): {
     path: string;
 }[] => {
     const sounds = [];
-    const directoryPath = path.resolve(process.cwd(), 'dist/audio');
+    const directoryPath = path.resolve(process.cwd(), 'audio');
     for (let i = -1; i < 60; i++) {
         const filePathCountdown = directoryPath + '/' + i + '.mp3';
         const filePathRespawnCount = directoryPath + '/respawn-' + i + '.mp3';
