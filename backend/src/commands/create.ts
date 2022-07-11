@@ -1,14 +1,15 @@
 /* eslint-disable max-len */
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
-import { CacheType, Client, CommandInteraction, Interaction, MessageEmbed } from 'discord.js';
+import { CacheType, Client, CommandInteraction, Interaction, MessageEmbed, Role } from 'discord.js';
 import logger from '../../lib/logger';
 import { Command } from '../common/command';
 import { Widget } from '../common/widget';
 
 const buttonIds = {
     toggle: 'toggle',
-    voice: 'voice'
+    voice: 'voice',
+    reload: 'reload'
 };
 
 let widgets: Widget[] = [];
@@ -38,11 +39,11 @@ export class CommandCreate extends Command {
                 // Check if widget entry exists for this widget, create if not
                 const widget = widgets.find((widget) => widget.getId() === interaction.message.id);
                 if (!widget) {
-                    new Widget(message, guild, undefined, (widget) => {
+                    new Widget(message, guild, [], (widget) => {
                         widgets.push(widget);
                         res(widget);
                     }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
-                }else {
+                } else {
                     res(widget);
                 }
             }))
@@ -54,6 +55,9 @@ export class CommandCreate extends Command {
                         break;
                     case buttonIds.voice:
                         await widget.toggleVoice(interaction);
+                        break;
+                    case buttonIds.reload:
+                        widget.recreateMessage(true);
                         break;
                 }
             })
@@ -73,11 +77,23 @@ export class CommandCreate extends Command {
                 .setName('managerrole')
                 .setDescription('This role is allowed to manage the timer')
                 .setRequired(false))
+            .addRoleOption((option) => option
+                .setName('managerrole2')
+                .setDescription('This role is allowed to manage the timer')
+                .setRequired(false))
+            .addRoleOption((option) => option
+                .setName('managerrole3')
+                .setDescription('This role is allowed to manage the timer')
+                .setRequired(false))
             .toJSON();
     }
     // eslint-disable-next-line @typescript-eslint/require-await
     public async execute(interaction: CommandInteraction<CacheType>): Promise<void> {
-        const role = interaction.options.getRole('managerrole');
+        const roles = [
+            interaction.options.getRole('managerrole'),
+            interaction.options.getRole('managerrole2'),
+            interaction.options.getRole('managerrole3')
+        ].filter((role): role is Role => !!role);
         const channel = interaction.options.getChannel('channel') ?? interaction.channel;
         const guild = interaction.guild;
         if (!guild) {
@@ -85,7 +101,7 @@ export class CommandCreate extends Command {
             return;
         }
         if (channel?.type !== 'GUILD_TEXT') {
-            await interaction.reply('Invalid channel');
+            await interaction.reply({ ephemeral: true, content: 'Invalid channel' });
             return;
         }
 
@@ -94,7 +110,7 @@ export class CommandCreate extends Command {
                 title: 'Respawn Timer',
             })]
         }).then((message) => {
-            new Widget(message, guild, role, async (widget) => {
+            new Widget(message, guild, roles, async (widget) => {
                 widgets.push(widget);
                 await interaction.reply({
                     ephemeral: true,
