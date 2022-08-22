@@ -176,7 +176,7 @@ export class Widget {
     }
     public async toggle(interaction: ButtonInteraction): Promise<void> {
         if (!await this.checkPermission(interaction)) {
-            await interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions Qseng.' });
+            await interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions.' });
             return;
         }
         this.deferButtonQueue.forEach((def) => def());
@@ -192,7 +192,7 @@ export class Widget {
     }
     public async toggleVoice(interaction: ButtonInteraction): Promise<void> {
         if (!await this.checkPermission(interaction)) {
-            await interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions Qseng.' });
+            await interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions.' });
             return;
         }
         this.deferButtonQueue.forEach((def) => def());
