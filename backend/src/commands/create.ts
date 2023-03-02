@@ -1,7 +1,7 @@
 /* eslint-disable max-len */
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
-import { CacheType, Client, CommandInteraction, Interaction, MessageEmbed, Role } from 'discord.js';
+import { CacheType, ChannelType, Client, CommandInteraction, CommandInteractionOptionResolver, EmbedBuilder, Interaction, Role, TextBasedChannel } from 'discord.js';
 import logger from '../../lib/logger';
 import { Command } from '../common/command';
 import { Widget } from '../common/widget';
@@ -35,11 +35,14 @@ export class CommandCreate extends Command {
         const [buttonId] = interaction.customId.split('-');
         const guild = interaction.guild;
 
-        await interaction.channel.messages.fetch(interaction.message.id)
-            .then((message) => new Promise<Widget>((res) => {
+        await interaction.message.fetch()
+            // eslint-disable-next-line no-async-promise-executor
+            .then((message) => new Promise<Widget>(async (res) => {
                 // Check if widget entry exists for this widget, create if not
                 const widget = widgets.find((widget) => widget.getId() === interaction.message.id);
                 if (!widget) {
+                    logger.log('Creating widget in memory');
+                    await interaction.deferUpdate();
                     new Widget(message, guild, [], (widget) => {
                         widgets.push(widget);
                         res(widget);
@@ -49,7 +52,7 @@ export class CommandCreate extends Command {
                 }
             }))
             .then(async (widget) => {
-                logger.log(buttonId + '-button pressed on widget ' + widget.getId());
+                logger.log(buttonId + '-button pressed in ' + guild.name + ' by ' + interaction.user.username);
                 switch (buttonId) {
                     case buttonIds.toggle:
                         await widget.toggle(interaction);
@@ -63,21 +66,22 @@ export class CommandCreate extends Command {
                     case buttonIds.info:
                         interaction.reply({
                             ephemeral: true,
-                            embeds: [new MessageEmbed({
-                                title: 'Widget Info',
-                                description: 'Button 1 - Starts/Stops Text Updates\n' +
+                            embeds: [new EmbedBuilder()
+                                .setTitle('Widget Info')
+                                .setDescription('Button 1 - Starts / Stops Text Updates\n' +
                                     'Button 2 - Starts/Stops Audio Updates\n' +
                                     'Button 3 - Reloads the Widget\n' +
                                     'Button 4 - Sends Widget Info\n\n' +
-                                    'Respawn Timer Data Source: https://respawntimer.com\n' + 
-                                    'Support: Dennis D. Grees#4778'
-                            })]
+                                    'Respawn Timer Data Source: https://respawntimer.com\n' +
+                                    'If the text widget reloads too often increase the interval with /set delay')]
                         });
                         break;
                 }
             })
             .catch(async () => {
-                await interaction.reply({ ephemeral: true, content: 'Unable to fetch the message' });
+                if(!interaction.deferred){
+                    await interaction.reply({ ephemeral: true, content: 'Unable to fetch the message' });
+                }
             });
     }
     public build(): RESTPostAPIApplicationCommandsJSONBody {
@@ -103,34 +107,29 @@ export class CommandCreate extends Command {
             .toJSON();
     }
     // eslint-disable-next-line @typescript-eslint/require-await
-    public async execute(interaction: CommandInteraction<CacheType>): Promise<void> {
+    public async execute(interaction: CommandInteraction<CacheType> & { options: Pick<CommandInteractionOptionResolver<CacheType>, 'getRole' | 'getChannel'> }): Promise<void> {
         const roles = [
             interaction.options.getRole('managerrole'),
             interaction.options.getRole('managerrole2'),
             interaction.options.getRole('managerrole3')
         ].filter((role): role is Role => !!role);
-        const channel = interaction.options.getChannel('channel') ?? interaction.channel;
+        const channel = interaction.options.getChannel('channel') as TextBasedChannel | null ?? interaction.channel;
         const guild = interaction.guild;
         if (!guild) {
             await interaction.reply('This cannot be used in DMs');
             return;
         }
-        if (channel?.type !== 'GUILD_TEXT') {
+        if (!channel || channel.type !== ChannelType.GuildText) {
             await interaction.reply({ ephemeral: true, content: 'Invalid channel' });
             return;
         }
-
+        await interaction.deferReply({ ephemeral: true });
         channel.send({
-            embeds: [new MessageEmbed({
-                title: 'Respawn Timer',
-            })]
+            embeds: [new EmbedBuilder().setTitle('Respawn Timer')]
         }).then((message) => {
             new Widget(message, guild, roles, async (widget) => {
                 widgets.push(widget);
-                await interaction.reply({
-                    ephemeral: true,
-                    content: 'Widget created.'
-                });
+                await interaction.editReply({ content: 'Widget created.' });
             }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
         });
     }

@@ -1,6 +1,3 @@
-import logger from '../../lib/logger';
-import { timers } from './timer';
-
 interface GuildSettings {
     delay: number;
 }
