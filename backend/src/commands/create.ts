@@ -71,7 +71,6 @@ export class CommandCreate extends Command {
                                     'Button 2 - Starts/Stops Audio Updates\n' +
                                     'Button 3 - Reloads the Widget\n' +
                                     'Button 4 - Sends Widget Info\n\n' +
-                                    'Respawn Timer Data Source: https://respawntimer.com\n' +
                                     'If the text widget reloads too often increase the interval with /set delay')]
                         });
                         break;
