@@ -50,14 +50,14 @@ class Bot {
             });
 
             client.once('ready', () => {
-                logger.log('rdy');
+                logger.info('Client ready!');
                 // Register Commands once client is ready
                 const rest = new REST({ version: '9' }).setToken(token);
                 rest.put(
                     Routes.applicationCommands(clientId),
                     { body: commands.map((command) => command.build()) }
                 ).then(() => {
-                    logger.info(commands.length + ' Commands registered');
+                    logger.info(commands.length + ' commands registered!');
                 });
             });
 

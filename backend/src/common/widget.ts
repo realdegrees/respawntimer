@@ -10,13 +10,13 @@ import audioManager from '../audioManager';
 import respawnInterval from './respawnInterval';
 
 const buttonIds = {
-    toggle: 'toggle',
+    text: 'text',
     voice: 'voice',
     reload: 'reload',
     info: 'info'
 };
 const resetDurationSeconds = 7;
-const timeoutDurationSeconds = 3;
+const timeoutDurationMillis = 800;
 
 export class Widget {
     private toggleState = false;
@@ -43,7 +43,6 @@ export class Widget {
     private async init(onReady: (widget: Widget) => void): Promise<void> {
         this.managerRoles = this.managerRoles.length > 0 ? this.managerRoles : this.parseManagerRole();
         await new Promise((res) => setTimeout(res, 500));
-        logger.log(this.getManagerRoleFooterText());
         await this.message.edit({
             components: [this.getButtons()],
             embeds: [EmbedBuilder.from(this.message.embeds[0])
@@ -52,16 +51,13 @@ export class Widget {
                 })]
         }).then((message) => {
             this.message = message;
-            logger.log('Widget ' + this.getId() + ' initiated.\nRole(s): ' +
-                this.managerRoles.map((role) => '\n@' + role.name) + '\nChannel: ' + message.channel.id
-                + '\nGuild: ' + this.guild.name);
+            logger.info('[' + this.guild.name + '][Start] Widget initiated');
             respawnInterval.subscribe(
                 this.message.id,
                 this.guild.id,
                 this.update.bind(this),
                 () => {
-                    logger.log('SHOULD NOT BE CALLED UNLESS WAR END');
-                    this.toggle.call(this);
+                    this.toggleText.call(this);
                     this.toggleVoice.call(this);
                 },
                 this.resetEmbed.bind(this));
@@ -86,7 +82,7 @@ export class Widget {
     private getButtons(disableToggle = false, disableVoice = false): ActionRowBuilder<ButtonBuilder> {
         return new ActionRowBuilder<ButtonBuilder>()
             .addComponents(new ButtonBuilder()
-                .setCustomId(buttonIds.toggle + '-' + this.message.id)
+                .setCustomId(buttonIds.text + '-' + this.message.id)
                 .setLabel(this.toggleState ? '■' : '▶')
                 .setStyle(this.toggleState ? ButtonStyle.Danger : ButtonStyle.Success)
                 .setDisabled(disableToggle))
@@ -109,10 +105,8 @@ export class Widget {
     }
     public async update(title?: string, description?: string): Promise<void> {
         if (this.isUpdating || this.isResetting) {
-            logger.log('Skipping update: "' + title + '"');
             return;
         }
-        logger.log('Starting update: "' + title + '"');
         this.isUpdating = true;
         const preEditTimeStamp = Date.now();
         await this.message.edit({
@@ -120,72 +114,71 @@ export class Widget {
             embeds: [EmbedBuilder.from(this.message.embeds[0])
                 .setTitle(title ?? 'Respawn Timer')
                 .setDescription(description ??
-                    (this.voiceState ? 'Audio On' : 'Use the buttons below to start the timer'))]
+                    (this.voiceState ? 'Audio On' : '-'))]
         }).then((message) => {
             this.message = message;
             this.isUpdating = false;
-            if (new Date(Date.now() - preEditTimeStamp).getSeconds() > 2) {
+            const editDuration = new Date(Date.now() - preEditTimeStamp).getMilliseconds();
+            logger.debug(
+                '[' + this.guild.name + '] Updated message in: ' + editDuration + 'ms (' + title?.trim() + ')'
+            );
+            if (editDuration > 500) {
                 this.recreateMessage();
             }
-            logger.log('+Finished update: "' + title + '"');
-        }).catch(async () => {
+        }).catch(() => {
             if (this.isResetting) return;
 
             respawnInterval.disableText(this.message.id);
-
-            logger.info('Unable to edit message ' + this.message.id +
-                ' unsubscribing updates and attempting todelete message.');
-            try {
-                await this.message.delete();
-                logger.info('Deleted message');
-            } catch {
-                logger.info('Unable to delete message' + this.message.id);
-                respawnInterval.unsubscribe(this.message.id);
-            }
+            respawnInterval.unsubscribe(this.message.id);
+            getVoiceConnection(this.guild.id)?.disconnect();
+            getVoiceConnection(this.guild.id)?.destroy();
+            logger.debug('[' + this.guild.name + '][Destroy] Unable to find widget. Destroying instance.');
             this.onDestroy?.(this);
-            this.isUpdating = false;
-            logger.log('-Finished update: "' + title + '"');
         });
     }
-    public resetEmbed(toggleState = false): void {
-        this.toggleState = toggleState;
+    public resetEmbed(): void {
         this.isResetting = false;
         this.isUpdating = false;
+        respawnInterval.enableText(this.message.id);
     }
     public recreateMessage(manual = false): void {
-        if (!manual) logger.info('Response took too long, taking timeout');
+        if (!manual) {
+            logger.info(
+                '[' + this.guild.name + '][Timeout] Response took longer than ' + timeoutDurationMillis + 'ms!'
+                );
+        }
         this.isResetting = true;
+        respawnInterval.disableText(this.message.id);
         this.message.delete().finally(() => {
             (this.message.channel as TextChannel).send({
                 components: [this.getButtons(true, true)],
                 embeds: [EmbedBuilder.from(this.message.embeds[0])
-                    .setTitle(manual ? 'Reloading Widget' : 'Slow Discord API Response')
+                    .setTitle(manual ? 'Reloading Widget' : 'Discord API Timeout')
                     .setDescription(manual ? 'Resetting..' :
                         `Resetting.. (${resetDurationSeconds}s)
                         This only affects the widget.\nAudio announcements still work.`)]
-            }).then((message) => {
+            }).then(message => message.edit({
+                components: [this.getButtons(true)],
+            })).then((message) => {
                 respawnInterval.updateSubscription(this.message.id, message.id);
                 this.message = message;
-                this.message.edit({
-                    components: [this.getButtons(true)],
-                });
 
                 const reset = (): void => {
-                    if (!manual) logger.info('Resuming updates after timeout');
-                    this.resetEmbed(manual);
+                    if (!manual) logger.info('[' + this.guild.name + '] Resuming text updates!');
+                    this.resetEmbed();
                 };
                 setTimeout(reset, manual ? 0 : resetDurationSeconds * 1000);
             });
         }).catch();
     }
-    public async toggle(interaction?: ButtonInteraction): Promise<void> {
+    public async toggleText(interaction?: ButtonInteraction): Promise<void> {
         if (interaction && !await this.checkPermission(interaction)) {
             await interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions.' });
             return;
         }
         this.toggleState = !this.toggleState;
         if (interaction && !interaction.deferred) {
-            await interaction.deferUpdate().catch((e) => logger.log(e));
+            await interaction.deferUpdate().catch((e) => logger.error(e));
         }
         if (interaction && this.toggleState) {
             respawnInterval.enableText(this.message.id);
@@ -214,7 +207,7 @@ export class Widget {
         } else {
             this.disconnect();
             if (interaction && !this.toggleState) {
-                await this.update('Respawn Timer', 'Use the buttons below to start the timer');
+                await this.update('Respawn Timer', '-');
             }
         }
     }
