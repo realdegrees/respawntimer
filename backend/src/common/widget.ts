@@ -6,7 +6,7 @@ import {
     Message, Role, TextChannel
 } from 'discord.js';
 import logger from '../../lib/logger';
-import { AudioManager } from '../audioManager';
+import audioManager from '../audioManager';
 import respawnInterval from './respawnInterval';
 
 const buttonIds = {
@@ -22,7 +22,7 @@ export class Widget {
     private toggleState = false;
     private voiceState = false;
     private isResetting = false;
-    private audioManager = new AudioManager();
+    private isUpdating = false;
 
     /**
      * @param interaction The interaction that created this widget
@@ -58,7 +58,6 @@ export class Widget {
             respawnInterval.subscribe(
                 this.message.id,
                 this.guild.id,
-                this.audioManager,
                 this.update.bind(this),
                 () => {
                     logger.log('SHOULD NOT BE CALLED UNLESS WAR END');
@@ -96,10 +95,10 @@ export class Widget {
                 .setLabel(this.voiceState ? '🔇' : '🔊')
                 .setStyle(this.voiceState ? ButtonStyle.Danger : ButtonStyle.Success)
                 .setDisabled(disableVoice))
-            .addComponents(new ButtonBuilder()
-                .setCustomId(buttonIds.reload + '-' + this.message.id)
-                .setLabel('⟳')
-                .setStyle(ButtonStyle.Primary))
+            // .addComponents(new ButtonBuilder()
+            //     .setCustomId(buttonIds.reload + '-' + this.message.id)
+            //     .setLabel('⟳')
+            //     .setStyle(ButtonStyle.Primary))
             .addComponents(new ButtonBuilder()
                 .setCustomId(buttonIds.info + '-' + this.message.id)
                 .setLabel('ℹ️')
@@ -109,8 +108,13 @@ export class Widget {
         return this.message.id;
     }
     public async update(title?: string, description?: string): Promise<void> {
-
-        const beforeEditTimestamp = Date.now();
+        if (this.isUpdating || this.isResetting) {
+            logger.log('Skipping update: "' + title + '"');
+            return;
+        }
+        logger.log('Starting update: "' + title + '"');
+        this.isUpdating = true;
+        const preEditTimeStamp = Date.now();
         await this.message.edit({
             components: [this.getButtons()],
             embeds: [EmbedBuilder.from(this.message.embeds[0])
@@ -119,9 +123,11 @@ export class Widget {
                     (this.voiceState ? 'Audio On' : 'Use the buttons below to start the timer'))]
         }).then((message) => {
             this.message = message;
-            if (Date.now() - beforeEditTimestamp > timeoutDurationSeconds * 1000) {
+            this.isUpdating = false;
+            if (new Date(Date.now() - preEditTimeStamp).getSeconds() > 2) {
                 this.recreateMessage();
             }
+            logger.log('+Finished update: "' + title + '"');
         }).catch(async () => {
             if (this.isResetting) return;
 
@@ -134,14 +140,17 @@ export class Widget {
                 logger.info('Deleted message');
             } catch {
                 logger.info('Unable to delete message' + this.message.id);
+                respawnInterval.unsubscribe(this.message.id);
             }
             this.onDestroy?.(this);
+            this.isUpdating = false;
+            logger.log('-Finished update: "' + title + '"');
         });
     }
-    public async resetEmbed(): Promise<void> {
-        this.toggleState = false;
-        await this.update('Respawn Timer', this.voiceState ? 'Audio On' : 'Use the buttons below to start the timer');
+    public resetEmbed(toggleState = false): void {
+        this.toggleState = toggleState;
         this.isResetting = false;
+        this.isUpdating = false;
     }
     public recreateMessage(manual = false): void {
         if (!manual) logger.info('Response took too long, taking timeout');
@@ -163,9 +172,7 @@ export class Widget {
 
                 const reset = (): void => {
                     if (!manual) logger.info('Resuming updates after timeout');
-                    if (!this.toggleState) {
-                        this.resetEmbed();
-                    }
+                    this.resetEmbed(manual);
                 };
                 setTimeout(reset, manual ? 0 : resetDurationSeconds * 1000);
             });
@@ -200,17 +207,14 @@ export class Widget {
                 if (!this.toggleState) {
                     await this.update('Respawn Timer', 'Audio On');
                 }
-                respawnInterval.enableVoice(this.message.id);
             } catch {
                 this.voiceState = false;
-                respawnInterval.disableVoice(this.message.id);
             }
 
         } else {
-            respawnInterval.disableVoice(this.message.id);
             this.disconnect();
             if (interaction && !this.toggleState) {
-                this.update('Respawn Timer', 'Use the buttons below to start the timer');
+                await this.update('Respawn Timer', 'Use the buttons below to start the timer');
             }
         }
     }
@@ -233,9 +237,10 @@ export class Widget {
             channelId: channel.id,
             adapterCreator: channel.guild.voiceAdapterCreator
         });
-        this.audioManager.subscribe(connection);
+        audioManager.subscribe(connection, this.guild.id);
     }
     private disconnect(): void {
+        audioManager.unsubscribe(this.guild.id);
         getVoiceConnection(this.guild.id)?.destroy();
     }
 }

@@ -9,7 +9,7 @@ import { Widget } from '../common/widget';
 const buttonIds = {
     toggle: 'toggle',
     voice: 'voice',
-    reload: 'reload',
+    //  reload: 'reload',
     info: 'info'
 };
 
@@ -60,9 +60,9 @@ export class CommandCreate extends Command {
                     case buttonIds.voice:
                         await widget.toggleVoice(interaction);
                         break;
-                    case buttonIds.reload:
-                        widget.recreateMessage(true);
-                        break;
+                    // case buttonIds.reload:
+                    //     widget.recreateMessage(true);
+                    //     break;
                     case buttonIds.info:
                         interaction.reply({
                             ephemeral: true,
