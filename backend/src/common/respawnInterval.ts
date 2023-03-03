@@ -1,4 +1,4 @@
-import { AudioManager } from '../audioManager';
+import audioManager from '../audioManager';
 import applicationSettings from './applicationSettings';
 import { timers } from './timer';
 import { clamp, getRespawnInfo } from './util';
@@ -8,13 +8,11 @@ const settings = {
     barIconFull: '●',
     barIconEmpty: '○'
 };
-const subscribers: {
+let subscribers: {
     timeStamp: number;
     id: string;
     guildId: string;
-    audioManager: AudioManager;
     text: boolean;
-    voice: boolean;
     cb: (title: string, description: string) => Promise<void>;
     onEnd: () => void;
     onUnsubscribe: () => void;
@@ -38,8 +36,8 @@ class RespawnInterval {
             (timeLeftSeconds > 9 ? timeLeftSeconds : '0' + timeLeftSeconds) + '**';
         const title = this.getTitle(data.remainingRespawns, data.timeLeft);
 
-        // Update voice subscribers
-        subscribers.filter((s) => s.voice).forEach((subscriber) => {
+
+        subscribers.forEach((subscriber) => {
             // Toggle widget & voice off at war end if it's been on for more than 15 minutes
             if (data.timeLeftTotalSeconds < 5) {
                 const minutesSubscribed = new Date(Date.now() - subscriber.timeStamp).getMinutes();
@@ -47,29 +45,27 @@ class RespawnInterval {
                     subscriber.onEnd();
                 }
             }
-            if (data.timeLeftTotalSeconds === 1800 - 2) {
-                subscriber.audioManager.playStart();
-            }
-
-            // Audioplayer only plays at the second marks provided by available sound files
-            // Skip any announcements higher than 50% of the total time 
-            if (data.timeLeft / data.timeTotal < 0.50 && data.remainingRespawns > 0 &&
-                data.timeLeftTotalSeconds > 5 && // safeguard for "respawn" audio at war start
-                data.timeLeftTotalSeconds < 1800 - 5 // safeguard for "respawn" audio at war start
-            ) {
-                subscriber.audioManager.playCountdown(data.timeLeft);
-            }
-            if (data.timeTotal - data.timeLeft === 3) {
-                subscriber.audioManager.playRespawnCount(data.remainingRespawns);
-            }
-            if (data.remainingRespawns === 0 && 1800 - timers[timers.length - 1] - data.timeLeftTotalSeconds === 5) {
-                // Plays last respawn sound
-                subscriber.audioManager.playRespawnCount(0);
-            }
         });
 
+        if (data.timeLeftTotalSeconds === 1800 - 2) {
+            audioManager.playStart();
+        }
+
+        // Audioplayer only plays at the second marks provided by available sound files
+        // Skip any announcements higher than 50% of the total time 
+        if (data.timeLeft / data.timeTotal < 0.50 && data.remainingRespawns > 0) {
+            audioManager.playCountdown(data.timeLeft);
+        }
+        if (data.remainingRespawns <= 5 && data.timeTotal - data.timeLeft === 2) {
+            audioManager.playRespawnCount(data.remainingRespawns);
+        }
+        if (data.remainingRespawns === 0 && 1800 - timers[timers.length - 1] - data.timeLeftTotalSeconds === 5) {
+            // Plays last respawn sound
+            audioManager.playRespawnCount(0);
+        }
+
         // Updat text for text subs
-        subscribers.filter((s) => s.text).forEach(async (subscriber) => {
+        subscribers.filter((s) => s.text).forEach((subscriber) => {
             // Update delay > 10 seconds is decided by the settings, 
             // Under 10 seconds it's in 2s steps and under 5s it's 1s steps
             if (
@@ -79,7 +75,7 @@ class RespawnInterval {
             ) {
                 return;
             }
-            await subscriber.cb(title, description);
+            subscriber.cb(title, description);
         });
     }
     private getBar(timeTotal: number, timeLeft: number): string {
@@ -98,7 +94,6 @@ class RespawnInterval {
     public subscribe(
         id: string,
         guildId: string,
-        audioManager: AudioManager,
         cb: (title: string, description: string) => Promise<void>,
         onEnd: () => void,
         onUnsubscribe: () => void
@@ -114,10 +109,8 @@ class RespawnInterval {
         subscribers.push({
             timeStamp,
             id,
-            audioManager,
             guildId,
             text: false,
-            voice: false,
             cb,
             onEnd,
             onUnsubscribe
@@ -129,36 +122,26 @@ class RespawnInterval {
             sub.text = true;
         }
     }
-    public enableVoice(id: string): void {
-        const sub = subscribers.find((s) => s.id === id);
-        if (sub) {
-            sub.voice = true;
-        }
-    }
+
     public disableText(id: string): void {
         const sub = subscribers.find((s) => s.id === id);
         if (sub) {
             sub.text = false;
         }
     }
-    public disableVoice(id: string): void {
-        const sub = subscribers.find((s) => s.id === id);
-        if (sub) {
-            sub.voice = false;
-        }
-    }
 
-    // public unsubscribe(id: string, skipCallback = false): boolean {
-    //     const subscriber = subscribers.find((subscriber) => subscriber.id === id);
-    //     if (!subscriber) {
-    //         return false;
-    //     }
-    //     subscribers = subscribers.filter((subscriber) => subscriber.id !== id);
-    //     if (!skipCallback) {
-    //         subscriber.onUnsubscribe();
-    //     }
-    //     return true;
-    // }
+
+    public unsubscribe(id: string, skipCallback = false): boolean {
+        const subscriber = subscribers.find((subscriber) => subscriber.id === id);
+        if (!subscriber) {
+            return false;
+        }
+        subscribers = subscribers.filter((subscriber) => subscriber.id !== id);
+        if (!skipCallback) {
+            subscriber.onUnsubscribe();
+        }
+        return true;
+    }
     public updateSubscription(oldId: string, newId: string): void {
         const sub = subscribers.find((s) => s.id === oldId);
         if (sub) {

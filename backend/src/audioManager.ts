@@ -1,14 +1,15 @@
 import {
     AudioPlayerStatus,
     AudioResource, createAudioPlayer,
-    createAudioResource, VoiceConnection
+    createAudioResource, PlayerSubscription, VoiceConnection
 } from '@discordjs/voice';
 import fs, { createReadStream } from 'fs';
 import path from 'path';
+import { setTimeout } from 'timers/promises';
+import logger from '../lib/logger';
 
 const loadFiles = (): {
     id: string;
-    audio: AudioResource;
     path: string;
 }[] => {
     const sounds = [];
@@ -19,35 +20,21 @@ const loadFiles = (): {
         const filePathStart = directoryPath + '/start.mp3';
         try {
             if (fs.lstatSync(filePathCountdown).isFile()) {
-                const audio = createAudioResource(createReadStream(filePathCountdown), {
-                    inlineVolume: true
-                });
-                audio.volume?.setVolume(volume);
                 sounds.push({
                     id: i.toString(),
-                    audio: audio,
                     path: filePathCountdown
                 });
             }
             if (fs.lstatSync(filePathRespawnCount).isFile()) {
-                const audio = createAudioResource(createReadStream(filePathRespawnCount), {
-                    inlineVolume: true
-                });
-                audio.volume?.setVolume(volume);
                 sounds.push({
                     id: 'respawn-' + i,
-                    audio: audio,
                     path: filePathRespawnCount
                 });
             }
             if (fs.lstatSync(filePathStart).isFile()) {
-                const audio = createAudioResource(createReadStream(filePathStart), {
-                    inlineVolume: true
-                });
-                audio.volume?.setVolume(volume);
+
                 sounds.push({
                     id: 'start',
-                    audio: audio,
                     path: filePathStart
                 });
             }
@@ -59,56 +46,61 @@ const loadFiles = (): {
 };
 
 const volume = 0.7;
+const subscribers: {
+    guildId: string;
+    connection: VoiceConnection;
+    subscription?: PlayerSubscription;
+}[] = [];
+const sounds = loadFiles();
 
+class AudioManager {
+    public constructor(private player = createAudioPlayer()) { }
 
-export class AudioManager {
-    private sounds: {
-        id: string;
-        audio: AudioResource;
-        path: string;
-    }[] = loadFiles();
-
-    public constructor(private player = createAudioPlayer()) {
-        this.player.on(AudioPlayerStatus.Idle, () => {
-            this.sounds.forEach((sound) => {
-                if (sound.audio.ended) {
-                    const audio = createAudioResource(createReadStream(sound.path), {
-                        inlineVolume: true
-                    });
-                    audio.volume?.setVolume(volume);
-                    sound.audio = audio;
-                }
-            });
-        });
-    }
-
-    public setVolume(volume: number): void {
-        this.sounds.forEach((sound) => {
-            sound.audio.volume?.setVolume(volume);
-        });
-    }
     public playCountdown(timestamp: number): void {
-        const sound = this.sounds.find((sound) => sound.id === timestamp.toString());
-        const audio = sound?.audio;
-        if (audio && !audio.ended) {
-            this.player.play(audio);
+        const sound = sounds.find((sound) => sound.id === timestamp.toString());
+        if (sound) {
+            this.player.play(createAudioResource(createReadStream(sound.path)));
         }
     }
     public playRespawnCount(count: number): void {
-        const sound = this.sounds.find((sound) => sound.id === 'respawn-' + count);
-        const audio = sound?.audio;
-        if (audio && !audio.ended) {
-            this.player.play(audio);
+        const sound = sounds.find((sound) => sound.id === 'respawn-' + count);
+        if (sound) {
+            this.player.play(createAudioResource(createReadStream(sound.path)));
         }
     }
     public playStart(): void {
-        const sound = this.sounds.find((sound) => sound.id === 'start');
-        const audio = sound?.audio;
-        if (audio && !audio.ended) {
-            this.player.play(audio);
+        const sound = sounds.find((sound) => sound.id === 'start');
+        if (sound) {
+            this.player.play(createAudioResource(createReadStream(sound.path)));
         }
     }
-    public subscribe(connection: VoiceConnection): void {
-        connection.subscribe(this.player);
+    public subscribe(connection: VoiceConnection, guildId: string): void {
+        subscribers.push({
+            guildId,
+            connection,
+            subscription: connection.subscribe(this.player)
+        });
+
+        // ! TEMPORARY FIX FOR DISCORD API ISSUE https://github.com/discordjs/discord.js/issues/9185
+        connection.on('stateChange', (oldState, newState) => {
+            const oldNetworking = Reflect.get(oldState, 'networking');
+            const newNetworking = Reflect.get(newState, 'networking');
+
+            // eslint-disable-next-line max-len
+            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/no-explicit-any
+            const networkStateChangeHandler = (oldNetworkState: any, newNetworkState: any) => {
+                const newUdp = Reflect.get(newNetworkState, 'udp');
+                clearInterval(newUdp?.keepAliveInterval);
+            };
+
+            oldNetworking?.off('stateChange', networkStateChangeHandler);
+            newNetworking?.on('stateChange', networkStateChangeHandler);
+        });
+    }
+    public unsubscribe(guildId: string): void {
+        const subscriber = subscribers.find((s) => s.guildId === guildId);
+        subscriber?.subscription?.unsubscribe();
+        subscribers.splice(subscribers.findIndex((s) => s.guildId === guildId), 1);
     }
 }
+export default new AudioManager();
