@@ -7,7 +7,7 @@ import { Command } from '../common/command';
 import { Widget } from '../common/widget';
 
 const buttonIds = {
-    toggle: 'toggle',
+    text: 'text',
     voice: 'voice',
     //  reload: 'reload',
     info: 'info'
@@ -41,7 +41,6 @@ export class CommandCreate extends Command {
                 // Check if widget entry exists for this widget, create if not
                 const widget = widgets.find((widget) => widget.getId() === interaction.message.id);
                 if (!widget) {
-                    logger.log('Creating widget in memory');
                     await interaction.deferUpdate();
                     new Widget(message, guild, [], (widget) => {
                         widgets.push(widget);
@@ -52,10 +51,10 @@ export class CommandCreate extends Command {
                 }
             }))
             .then(async (widget) => {
-                logger.log(buttonId + '-button pressed in ' + guild.name + ' by ' + interaction.user.username);
+                logger.info('[' + guild.name + '][Button] ' + buttonId + ' activated by ' + interaction.user.username);
                 switch (buttonId) {
-                    case buttonIds.toggle:
-                        await widget.toggle(interaction);
+                    case buttonIds.text:
+                        await widget.toggleText(interaction);
                         break;
                     case buttonIds.voice:
                         await widget.toggleVoice(interaction);
@@ -90,7 +89,7 @@ export class CommandCreate extends Command {
             .setDescription(this.description)
             .addChannelOption((option) => option
                 .setName('channel')
-                .setDescription('The channel where the timer widget will be posted')
+                .setDescription('The text-channel where the timer widget will be posted')
                 .setRequired(false))
             .addRoleOption((option) => option
                 .setName('managerrole')
