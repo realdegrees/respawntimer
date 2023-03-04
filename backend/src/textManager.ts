@@ -26,7 +26,7 @@ class TextManager {
         subscribers.forEach((subscriber) => {
             // Toggle widget & voice off at war end if it's been on for more than 15 minutes
             if (info.war.timeLeftSeconds === 5) {
-                const minutesSubscribed = new Date(Date.now() - subscriber.timeStamp).getMinutes();
+                const minutesSubscribed = (Date.now() - subscriber.timeStamp) / 1000 / 60;
                 if (minutesSubscribed >= 15) {
                     this.unsubscribe(subscriber.msgId);
                 }
