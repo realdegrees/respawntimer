@@ -1,13 +1,14 @@
-import { getVoiceConnection, joinVoiceChannel } from '@discordjs/voice';
+import { getVoiceConnection, joinVoiceChannel, VoiceConnection } from '@discordjs/voice';
 import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonInteraction, ButtonStyle, CacheType, EmbedBuilder, Guild,
     Message, Role, TextChannel
 } from 'discord.js';
+import { setTimeout } from 'timers/promises';
 import logger from '../../lib/logger';
 import audioManager from '../audioManager';
-import respawnInterval from './respawnInterval';
+import textManager from '../textManager';
 
 const buttonIds = {
     text: 'text',
@@ -19,7 +20,7 @@ const resetDurationSeconds = 7;
 const timeoutDurationMillis = 800;
 
 export class Widget {
-    private toggleState = false;
+    private textState = false;
     private voiceState = false;
     private isResetting = false;
     private isUpdating = false;
@@ -42,7 +43,7 @@ export class Widget {
     }
     private async init(onReady: (widget: Widget) => void): Promise<void> {
         this.managerRoles = this.managerRoles.length > 0 ? this.managerRoles : this.parseManagerRole();
-        await new Promise((res) => setTimeout(res, 500));
+        await setTimeout(500);
         await this.message.edit({
             components: [this.getButtons()],
             embeds: [EmbedBuilder.from(this.message.embeds[0])
@@ -52,17 +53,21 @@ export class Widget {
         }).then((message) => {
             this.message = message;
             logger.info('[' + this.guild.name + '][Start] Widget initiated');
-            respawnInterval.subscribe(
-                this.message.id,
-                this.guild.id,
-                this.update.bind(this),
-                () => {
-                    this.toggleText.call(this);
-                    this.toggleVoice.call(this);
-                },
-                this.resetEmbed.bind(this));
             onReady(this);
         });
+    }
+
+    private async onTextUnsubscribe(): Promise<void> { // onUnsubscribe
+        logger.info('[' + this.guild.name + '][Unsubscribed Text]');
+        this.textState = this.isResetting && this.textState;
+        await this.update(undefined, undefined, true);
+    }
+    private async onAudioUnsubscribe(): Promise<void> { // onUnsubscribe
+        logger.info('[' + this.guild.name + '][Unsubscribed Audio]');
+        this.voiceState = false;
+        if (!this.textState) {
+            await this.update(undefined, undefined, true);
+        }
     }
     private getManagerRoleFooterText(): string {
         switch (this.managerRoles.length) {
@@ -83,8 +88,8 @@ export class Widget {
         return new ActionRowBuilder<ButtonBuilder>()
             .addComponents(new ButtonBuilder()
                 .setCustomId(buttonIds.text + '-' + this.message.id)
-                .setLabel(this.toggleState ? '■' : '▶')
-                .setStyle(this.toggleState ? ButtonStyle.Danger : ButtonStyle.Success)
+                .setLabel(this.textState ? '■' : '▶')
+                .setStyle(this.textState ? ButtonStyle.Danger : ButtonStyle.Success)
                 .setDisabled(disableToggle))
             .addComponents(new ButtonBuilder()
                 .setCustomId(buttonIds.voice + '-' + this.message.id)
@@ -103,8 +108,17 @@ export class Widget {
     public getId(): string {
         return this.message.id;
     }
-    public async update(title?: string, description?: string): Promise<void> {
-        if (this.isUpdating || this.isResetting) {
+    public async update(title?: string, description?: string, forceQueue?: boolean): Promise<void> {
+        if (this.isResetting) {
+            return;
+        }
+        if (forceQueue) {
+            while (this.isUpdating) {
+                logger.debug('waiting');
+                await setTimeout(500);
+            }
+        }
+        if (this.isUpdating) {
             return;
         }
         this.isUpdating = true;
@@ -113,42 +127,34 @@ export class Widget {
             components: [this.getButtons()],
             embeds: [EmbedBuilder.from(this.message.embeds[0])
                 .setTitle(title ?? 'Respawn Timer')
-                .setDescription(description ??
-                    (this.voiceState ? 'Audio On' : '-'))]
+                .setDescription(description ?? '-')]
         }).then((message) => {
             this.message = message;
             this.isUpdating = false;
             const editDuration = new Date(Date.now() - preEditTimeStamp).getMilliseconds();
-            logger.debug(
-                '[' + this.guild.name + '] Updated message in: ' + editDuration + 'ms (' + title?.trim() + ')'
-            );
+            // logger.debug(
+            //     '[' + this.guild.name + '] Updated message (' + editDuration + 'ms) (' + title?.trim() + ')'
+            // );
             if (editDuration > 500) {
                 this.recreateMessage();
             }
         }).catch(() => {
             if (this.isResetting) return;
-
-            respawnInterval.disableText(this.message.id);
-            respawnInterval.unsubscribe(this.message.id);
-            getVoiceConnection(this.guild.id)?.disconnect();
-            getVoiceConnection(this.guild.id)?.destroy();
+            textManager.unsubscribe(this.message.id);
+            audioManager.unsubscribe(this.guild.id);
             logger.debug('[' + this.guild.name + '][Destroy] Unable to find widget. Destroying instance.');
             this.onDestroy?.(this);
         });
     }
-    public resetEmbed(): void {
-        this.isResetting = false;
-        this.isUpdating = false;
-        respawnInterval.enableText(this.message.id);
-    }
+
     public recreateMessage(manual = false): void {
         if (!manual) {
             logger.info(
                 '[' + this.guild.name + '][Timeout] Response took longer than ' + timeoutDurationMillis + 'ms!'
-                );
+            );
         }
         this.isResetting = true;
-        respawnInterval.disableText(this.message.id);
+        textManager.unsubscribe(this.message.id);
         this.message.delete().finally(() => {
             (this.message.channel as TextChannel).send({
                 components: [this.getButtons(true, true)],
@@ -160,14 +166,22 @@ export class Widget {
             }).then(message => message.edit({
                 components: [this.getButtons(true)],
             })).then((message) => {
-                respawnInterval.updateSubscription(this.message.id, message.id);
+                textManager.updateSubscription(this.message.id, message.id);
                 this.message = message;
 
                 const reset = (): void => {
                     if (!manual) logger.info('[' + this.guild.name + '] Resuming text updates!');
-                    this.resetEmbed();
+                    this.isResetting = false;
+                    this.isUpdating = false;
+                    if (this.textState) {
+                        textManager.subscribe(
+                            this.message.id,
+                            this.guild.id,
+                            this.update.bind(this),
+                            this.onTextUnsubscribe.bind(this));
+                    }
                 };
-                setTimeout(reset, manual ? 0 : resetDurationSeconds * 1000);
+                setTimeout(manual ? 0 : resetDurationSeconds * 1000).then(reset);
             });
         }).catch();
     }
@@ -176,15 +190,19 @@ export class Widget {
             await interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions.' });
             return;
         }
-        this.toggleState = !this.toggleState;
+        this.textState = !this.textState;
         if (interaction && !interaction.deferred) {
             await interaction.deferUpdate().catch((e) => logger.error(e));
         }
-        if (interaction && this.toggleState) {
-            respawnInterval.enableText(this.message.id);
+        if (interaction && this.textState) {
+            textManager.subscribe(
+                this.message.id,
+                this.guild.id,
+                this.update.bind(this),
+                this.onTextUnsubscribe.bind(this));
         } else {
-            respawnInterval.disableText(this.message.id);
-            this.update();
+            textManager.unsubscribe(this.message.id);
+            // await this.update(undefined, undefined, true); // testing to skip this bc it already runs in onunsub
         }
     }
     public async toggleVoice(interaction?: ButtonInteraction<CacheType>): Promise<void> {
@@ -192,23 +210,30 @@ export class Widget {
             await interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions.' });
             return;
         }
-        await interaction?.deferUpdate();
         this.voiceState = !this.voiceState;
+        if (interaction && !interaction.deferred) {
+            await interaction.deferUpdate().catch((e) => logger.error(e));
+        }
         if (interaction && this.voiceState) {
             try {
-                await this.connect(interaction);
-                if (!this.toggleState) {
-                    await this.update('Respawn Timer', 'Audio On');
+                const connection = await this.getConnection(interaction);
+                audioManager.subscribe(
+                    connection,
+                    this.guild.id,
+                    this.onAudioUnsubscribe.bind(this)
+                );
+                if (!this.textState) {
+                    await this.update(undefined, undefined, true);
                 }
             } catch {
                 this.voiceState = false;
             }
 
         } else {
-            this.disconnect();
-            if (interaction && !this.toggleState) {
-                await this.update('Respawn Timer', '-');
-            }
+            audioManager.unsubscribe(this.guild.id);
+            // if (!this.textState) { // testing to skip this bc it already runs in onunsub
+            //     await this.update(undefined, undefined, true);
+            // }
         }
     }
     private async checkPermission(interaction: ButtonInteraction): Promise<boolean> {
@@ -219,21 +244,16 @@ export class Widget {
                 .includes(userRole.id));
     }
 
-    private async connect(interaction: ButtonInteraction): Promise<void> {
+    private async getConnection(interaction: ButtonInteraction): Promise<VoiceConnection> {
         const channel = (await interaction.guild?.members.fetch(interaction.user))?.voice.channel;
         if (!channel) {
             await interaction.reply({ ephemeral: true, content: 'You are not in a voice channel!' });
             throw new Error('Not in a voice channel');
         }
-        const connection = joinVoiceChannel({
+        return joinVoiceChannel({
             guildId: channel.guild.id,
             channelId: channel.id,
             adapterCreator: channel.guild.voiceAdapterCreator
         });
-        audioManager.subscribe(connection, this.guild.id);
-    }
-    private disconnect(): void {
-        audioManager.unsubscribe(this.guild.id);
-        getVoiceConnection(this.guild.id)?.destroy();
     }
 }
