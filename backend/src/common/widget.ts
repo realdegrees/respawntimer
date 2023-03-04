@@ -17,14 +17,14 @@ const buttonIds = {
     reload: 'reload',
     info: 'info'
 };
-const resetDurationSeconds = 7;
-const timeoutDurationMillis = 800;
+const resetDurationSeconds = 3;
 
 export class Widget {
     private textState = false;
     private voiceState = false;
     private isResetting = false;
     private isUpdating = false;
+    private lastUpdateTimeStamp: number | undefined;
 
     /**
      * @param interaction The interaction that created this widget
@@ -62,6 +62,7 @@ export class Widget {
         logger.info('[' + this.guild.name + '][Unsubscribed Text]');
         this.textState = this.isResetting && this.textState;
         await this.update(undefined, undefined, true);
+        this.lastUpdateTimeStamp = undefined;
     }
     private async onAudioUnsubscribe(): Promise<void> { // onUnsubscribe
         logger.info('[' + this.guild.name + '][Unsubscribed Audio]');
@@ -120,10 +121,11 @@ export class Widget {
             }
         }
         if (this.isUpdating) {
+            logger.debug('already updating, skip');
             return;
         }
         this.isUpdating = true;
-        const preEditTimeStamp = Date.now();
+
         await this.message.edit({
             components: [this.getButtons()],
             embeds: [EmbedBuilder.from(this.message.embeds[0])
@@ -132,13 +134,19 @@ export class Widget {
         }).then((message) => {
             this.message = message;
             this.isUpdating = false;
-            const editDuration = new Date(Date.now() - preEditTimeStamp).getMilliseconds();
-            // logger.debug(
-            //     '[' + this.guild.name + '] Updated message (' + editDuration + 'ms) (' + title?.trim() + ')'
-            // );
-            if (editDuration > applicationSettings.get(this.guild.id).delay * 1000) {
-                this.recreateMessage();
+            const updateDurationMs = Date.now() - (this.lastUpdateTimeStamp ?? Date.now());
+
+            logger.debug('[' + this.guild.name + '][Message] ' + title?.trim() + ' (' + updateDurationMs + 'ms)');
+
+            if (this.lastUpdateTimeStamp) {
+                const recreateThresholdMs = applicationSettings.get(this.guild.id).delay * 1000 * 2;
+                if (updateDurationMs > recreateThresholdMs) {
+                    this.recreateMessage();
+                    return;
+                }
             }
+            this.lastUpdateTimeStamp = Date.now();
+
         }).catch(() => {
             if (this.isResetting) return;
             textManager.unsubscribe(this.message.id);
@@ -151,7 +159,7 @@ export class Widget {
     public recreateMessage(manual = false): void {
         if (!manual) {
             logger.info(
-                '[' + this.guild.name + '][Timeout] Response took longer than ' + timeoutDurationMillis + 'ms!'
+                '[' + this.guild.name + '][Reset] Response took too long! Resending message.'
             );
         }
         this.isResetting = true;
@@ -171,16 +179,19 @@ export class Widget {
                 this.message = message;
 
                 const reset = (): void => {
-                    if (!manual) logger.info('[' + this.guild.name + '] Resuming text updates!');
+                    if (!manual) logger.info('[' + this.guild.name + '][Reset] Done!');
                     this.isResetting = false;
                     this.isUpdating = false;
-                    if (this.textState) {
-                        textManager.subscribe(
-                            this.message.id,
-                            this.guild.id,
-                            this.update.bind(this),
-                            this.onTextUnsubscribe.bind(this));
-                    }
+                    this.lastUpdateTimeStamp = undefined;
+                    this.update().then(() => {
+                        if (this.textState) {
+                            textManager.subscribe(
+                                this.message.id,
+                                this.guild.id,
+                                this.update.bind(this),
+                                this.onTextUnsubscribe.bind(this));
+                        }
+                    });
                 };
                 setTimeout(manual ? 0 : resetDurationSeconds * 1000).then(reset);
             });
@@ -192,7 +203,7 @@ export class Widget {
             return;
         }
         this.textState = !this.textState;
-        if (interaction && !interaction.deferred) {
+        if (interaction) {
             await interaction.deferUpdate().catch((e) => logger.error(e));
         }
         if (interaction && this.textState) {
@@ -203,7 +214,6 @@ export class Widget {
                 this.onTextUnsubscribe.bind(this));
         } else {
             textManager.unsubscribe(this.message.id);
-            // await this.update(undefined, undefined, true); // testing to skip this bc it already runs in onunsub
         }
     }
     public async toggleVoice(interaction?: ButtonInteraction<CacheType>): Promise<void> {
@@ -212,12 +222,13 @@ export class Widget {
             return;
         }
         this.voiceState = !this.voiceState;
-        if (interaction && !interaction.deferred) {
-            await interaction.deferUpdate().catch((e) => logger.error(e));
-        }
+        // if (interaction) {
+        //     await interaction.deferUpdate().catch((e) => logger.error(e));
+        // }
         if (interaction && this.voiceState) {
             try {
                 const connection = await this.getConnection(interaction);
+                interaction.deferUpdate();
                 audioManager.subscribe(
                     connection,
                     this.guild.id,
@@ -226,11 +237,18 @@ export class Widget {
                 if (!this.textState) {
                     await this.update(undefined, undefined, true);
                 }
-            } catch {
+            } catch(e) {
+                interaction.reply({
+                    ephemeral: true,
+                    content: (e as Error).message
+                });
                 this.voiceState = false;
             }
 
         } else {
+            if(interaction){
+                interaction.deferUpdate();
+            }
             audioManager.unsubscribe(this.guild.id);
             // if (!this.textState) { // testing to skip this bc it already runs in onunsub
             //     await this.update(undefined, undefined, true);
@@ -248,8 +266,19 @@ export class Widget {
     private async getConnection(interaction: ButtonInteraction): Promise<VoiceConnection> {
         const channel = (await interaction.guild?.members.fetch(interaction.user))?.voice.channel;
         if (!channel) {
-            await interaction.reply({ ephemeral: true, content: 'You are not in a voice channel!' });
-            throw new Error('Not in a voice channel');
+            throw new Error('You are not in a voice channel!');
+        }
+        if (!channel.permissionsFor(this.guild.client.user)?.has('ViewChannel')) {
+            throw new Error('I am missing permissions to see your voice channel!\n' +
+                'Please contact a server admin to grant permissions.');
+        }
+        if (!channel.permissionsFor(this.guild.client.user)?.has('Connect')) {
+            throw new Error('I am missing permissions to join your voice channel!\n' +
+                'Please contact a server admin to grant permissions.');
+        }
+        if (!channel.permissionsFor(this.guild.client.user)?.has('Speak')) {
+            throw new Error('I am missing permissions to speak in your voice channel!\n' +
+                'Please contact a server admin to grant permissions.');
         }
         return joinVoiceChannel({
             guildId: channel.guild.id,
