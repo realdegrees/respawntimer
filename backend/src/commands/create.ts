@@ -58,20 +58,14 @@ export class CommandCreate extends Command {
                     case buttonIds.voice:
                         await widget.toggleVoice(interaction);
                         break;
-                    // case buttonIds.reload:
-                    //     widget.recreateMessage(true);
-                    //     break;
                     case buttonIds.info:
-                        // eslint-disable-next-line no-case-declarations
-                        const embed = new EmbedBuilder()
-                            .setTitle('Widget Info')
-                            .setDescription('- The bot will automatically disconnect after every war if it has been running for more than 15 minutes\n' +
-                                '- (Not implemented) The bot will automatically join any channel it has permission in when a war starts and over 40 users are connected to that channel\n' +
-                                '- If the text widget reloads too often increase the interval with /set delay');
-
                         interaction.reply({
                             ephemeral: true,
-                            embeds: [embed]
+                            embeds: [new EmbedBuilder()
+                                .setTitle('Widget Info')
+                                .setDescription('- The bot will automatically disconnect after every war if it has been running for more than 15 minutes\n' +
+                                    '- (Not implemented) The bot will automatically join any channel it has permission in when a war starts and over 40 users are connected to that channel\n' +
+                                    '- If the text widget reloads too often increase the interval with /set delay')]
                         });
 
 
@@ -109,29 +103,41 @@ export class CommandCreate extends Command {
     }
     // eslint-disable-next-line @typescript-eslint/require-await
     public async execute(interaction: CommandInteraction<CacheType> & { options: Pick<CommandInteractionOptionResolver<CacheType>, 'getRole' | 'getChannel'> }): Promise<void> {
-        const roles = [
-            interaction.options.getRole('managerrole'),
-            interaction.options.getRole('managerrole2'),
-            interaction.options.getRole('managerrole3')
-        ].filter((role): role is Role => !!role);
-        const channel = interaction.options.getChannel('channel') as TextBasedChannel | null ?? interaction.channel;
-        const guild = interaction.guild;
-        if (!guild) {
-            await interaction.reply('This cannot be used in DMs');
-            return;
-        }
-        if (!channel || channel.type !== ChannelType.GuildText) {
-            await interaction.reply({ ephemeral: true, content: 'Invalid channel' });
-            return;
-        }
-        await interaction.deferReply({ ephemeral: true });
-        channel.send({
-            embeds: [new EmbedBuilder().setTitle('Respawn Timer')]
-        }).then((message) => {
-            new Widget(message, guild, roles, async (widget) => {
-                widgets.push(widget);
-                await interaction.editReply({ content: 'Widget created.' });
-            }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
+        interaction.guild?.members.fetch(interaction.user)
+        .then((member) => {
+            if (!member.permissions.has('Administrator')) {
+                throw new Error('You must have administrator permissions to use this command!');
+            }
+        }).then(async () => {
+            const roles = [
+                interaction.options.getRole('managerrole'),
+                interaction.options.getRole('managerrole2'),
+                interaction.options.getRole('managerrole3')
+            ].filter((role): role is Role => !!role);
+            const channel = interaction.options.getChannel('channel') as TextBasedChannel | null ?? interaction.channel;
+            const guild = interaction.guild;
+            if (!guild) {
+                return interaction.reply('This cannot be used in DMs');
+            }
+            if (!channel || channel.type !== ChannelType.GuildText) {
+                return interaction.reply({ ephemeral: true, content: 'Invalid channel' });
+            }
+            await interaction.deferReply({ ephemeral: true });
+            channel.send({
+                embeds: [new EmbedBuilder().setTitle('Respawn Timer')]
+            }).then((message) => {
+                new Widget(message, guild, roles, async (widget) => {
+                    widgets.push(widget);
+                    await interaction.editReply({ content: 'Widget created.' });
+                }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
+            });
+        }).catch((e) => {
+            interaction.reply({
+                ephemeral: true,
+                content: (e as Error).message
+            });
         });
+
+
     }
 }
