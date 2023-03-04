@@ -106,11 +106,13 @@ class TextManager {
         }
         return true;
     }
-    public updateSubscription(oldMsgId: string, newMsgId: string): void {
+    public updateSubscription(oldMsgId: string, newMsgId: string): boolean {
         const sub = subscribers.find((s) => s.msgId === oldMsgId);
         if (sub) {
             sub.msgId = newMsgId;
+            return true;
         }
+        return false;
     }
 }
 export default new TextManager();
