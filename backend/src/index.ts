@@ -3,6 +3,7 @@ import { config } from 'dotenv';
 import { install } from 'source-map-support';
 import logger from '../lib/logger';
 import { OAuth2Scopes, PermissionFlagsBits } from 'discord.js';
+import { RespawnInterval } from './common/respawnInterval';
 install();
 config();
 
@@ -17,6 +18,9 @@ Promise.resolve()
             PermissionFlagsBits.Speak,
             PermissionFlagsBits.ViewChannel]
     })))
+    .then(() => {
+        RespawnInterval.startInterval();
+    })
     .catch((error) => {
         logger.error('Unable to start!');
         logger.error(error);
