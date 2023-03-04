@@ -37,11 +37,10 @@ export class CommandCreate extends Command {
 
         await interaction.message.fetch()
             // eslint-disable-next-line no-async-promise-executor
-            .then((message) => new Promise<Widget>(async (res) => {
+            .then((message) => new Promise<Widget>((res) => {
                 // Check if widget entry exists for this widget, create if not
                 const widget = widgets.find((widget) => widget.getId() === interaction.message.id);
                 if (!widget) {
-                    await interaction.deferUpdate();
                     new Widget(message, guild, [], (widget) => {
                         widgets.push(widget);
                         res(widget);
@@ -69,18 +68,13 @@ export class CommandCreate extends Command {
                             .setDescription('- The bot will automatically disconnect after every war if it has been running for more than 15 minutes\n' +
                                 '- (Not implemented) The bot will automatically join any channel it has permission in when a war starts and over 40 users are connected to that channel\n' +
                                 '- If the text widget reloads too often increase the interval with /set delay');
-                        if (!interaction.deferred) {
-                            await interaction.deferReply({
-                                ephemeral: true
-                            }).then(() => interaction.editReply({
-                                embeds: [embed]
-                            }));
 
-                        } else {
-                            await interaction.reply({
-                                embeds: [embed]
-                            });
-                        }
+                        interaction.reply({
+                            ephemeral: true,
+                            embeds: [embed]
+                        });
+
+
 
                         break;
                 }
