@@ -103,7 +103,18 @@ export class CommandCreate extends Command {
     }
     // eslint-disable-next-line @typescript-eslint/require-await
     public async execute(interaction: CommandInteraction<CacheType> & { options: Pick<CommandInteractionOptionResolver<CacheType>, 'getRole' | 'getChannel'> }): Promise<void> {
-        interaction.guild?.members.fetch(interaction.user)
+        const channel = interaction.options.getChannel('channel') as TextBasedChannel | null ?? interaction.channel;
+        const guild = interaction.guild;
+        if (!guild) {
+            interaction.reply('This cannot be used in DMs');
+            return;
+        }
+        if (!channel || channel.type !== ChannelType.GuildText) {
+            interaction.reply({ ephemeral: true, content: 'Invalid channel' });
+            return;
+        } 
+        
+        return interaction.guild.members.fetch(interaction.user)
         .then((member) => {
             if (!member.permissions.has('Administrator')) {
                 throw new Error('You must have administrator permissions to use this command!');
@@ -114,14 +125,7 @@ export class CommandCreate extends Command {
                 interaction.options.getRole('managerrole2'),
                 interaction.options.getRole('managerrole3')
             ].filter((role): role is Role => !!role);
-            const channel = interaction.options.getChannel('channel') as TextBasedChannel | null ?? interaction.channel;
-            const guild = interaction.guild;
-            if (!guild) {
-                return interaction.reply('This cannot be used in DMs');
-            }
-            if (!channel || channel.type !== ChannelType.GuildText) {
-                return interaction.reply({ ephemeral: true, content: 'Invalid channel' });
-            }
+            
             await interaction.deferReply({ ephemeral: true });
             channel.send({
                 embeds: [new EmbedBuilder().setTitle('Respawn Timer')]
