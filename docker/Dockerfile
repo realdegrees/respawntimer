@@ -36,6 +36,8 @@ COPY --from=builder /usr/src/app/audio ./audio
 COPY --from=builder /usr/src/app/package.json .
 COPY --from=builder /usr/src/app/node_modules ./node_modules
 
+ENV NODE_ENV prod
+
 EXPOSE 8080
 
 # the command that starts our app
