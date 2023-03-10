@@ -4,6 +4,7 @@ import {
 } from '@discordjs/voice';
 import fs, { createReadStream } from 'fs';
 import path from 'path';
+import logger from '../lib/logger';
 import { timers } from './common/timer';
 import { WarInfo } from './common/types';
 
@@ -13,10 +14,23 @@ const loadFiles = (): {
 }[] => {
     const sounds = [];
     const directoryPath = path.resolve(process.cwd(), 'audio');
+
+    const filePathStart = directoryPath + '/start.mp3';
+
+    try {
+        if (fs.lstatSync(filePathStart).isFile()) {
+
+            sounds.push({
+                id: 'start',
+                path: filePathStart
+            });
+        }
+    } catch (e) { /* empty */ }
+     
     for (let i = -1; i < 60; i++) {
         const filePathCountdown = directoryPath + '/' + i + '.mp3';
+        const filePathCountdownShifted = directoryPath + '/+' + i + '.mp3';
         const filePathRespawnCount = directoryPath + '/respawn-' + i + '.mp3';
-        const filePathStart = directoryPath + '/start.mp3';
         try {
             if (fs.lstatSync(filePathCountdown).isFile()) {
                 sounds.push({
@@ -24,23 +38,27 @@ const loadFiles = (): {
                     path: filePathCountdown
                 });
             }
+        } catch (e) { /* empty */ }
+        try {
+
+            if (fs.lstatSync(filePathCountdownShifted).isFile()) {
+                sounds.push({
+                    id: '+' + i.toString(),
+                    path: filePathCountdownShifted
+                });
+            }
+        } catch (e) { /* empty */ }
+
+        try {
             if (fs.lstatSync(filePathRespawnCount).isFile()) {
                 sounds.push({
                     id: 'respawn-' + i,
                     path: filePathRespawnCount
                 });
             }
-            if (fs.lstatSync(filePathStart).isFile()) {
-
-                sounds.push({
-                    id: 'start',
-                    path: filePathStart
-                });
-            }
-        } catch (e) {
-            //Do nothing
-        }
+        } catch (e) { /* empty */ }
     }
+    logger.debug(JSON.stringify(sounds));
     return sounds;
 };
 
@@ -54,7 +72,7 @@ const subscribers: {
 const sounds = loadFiles();
 
 class AudioManager {
-    public constructor(private player = createAudioPlayer()) {     }
+    public constructor(private player = createAudioPlayer()) { }
 
     public interval(info: WarInfo): void {
 
@@ -88,7 +106,8 @@ class AudioManager {
     }
 
     private playCountdown(timestamp: number): void {
-        const sound = sounds.find((sound) => sound.id === timestamp.toString());
+        const sound = sounds.find((sound) => sound.id === timestamp.toString()) ??
+            sounds.find((sound) => sound.id === '+' + (timestamp - 1).toString());
         if (sound) {
             this.player.play(createAudioResource(createReadStream(sound.path)));
         }
