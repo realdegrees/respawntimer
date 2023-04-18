@@ -4,6 +4,14 @@ I will maintain this bot as long as I actively play the game - [which should be 
 
 **[Public Bot Link](https://discord.com/api/oauth2/authorize?client_id=993116789284286484&scope=bot+applications.commands&permissions=2100224)**
 
+# How to use
+
+1. Use the `/create` command in any channel that the bot has read permissions in
+  1.1 *(optional)* add options like managerroles or the target channel (for the widget)
+2. Use the play/stop button to start/stop text updates on the widget
+3. Use the speaker button to connect the bot to your current voice-channel  
+![https://imgur.com/xWCrxRi](https://i.imgur.com/xWCrxRi.png)
+
 # Deployment - Docker
 `docker run -d --name wartimer -e DISCORD_CLIENT_TOKEN='<Token>' -e DISCORD_CLIENT_ID='<ID>' realdegrees/wartimer`
 
