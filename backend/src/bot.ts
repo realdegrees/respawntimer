@@ -3,8 +3,9 @@ import { Routes } from 'discord-api-types/v9';
 import { Client, GatewayIntentBits, User } from 'discord.js';
 import logger from '../lib/logger';
 import { CommandCreate } from './commands/create';
-import { CommandSet } from './commands/set';
+import { CommandSet } from './commands/settings';
 import { Command } from './common/command';
+import { InteractionHandler } from './interactionHandler';
 
 
 /**
@@ -14,12 +15,13 @@ import { Command } from './common/command';
  */
 class Bot {
     public readonly user: User | null;
-
+    public interactionHandler;
     private constructor(
         private client: Client,
         commands: Command[]
     ) {
         this.user = this.client.user;
+        this.interactionHandler = new InteractionHandler(client);
         this.client.user?.setActivity({name: '/create'});
         this.client.on('interactionCreate', (interaction) => {
             if (!interaction.isCommand()) return;

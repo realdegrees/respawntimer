@@ -1,23 +1,25 @@
-import { getVoiceConnection, joinVoiceChannel, VoiceConnection } from '@discordjs/voice';
+import { joinVoiceChannel, VoiceConnection } from '@discordjs/voice';
 import {
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonInteraction, ButtonStyle, CacheType, EmbedBuilder, Guild,
-    Message, Role, TextChannel
+    ButtonInteraction, ButtonStyle, CacheType, CommandInteraction, EmbedBuilder, Guild,
+    Message, TextBasedChannel, TextChannel
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
 import logger from '../../lib/logger';
 import audioManager from '../audioManager';
 import textManager from '../textManager';
 import applicationSettings from './applicationSettings';
+import { default as DBGuild } from '../db/guild.schema';
 
-const buttonIds = {
+export const widgetButtonIds = {
     text: 'text',
     voice: 'voice',
-    reload: 'reload',
+    settings: 'settings',
     info: 'info'
 };
 const resetDurationSeconds = 3;
+let widgets: Widget[] = [];
 
 export class Widget {
     private textState = false;
@@ -36,21 +38,72 @@ export class Widget {
     public constructor(
         private message: Message,
         private guild: Guild,
-        private managerRoles: Role[],
         onReady: (widget: Widget) => void,
         private onDestroy?: (widget: Widget) => void
     ) {
         this.init(onReady);
     }
+    public static async get(message: Message): Promise<Widget> {
+        const guild = await message.guild?.fetch();
+        if (!guild) {
+            return Promise.reject();
+        }
+        const widget = widgets.find((widget) => widget.getId() === message.id);
+        if (!widget) {
+            return new Promise((res) => {
+                new Widget(message, guild, (widget) => {
+                    widgets.push(widget);
+                    return res(widget);
+                }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
+            });
+        } else {
+            return Promise.resolve(widget);
+        }
+    }
+    public static async create(
+        interaction: CommandInteraction<CacheType>,
+        guild: Guild,
+        channel: TextBasedChannel
+    ): Promise<void> {
+        // checks if guild exists in db, creates document if not
+        const dbGuild = await DBGuild.findById(guild.id).then((obj) => obj ?? new DBGuild({
+            _id: guild.id,
+            name: guild.name,
+            assistantRoleIDs: [],
+            editorRoleIDs: []
+        }).save());
+
+        return guild.members.fetch(interaction.user)
+            .then((member) => {
+                if (
+                    !member.permissions.has('Administrator') &&
+                    !member.roles.cache.some((role) => dbGuild.editorRoleIDs.includes(role.id))
+                ) {
+                    // eslint-disable-next-line max-len
+                    throw new Error('You must have editor permissions to use this command! Ask an administrator or editor to adjust the bot `/settings`');
+                }
+            }).then(async () => {
+                await interaction.deferReply({ ephemeral: true });
+                channel.send({
+                    embeds: [new EmbedBuilder().setTitle('Respawn Timer')]
+                }).then((message) => {
+                    new Widget(message, guild, async (widget) => {
+                        widgets.push(widget);
+                        await interaction.editReply({ content: 'Widget created.' });
+                    }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
+                });
+            }).catch((e) => {
+                interaction.reply({
+                    ephemeral: true,
+                    content: (e as Error).message
+                });
+            });
+    }
     private async init(onReady: (widget: Widget) => void): Promise<void> {
-        this.managerRoles = this.managerRoles.length > 0 ? this.managerRoles : this.parseManagerRole();
         await setTimeout(500);
         await this.message.edit({
             components: [this.getButtons()],
-            embeds: [EmbedBuilder.from(this.message.embeds[0])
-                .setFooter({
-                    text: this.getManagerRoleFooterText()
-                })]
+            embeds: [EmbedBuilder.from(this.message.embeds[0])]
         }).then((message) => {
             this.message = message;
             logger.info('[' + this.guild.name + '][Start] Widget initiated');
@@ -71,39 +124,24 @@ export class Widget {
             await this.update(undefined, undefined, true);
         }
     }
-    private getManagerRoleFooterText(): string {
-        switch (this.managerRoles.length) {
-            case 0: return 'Manager Roles: None';
-            case 1: return 'Manager Role: @' + this.managerRoles[0].name;
-            default: return 'Manager Roles:\n' + this.managerRoles.map((role) => '@' + role.name).join('\n');
-        }
-    }
-    private parseManagerRole(): Role[] {
-        const roleNames = this.message.embeds[0].footer?.text.split('@').slice(1);
-        return roleNames ? roleNames
-            .map((roleName) => roleName.trim())
-            .map((roleName) => this.guild.roles.cache.find((role) => role.name === roleName))
-            .filter((role): role is Role => !!role) : [];
-
-    }
     private getButtons(disableToggle = false, disableVoice = false): ActionRowBuilder<ButtonBuilder> {
         return new ActionRowBuilder<ButtonBuilder>()
             .addComponents(new ButtonBuilder()
-                .setCustomId(buttonIds.text + '-' + this.message.id)
+                .setCustomId(widgetButtonIds.text)
                 .setLabel(this.textState ? '■' : '▶')
                 .setStyle(this.textState ? ButtonStyle.Danger : ButtonStyle.Success)
                 .setDisabled(disableToggle))
             .addComponents(new ButtonBuilder()
-                .setCustomId(buttonIds.voice + '-' + this.message.id)
+                .setCustomId(widgetButtonIds.voice)
                 .setLabel(this.voiceState ? '🔇' : '🔊')
                 .setStyle(this.voiceState ? ButtonStyle.Danger : ButtonStyle.Success)
                 .setDisabled(disableVoice))
-            // .addComponents(new ButtonBuilder()
-            //     .setCustomId(buttonIds.reload + '-' + this.message.id)
-            //     .setLabel('⟳')
-            //     .setStyle(ButtonStyle.Primary))
             .addComponents(new ButtonBuilder()
-                .setCustomId(buttonIds.info + '-' + this.message.id)
+                .setCustomId(widgetButtonIds.settings)
+                .setLabel('⚙️')
+                .setStyle(ButtonStyle.Primary))
+            .addComponents(new ButtonBuilder()
+                .setCustomId(widgetButtonIds.info)
                 .setLabel('ℹ️')
                 .setStyle(ButtonStyle.Secondary));
     }
@@ -200,10 +238,6 @@ export class Widget {
         }).catch();
     }
     public async toggleText(interaction?: ButtonInteraction): Promise<void> {
-        if (interaction && !await this.checkPermission(interaction)) {
-            await interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions.' });
-            return;
-        }
         this.textState = !this.textState;
         if (interaction) {
             await interaction.deferUpdate().catch((e) => logger.error(e));
@@ -219,10 +253,6 @@ export class Widget {
         }
     }
     public async toggleVoice(interaction?: ButtonInteraction<CacheType>): Promise<void> {
-        if (interaction && !await this.checkPermission(interaction)) {
-            await interaction.reply({ ephemeral: true, content: 'You do not have the necessary permissions.' });
-            return;
-        }
         this.voiceState = !this.voiceState;
         // if (interaction) {
         //     await interaction.deferUpdate().catch((e) => logger.error(e));
@@ -257,14 +287,7 @@ export class Widget {
             // }
         }
     }
-    private async checkPermission(interaction: ButtonInteraction): Promise<boolean> {
-        const user = await this.guild.members.fetch(interaction.user);
-        return this.managerRoles.length === 0 || user.roles.cache
-            .some((userRole) => this.managerRoles
-                .map((role) => role.id)
-                .includes(userRole.id)) ||
-            user.permissions.has('Administrator');
-    }
+
 
     private async getConnection(interaction: ButtonInteraction): Promise<VoiceConnection> {
         const channel = (await interaction.guild?.members.fetch(interaction.user))?.voice.channel;

@@ -4,12 +4,13 @@ import { install } from 'source-map-support';
 import logger from '../lib/logger';
 import { OAuth2Scopes, PermissionFlagsBits } from 'discord.js';
 import { RespawnInterval } from './common/respawnInterval';
+import Database from './db/database';
 install();
 config();
 
 
 Promise.resolve()
-    //.then(() => Firebase.init())
+    .then(() => Database.init())
     .then(() => Bot.init())
     .then((bot) => logger.info('Invite | ' + bot.user?.client.generateInvite({
         scopes: [OAuth2Scopes.Bot, OAuth2Scopes.ApplicationsCommands],

@@ -37,6 +37,7 @@
     "dotenv": "16.3.1",
     "ffmpeg-static": "^5.2.0",
     "libsodium-wrappers": "^0.7.11",
+    "mongoose": "^7.5.0",
     "opusscript": "^0.0.8",
     "source-map-support": "0.5.21"
   }
