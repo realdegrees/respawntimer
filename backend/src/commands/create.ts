@@ -8,7 +8,7 @@ import { Widget } from '../common/widget';
 
 
 
-export class CommandCreate extends Command {
+export class Create extends Command {
     public constructor(protected client: Client) {
         super('create', 'Creates a wartimer widget in the current channel', client);
     }

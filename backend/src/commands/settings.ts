@@ -9,18 +9,23 @@ import {
     Client,
     CommandInteraction,
     EmbedBuilder,
-    RoleSelectMenuBuilder
+    RoleSelectMenuBuilder,
+    StringSelectMenuBuilder,
+    StringSelectMenuOptionBuilder
 } from 'discord.js';
 import { default as DBGuild } from '../db/guild.schema';
 
 export const settingsIds = {
     editor: 'editor',
-    assistant: 'assistant'
+    assistant: 'assistant',
+    voiceType: 'voiceType'
 };
-export class CommandSet extends Command {
+
+export class Settings extends Command {
     public constructor(protected client: Client) {
         super('settings', 'Change Bot Settings', client);
     }
+
     public build(): RESTPostAPIApplicationCommandsJSONBody {
         return new SlashCommandBuilder()
             .setName(this.name)
@@ -49,9 +54,9 @@ export const openSettings = async (interaction: ButtonInteraction<CacheType> | C
         _id: guild.id,
         name: guild.name,
         assistantRoleIDs: [],
-        editorRoleIDs: []
+        editorRoleIDs: [],
+        voice: 'female'
     }).save());
-
 
     const editorRoles = new RoleSelectMenuBuilder()
         .setCustomId(`${settingsIds.editor}`)
@@ -63,10 +68,28 @@ export const openSettings = async (interaction: ButtonInteraction<CacheType> | C
         .setMinValues(0)
         .setMaxValues(10)
         .setPlaceholder('Choose Assistant Roles');
+    const voice = new StringSelectMenuBuilder()
+        .setCustomId(settingsIds.voiceType)
+        .setPlaceholder('Select Voice')
+        .setMinValues(0)
+        .setMaxValues(1)
+        .addOptions(
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Male')
+                .setDescription('Use male voice to announce respawns')
+                .setValue('male'),
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Female')
+                .setDescription('Use female voice to announce respawns')
+                .setValue('female')
+        );
     const editorRow = new ActionRowBuilder<RoleSelectMenuBuilder>()
         .addComponents(editorRoles);
     const assistantRow = new ActionRowBuilder<RoleSelectMenuBuilder>()
         .addComponents(assistantRoles);
+    const voicesRow = new ActionRowBuilder<StringSelectMenuBuilder>()
+        .addComponents(voice);
+
     await interaction.reply({
         ephemeral: true, embeds: [new EmbedBuilder()
             .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: 'Settings' })
@@ -90,7 +113,8 @@ export const openSettings = async (interaction: ButtonInteraction<CacheType> | C
                     ${(await Promise.all(dbGuild.editorRoleIDs.map(async (id) => await guild.roles.fetch(id)))).map((role) => `${role}\n`).join('')}
                     **Assistant Roles**  
                     ${(await Promise.all(dbGuild.assistantRoleIDs.map(async (id) => await guild.roles.fetch(id)))).map((role) => `${role}\n`).join('')}
-`)],
-        components: [editorRow, assistantRow]
+                    **Voice**
+                    ${dbGuild.voice}`)],
+        components: [editorRow, assistantRow, voicesRow]
     });
 };
