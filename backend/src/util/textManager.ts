@@ -1,7 +1,6 @@
-import logger from '../lib/logger';
-import applicationSettings from './common/applicationSettings';
-import { WarInfo } from './common/types';
-import { clamp } from './common/util';
+import applicationSettings from '../common/applicationSettings';
+import { WarInfo } from '../common/types';
+import { clamp } from './util';
 
 const settings = {
     barWidth: 25,

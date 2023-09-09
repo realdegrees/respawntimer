@@ -1,7 +1,6 @@
-import logger from '../../lib/logger';
-import audioManager from '../audioManager';
-import textManager from '../textManager';
-import { getRespawnInfo } from './util';
+import audioManager from '../util/audioManager';
+import textManager from '../util/textManager';
+import { getRespawnInfo } from '../util/util';
 
 
 

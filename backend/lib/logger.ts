@@ -1,5 +1,5 @@
 /* eslint-disable no-console */
-import { production, debug, logging } from '../src/common/util';
+import { production, debug, logging } from '../src/util/util';
 import { install } from 'source-map-support';
 
 // Install source-map support for stacktrace

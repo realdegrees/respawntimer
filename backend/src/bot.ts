@@ -2,10 +2,10 @@ import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v9';
 import { Client, GatewayIntentBits, User } from 'discord.js';
 import logger from '../lib/logger';
-import { CommandCreate } from './commands/create';
-import { CommandSet } from './commands/settings';
+import { Create } from './commands/create';
+import { Settings } from './commands/settings';
 import { Command } from './common/command';
-import { InteractionHandler } from './interactionHandler';
+import { InteractionHandler } from './util/interactionHandler';
 
 
 /**
@@ -35,8 +35,8 @@ class Bot {
             const token = process.env['DISCORD_CLIENT_TOKEN'];
             const clientId = process.env['DISCORD_CLIENT_ID'];
             const commands = [
-                new CommandCreate(client),
-                new CommandSet(client)
+                new Create(client),
+                new Settings(client)
             ];
 
             if (!token) {

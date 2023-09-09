@@ -7,10 +7,11 @@ import {
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
 import logger from '../../lib/logger';
-import audioManager from '../audioManager';
-import textManager from '../textManager';
+import audioManager from '../util/audioManager';
+import textManager from '../util/textManager';
 import applicationSettings from './applicationSettings';
 import { default as DBGuild } from '../db/guild.schema';
+import { Voices } from './types';
 
 export const widgetButtonIds = {
     text: 'text',
@@ -70,7 +71,8 @@ export class Widget {
             _id: guild.id,
             name: guild.name,
             assistantRoleIDs: [],
-            editorRoleIDs: []
+            editorRoleIDs: [],
+            voice: 'female'
         }).save());
 
         return guild.members.fetch(interaction.user)
@@ -254,7 +256,7 @@ export class Widget {
             textManager.unsubscribe(this.message.id);
         }
     }
-    public async toggleVoice(interaction?: ButtonInteraction<CacheType>): Promise<void> {
+    public async toggleVoice(voice: Voices, interaction?: ButtonInteraction<CacheType>): Promise<void> {
         this.voiceState = !this.voiceState;
         // if (interaction) {
         //     await interaction.deferUpdate().catch((e) => logger.error(e));
@@ -266,6 +268,7 @@ export class Widget {
                 audioManager.subscribe(
                     connection,
                     this.guild.id,
+                    voice,
                     this.onAudioUnsubscribe.bind(this)
                 );
                 if (!this.textState) {

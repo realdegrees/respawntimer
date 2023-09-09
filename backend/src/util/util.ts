@@ -1,6 +1,6 @@
 import { EmojiResolvable } from 'discord.js';
-import { timers as timestamps } from './timer';
-import { WarInfo } from './types';
+import { timers as timestamps } from '../common/timer';
+import { WarInfo } from '../common/types';
 
 const includesArg = (arg: string): boolean => {
     return !!process.argv.find((a: string) => [arg, `-${arg}`, `--${arg}`].includes(a));

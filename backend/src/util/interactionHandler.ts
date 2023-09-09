@@ -1,8 +1,9 @@
 import { Interaction, EmbedBuilder, Client, Guild, User, ButtonInteraction } from 'discord.js';
-import logger from '../lib/logger';
-import { default as DBGuild } from './db/guild.schema';
-import { Widget } from './common/widget';
-import { openSettings, settingsIds } from './commands/settings';
+import logger from '../../lib/logger';
+import { default as DBGuild } from '../db/guild.schema';
+import { Widget } from '../common/widget';
+import { openSettings, settingsIds } from '../commands/settings';
+import { Voices } from '../common/types';
 
 const widgetButtonIds = {
     text: 'text',
@@ -19,29 +20,43 @@ export class InteractionHandler {
         });
     }
     private async onInteraction(interaction: Interaction): Promise<void> {
-        if (!interaction.isButton() && !interaction.isRoleSelectMenu() || !interaction.channel) {
+
+        if (!interaction.isButton() &&
+            !interaction.isRoleSelectMenu() &&
+            !interaction.isStringSelectMenu() || !interaction.channel) {
             return;
         }
 
+        const botInteractionIds = [...Object.values(widgetButtonIds), ...Object.values(settingsIds)];
+        const [interactionTypeId] = interaction.customId.split('-');
+
+        if (!botInteractionIds.includes(interactionTypeId)) {
+            // This interaction does not concern the bot
+            return;
+        }
         if (!interaction.guild) {
             await interaction.reply({ ephemeral: true, content: 'Unable to complete request' });
             return;
         }
-        const [interactionTypeId] = interaction.customId.split('-');
+
         const guild = interaction.guild;
+
 
         logger.debug('Trying to find guild in db');
         const dbGuild = await DBGuild.findById(guild.id).then((obj) => obj ?? new DBGuild({
             _id: guild.id,
             name: guild.name,
             assistantRoleIDs: [],
-            editorRoleIDs: []
+            editorRoleIDs: [],
+            voice: 'female'
         }).save());
         logger.debug(`DB obj: ${JSON.stringify(dbGuild.toJSON())}`);
         logger.debug(interactionTypeId);
         const isWidgetButton = Object.values(widgetButtonIds).includes(interactionTypeId);
         const isSetting = Object.values(settingsIds).includes(interactionTypeId);
+
         if (isWidgetButton) {
+            logger.log('Widget interaction');
             await interaction.message.fetch()
                 // eslint-disable-next-line no-async-promise-executor
                 .then(Widget.get)
@@ -75,7 +90,7 @@ export class InteractionHandler {
                                 });
                                 return;
                             }
-                            await widget.toggleVoice(interaction as ButtonInteraction);
+                            await widget.toggleVoice(dbGuild.voice, interaction as ButtonInteraction);
                             break;
                         case widgetButtonIds.settings:
                             if (!await this.checkPermission(
@@ -118,6 +133,7 @@ export class InteractionHandler {
                     logger.error('[' + interaction.guild?.name + '] Fatal Error. Unable to reply to user!');
                 });
         } else if (isSetting) {
+            logger.log('Setting interaction');
             if (interaction.isRoleSelectMenu()) {
                 switch (interactionTypeId) {
                     case settingsIds.editor:
@@ -129,8 +145,19 @@ export class InteractionHandler {
                     default:
                         break;
                 }
-                dbGuild.save().then(() => interaction.deferUpdate().catch((e) => logger.error(e)));
+            } else if (interaction.isStringSelectMenu()) {
+                logger.log(interactionTypeId);
+                switch (interactionTypeId) {
+                    case settingsIds.voiceType:
+                        dbGuild.voice = interaction.values[0] as Voices;
+                        break;
+                    default:
+                        break;
+                }
             }
+            dbGuild.save()
+                .then(() => interaction.deferUpdate())
+                .catch((e) => logger.error(e));
         }
 
     }
