@@ -168,6 +168,7 @@ export class Widget {
             components: [this.getButtons()],
             embeds: [EmbedBuilder.from(this.message.embeds[0])
                 .setTitle(title ?? 'Respawn Timer')
+                .setFooter({ text: '' })
                 .setDescription(description ?? '-')]
         }).then((message) => {
             this.message = message;
@@ -206,6 +207,7 @@ export class Widget {
                 components: [this.getButtons(true, true)],
                 embeds: [EmbedBuilder.from(this.message.embeds[0])
                     .setTitle(manual ? 'Reloading Widget' : 'Discord API Timeout')
+                    .setFooter({ text: '' })
                     .setDescription(manual ? 'Resetting..' :
                         `Resetting.. (${resetDurationSeconds}s)
                         This only affects the widget.\nAudio announcements still work.`)]
