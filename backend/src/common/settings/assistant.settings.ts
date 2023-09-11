@@ -7,14 +7,14 @@ export enum EAssistantSettingsOptions {
 }
 
 export class AssistantSettings extends Setting {
-    
+
     public static ID = 'Assistant Settings';
 
-    
+
     public constructor() {
-        super();
+        super(ESettingsID.ASSISTANT);
         const assistantRoles = new RoleSelectMenuBuilder()
-            .setCustomId(this.getCustomId(ESettingsID.ASSISTANT, [EAssistantSettingsOptions.ROLES]))
+            .setCustomId(this.getCustomId(this.id, [EAssistantSettingsOptions.ROLES]))
             .setMinValues(0)
             .setMaxValues(10)
             .setPlaceholder('Choose Assistant Roles');
@@ -23,7 +23,6 @@ export class AssistantSettings extends Setting {
             .addComponents(assistantRoles);
 
         this.init(
-            ESettingsID.ASSISTANT,
             'Assistant Settings',
             `Assistants can control the bot via the widget but are not allowed to edit the bot's settings`,
             'If neither Editor nor Assistant roles have been set anyone can control the bot via the widget and settings can only be changed by administrators.',

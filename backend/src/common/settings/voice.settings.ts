@@ -8,9 +8,9 @@ export enum EVoiceSettingsOptions {
 
 export class VoiceSettings extends Setting {    
     public constructor() {
-        super();
+        super(ESettingsID.VOICE);
         const voice = new StringSelectMenuBuilder()
-            .setCustomId(this.getCustomId(ESettingsID.VOICE, [EVoiceSettingsOptions.VOICE]))
+            .setCustomId(this.getCustomId(this.id, [EVoiceSettingsOptions.VOICE]))
             .setPlaceholder('Select Voice')
             .setMinValues(0)
             .setMaxValues(1)
@@ -29,7 +29,6 @@ export class VoiceSettings extends Setting {
             .addComponents(voice);
 
         this.init(
-            ESettingsID.VOICE,
             'Voice Settings',
             `Wartimer currently offers a female and a male voice.\nIn the future more voice might be added.\n(Maybe even custom voices that you can upload from discord))`,
             '',

@@ -12,6 +12,7 @@ import { WARTIMER_INTERACTION_SPLIT, WARTIMER_INTERACTION_ID } from '../common/c
 import { EInteractionType } from '../common/types/interactionType';
 import { ESettingsID, Setting } from '../common/settings/settings';
 import { ERaidhelperSettingsOptions, RaidhelperSettings } from '../common/settings/raidhelper.settings';
+import raidhelperIntegration from './raidhelperIntegration';
 
 const widgetButtonIds = {
     text: 'text',
@@ -26,8 +27,8 @@ export class InteractionHandler {
     public constructor(client: Client) {
         client.on('interactionCreate', interaction => {
             if (interaction.isCommand() || !interaction.isRepliable()) return;
-            const [wartimerId, interactionType, interactionId] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
-            const interactionArgs = interaction.customId.split(WARTIMER_INTERACTION_SPLIT).slice(3, interaction.customId.length - 1);
+            const [wartimerId, interactionType, interactionId, interactionOption] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
+            const interactionArgs = interaction.customId.split(WARTIMER_INTERACTION_SPLIT).slice(4, interaction.customId.length - 1);
             if (wartimerId != WARTIMER_INTERACTION_ID) {
                 if (interaction.message?.author === client.user) {
                     interaction.message.delete().then(() => {
@@ -36,7 +37,10 @@ export class InteractionHandler {
                 }
                 return;
             }
-            this.onInteraction(interaction, interactionType, interactionId, interactionArgs);
+            this.onInteraction(interaction, interactionType, interactionId, interactionOption, interactionArgs)
+                .catch((e) =>
+                    interaction.reply({ ephemeral: true, content: e.toString() })
+                );
         });
     }
     private async onInteraction(
@@ -50,6 +54,7 @@ export class InteractionHandler {
             ModalSubmitInteraction<CacheType>,
         type: string,
         id: string,
+        option: string,
         args: string[]
     ): Promise<void> {
         if (!interaction.channel) {
@@ -154,16 +159,19 @@ export class InteractionHandler {
             logger.log('Args: ' + args.toString());
 
             const setting: Setting | undefined = SETTINGS_LIST.find((setting) => setting.id === id);
+            if (!setting) {
+                await interaction.reply({ ephemeral: true, content: '**Detected Legacy Widget**\nPlease create a new widget with `/create`' });
+                return;
+            }
 
-            if (args.length === 0 && !!id) {
-                logger.log('No args');
-
+            if (!option) {
                 // No args = subsetting button was pressed -> open a subsetting menu
                 await setting
-                    ?.send(interaction, dbGuild)
+                    .send(interaction, dbGuild)
                     .catch((e) => logger.error(e));
                 return;
             }
+
             switch (id) {
                 case ESettingsID.EDITOR:
                     if (!interaction.isRoleSelectMenu()) return;
@@ -178,20 +186,39 @@ export class InteractionHandler {
                     dbGuild.voice = interaction.values[0] as Voices;
                     break;
                 case ESettingsID.RAIDHELPER:
-                    if (args[0] === ERaidhelperSettingsOptions.API_KEY) {
-                        if (interaction.isButton()) {
-                            await (setting as RaidhelperSettings).showModal(interaction);
-                        } else if (interaction.isModalSubmit() && setting) {
-                            dbGuild.raidHelper.apiKey = interaction.fields
-                                .getTextInputValue(
-                                    setting.getCustomId(
-                                        ESettingsID.RAIDHELPER,
-                                        [ERaidhelperSettingsOptions.API_KEY]
-                                    ));
-                        }
-                    }
-                    if (interaction.isChannelSelectMenu()) {
-                        dbGuild.raidHelper.defaultVoiceChannelId = interaction.values[0];
+                    switch (option) {
+                        case ERaidhelperSettingsOptions.API_KEY:
+                            if (interaction.isButton()) {
+                                await (setting as RaidhelperSettings).showModal(interaction);
+                            } else if (interaction.isModalSubmit()) {
+                                const apiKey = interaction.fields
+                                    .getTextInputValue(
+                                        setting.getCustomId(
+                                            ESettingsID.RAIDHELPER,
+                                            [ERaidhelperSettingsOptions.API_KEY]
+                                        ));
+                                await raidhelperIntegration.checkApiKey(guild, apiKey)
+                                    .then((valid) => {
+                                        if (valid) {
+                                            logger.log('setting api key');
+                                            dbGuild.raidHelper.apiKey = apiKey;
+                                            setting.send(interaction, dbGuild, {
+                                                includeDescription: false
+                                            });
+                                        } else {
+                                            throw new Error('Invalid API Key');
+                                        }
+                                    });
+                            }
+                            break;
+                        case ERaidhelperSettingsOptions.DEFAULT_CHANNEL:
+                            if (interaction.isChannelSelectMenu()) {
+                                dbGuild.raidHelper.defaultVoiceChannelId = interaction.values[0];
+                            }
+                            break;
+                        case ERaidhelperSettingsOptions.TOGGLE:
+                            dbGuild.raidHelper.enabled = !dbGuild.raidHelper.enabled;
+                            break;
                     }
                     break;
                 default:
@@ -201,7 +228,11 @@ export class InteractionHandler {
             await dbGuild.save()
                 .then(() => {
                     if (!interaction.deferred && !interaction.replied) {
-                        setting?.send(interaction, dbGuild, false);
+                        logger.log('Resending');
+                        setting.send(interaction, dbGuild, {
+                            includeDescription: false,
+                            deleteOriginal: true
+                        });
                     }
                 })
                 .catch((e) => logger.error(e));
