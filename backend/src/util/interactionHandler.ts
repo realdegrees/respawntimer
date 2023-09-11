@@ -13,6 +13,7 @@ import { EInteractionType } from '../common/types/interactionType';
 import { ESettingsID, Setting } from '../common/settings/settings';
 import { ERaidhelperSettingsOptions, RaidhelperSettings } from '../common/settings/raidhelper.settings';
 import raidhelperIntegration from './raidhelperIntegration';
+import { EPermissionSettingsOptions } from '../common/settings/permissions.settings';
 
 const widgetButtonIds = {
     text: 'text',
@@ -173,13 +174,17 @@ export class InteractionHandler {
             }
 
             switch (id) {
-                case ESettingsID.EDITOR:
-                    if (!interaction.isRoleSelectMenu()) return;
-                    dbGuild.editorRoleIDs = interaction.roles.map((role) => role.id);
-                    break;
-                case ESettingsID.ASSISTANT:
-                    if (!interaction.isRoleSelectMenu()) return;
-                    dbGuild.assistantRoleIDs = interaction.roles.map((role) => role.id);
+                case ESettingsID.PERMISSIONS:
+                    switch (option) {
+                        case EPermissionSettingsOptions.EDITOR:
+                            if (!interaction.isRoleSelectMenu()) return;
+                            dbGuild.editorRoleIDs = interaction.roles.map((role) => role.id);
+                            break;
+                        case EPermissionSettingsOptions.ASSISTANT:
+                            if (!interaction.isRoleSelectMenu()) return;
+                            dbGuild.assistantRoleIDs = interaction.roles.map((role) => role.id);
+                            break;
+                    }
                     break;
                 case ESettingsID.VOICE:
                     if (!interaction.isStringSelectMenu()) return;

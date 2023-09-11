@@ -1,11 +1,10 @@
-import { ActionRowBuilder, RepliableInteraction, InteractionResponse, EmbedBuilder, Guild, ChatInputCommandInteraction, Message, ButtonInteraction, MessageComponentInteraction } from 'discord.js';
+import { ActionRowBuilder, RepliableInteraction, InteractionResponse, EmbedBuilder, Guild, Message, MessageComponentInteraction } from 'discord.js';
 import { GuildData } from '../../db/guild.schema';
 import { WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../constant';
 import { EInteractionType } from '../types/interactionType';
 
 export enum ESettingsID {
-    ASSISTANT = 'assistant',
-    EDITOR = 'editor',
+    PERMISSIONS = 'permissions',
     VOICE = 'voice',
     RAIDHELPER = 'raidhelper'
 }
@@ -30,7 +29,7 @@ export abstract class Setting {
     public async send(
         interaction: RepliableInteraction | MessageComponentInteraction,
         guild: GuildData,
-        options?: { includeDescription: boolean; customEmbed?: EmbedBuilder; deleteOriginal?: boolean }
+        options?: { includeDescription?: boolean; customEmbed?: EmbedBuilder; deleteOriginal?: boolean }
     ): Promise<InteractionResponse<boolean> | Message<boolean>> {
         const settingsEmbed = new EmbedBuilder()
             .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: this.title })
@@ -52,6 +51,7 @@ export abstract class Setting {
         if(options?.deleteOriginal){
             await (interaction as MessageComponentInteraction).deferUpdate().then(() => interaction.deleteReply());
         }
+
         const content = {
             ephemeral: true,
             embeds: embeds,
