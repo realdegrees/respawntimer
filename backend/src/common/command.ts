@@ -1,6 +1,6 @@
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
 import { CacheType, Client, CommandInteraction } from 'discord.js';
-import { default as DBGuild } from '../db/guild.schema';
+import { getGuild } from '../db/guild.schema';
 
 export class Command {
     public constructor(
@@ -22,13 +22,7 @@ export class Command {
             return Promise.reject();
         }
         // checks if guild exists in db, creates document if not
-        const dbGuild = await DBGuild.findById(interaction.guild.id).then((obj) => obj ?? new DBGuild({
-            _id: interaction.guild?.id,
-            name: interaction.guild?.name,
-            assistantRoleIDs: [],
-            editorRoleIDs: [],
-            voice: 'female'
-        }).save());
+        const dbGuild = await getGuild(interaction.guild);
         // eslint-disable-next-line max-len
         const roleIDs = permitType === 'editor' ? dbGuild.editorRoleIDs : [...dbGuild.editorRoleIDs, ...dbGuild.assistantRoleIDs];
         return interaction.guild.members.fetch(interaction.user)

@@ -33,7 +33,7 @@
             "error",
             {
                 "ignoreUrls": true,
-                "code": 120,
+                "code": 180,
                 "ignoreTrailingComments": true
             }
         ],
@@ -50,6 +50,7 @@
                 "allowExpressions": true
             }
         ],
+        "@typescript-eslint/no-explicit-any": "off",
         "@typescript-eslint/semi": 2,
         "@typescript-eslint/member-delimiter-style": [
             "error",
@@ -98,7 +99,10 @@
         "quotes": "off",
         "@typescript-eslint/quotes": [
             "error",
-            "single"
+            "single",
+            {
+                "allowTemplateLiterals": true
+            }
         ],
         "require-await": "off",
         "@typescript-eslint/require-await": "error",
