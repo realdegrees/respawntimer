@@ -9,9 +9,9 @@ export enum EEditorSettingsOptions {
 export class EditorSettings extends Setting {
 
     public constructor() {
-        super();
+        super(ESettingsID.EDITOR);
         const editorRoles = new RoleSelectMenuBuilder()
-            .setCustomId(this.getCustomId(ESettingsID.EDITOR, [EEditorSettingsOptions.ROLES]))
+            .setCustomId(this.getCustomId(this.id, [EEditorSettingsOptions.ROLES]))
             .setMinValues(0)
             .setMaxValues(10)
             .setPlaceholder('Choose Editor Roles');
@@ -20,7 +20,6 @@ export class EditorSettings extends Setting {
             .addComponents(editorRoles);
 
         this.init(
-            ESettingsID.EDITOR,
             'Editor Settings',
             `Editors can create new widgets and adjust the bot's settings.They can also control the bot via the widget.`,
             `If neither Editor nor Assistant roles have been set anyone can control the bot via the widget and settings can only be changed by administrators.`,

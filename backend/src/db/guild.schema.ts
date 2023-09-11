@@ -1,5 +1,5 @@
 import { Schema, model } from 'mongoose';
-import { RaidHelperSettingData, Voices } from '../common/types';
+import { RaidhelperSettingData, Voices } from '../common/types';
 import { Document } from 'mongoose';
 import { Guild } from 'discord.js';
 
@@ -9,7 +9,7 @@ export interface GuildData {
     assistantRoleIDs: string[];
     editorRoleIDs: string[];
     voice: Voices;
-    raidHelper: RaidHelperSettingData;
+    raidHelper: RaidhelperSettingData;
 }
 
 export const DBGuild = model<GuildData>('Guild', new Schema<GuildData>({
@@ -21,7 +21,12 @@ export const DBGuild = model<GuildData>('Guild', new Schema<GuildData>({
     raidHelper: {
         enabled: Boolean,
         apiKey: String,
-        defaultVoiceChannelId: String
+        defaultVoiceChannelId: String,
+        events: [{
+            id: String,
+            title: String,
+            startTime: Number
+        }]
     }
 }));
 export const getGuild = async (guild: Guild): Promise<Document<unknown, object, GuildData> & GuildData & Required<{ _id: string }>> => {
@@ -32,7 +37,8 @@ export const getGuild = async (guild: Guild): Promise<Document<unknown, object, 
             editorRoleIDs: [],
             voice: 'female',
             raidHelper: {
-                enabled: false
+                enabled: false,
+                events: []
             }
         }).save());
 };
