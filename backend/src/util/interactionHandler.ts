@@ -1,9 +1,17 @@
-import { Interaction, EmbedBuilder, Client, Guild, User, ButtonInteraction } from 'discord.js';
+import {
+    EmbedBuilder, Client, Guild, User, ButtonInteraction, CacheType,
+    ChannelSelectMenuInteraction, MentionableSelectMenuInteraction, ModalSubmitInteraction,
+    RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction
+} from 'discord.js';
 import logger from '../../lib/logger';
-import { default as DBGuild } from '../db/guild.schema';
 import { Widget } from '../common/widget';
-import { openSettings, settingsIds } from '../commands/settings';
+import { SETTINGS_LIST, openSettings } from '../commands/settings';
 import { Voices } from '../common/types';
+import { getGuild } from '../db/guild.schema';
+import { WARTIMER_INTERACTION_SPLIT, WARTIMER_INTERACTION_ID } from '../common/constant';
+import { EInteractionType } from '../common/types/interactionType';
+import { ESettingsID, Setting } from '../common/settings/settings';
+import { ERaidhelperSettingsOptions, RaidhelperSettings } from '../common/settings/raidhelper.settings';
 
 const widgetButtonIds = {
     text: 'text',
@@ -13,27 +21,41 @@ const widgetButtonIds = {
 };
 
 
+
 export class InteractionHandler {
     public constructor(client: Client) {
         client.on('interactionCreate', interaction => {
-            this.onInteraction(interaction);
+            if (interaction.isCommand() || !interaction.isRepliable()) return;
+            const [wartimerId, interactionType, interactionId] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
+            const interactionArgs = interaction.customId.split(WARTIMER_INTERACTION_SPLIT).slice(3, interaction.customId.length - 1);
+            if (wartimerId != WARTIMER_INTERACTION_ID) {
+                if (interaction.message?.author === client.user) {
+                    interaction.message.delete().then(() => {
+                        interaction.reply({ ephemeral: true, content: '**Detected Legacy Widget**\nPlease create a new widget with `/create`' });
+                    });
+                }
+                return;
+            }
+            this.onInteraction(interaction, interactionType, interactionId, interactionArgs);
         });
     }
-    private async onInteraction(interaction: Interaction): Promise<void> {
-
-        if (!interaction.isButton() &&
-            !interaction.isRoleSelectMenu() &&
-            !interaction.isStringSelectMenu() || !interaction.channel) {
+    private async onInteraction(
+        interaction:
+            StringSelectMenuInteraction<CacheType> |
+            UserSelectMenuInteraction<CacheType> |
+            RoleSelectMenuInteraction<CacheType> |
+            MentionableSelectMenuInteraction<CacheType> |
+            ChannelSelectMenuInteraction<CacheType> |
+            ButtonInteraction<CacheType> |
+            ModalSubmitInteraction<CacheType>,
+        type: string,
+        id: string,
+        args: string[]
+    ): Promise<void> {
+        if (!interaction.channel) {
             return;
         }
 
-        const botInteractionIds = [...Object.values(widgetButtonIds), ...Object.values(settingsIds)];
-        const [interactionTypeId] = interaction.customId.split('-');
-
-        if (!botInteractionIds.includes(interactionTypeId)) {
-            // This interaction does not concern the bot
-            return;
-        }
         if (!interaction.guild) {
             await interaction.reply({ ephemeral: true, content: 'Unable to complete request' });
             return;
@@ -43,27 +65,21 @@ export class InteractionHandler {
 
 
         logger.debug('Trying to find guild in db');
-        const dbGuild = await DBGuild.findById(guild.id).then((obj) => obj ?? new DBGuild({
-            _id: guild.id,
-            name: guild.name,
-            assistantRoleIDs: [],
-            editorRoleIDs: [],
-            voice: 'female'
-        }).save());
+        const dbGuild = await getGuild(guild);
         logger.debug(`DB obj: ${JSON.stringify(dbGuild.toJSON())}`);
-        logger.debug(interactionTypeId);
-        const isWidgetButton = Object.values(widgetButtonIds).includes(interactionTypeId);
-        const isSetting = Object.values(settingsIds).includes(interactionTypeId);
+        logger.debug('ID: ' + id);
+        logger.debug('TYPE: ' + type);
 
-        if (isWidgetButton) {
+
+        if (type === EInteractionType.WIDGET) {
             logger.log('Widget interaction');
-            await interaction.message.fetch()
+            await interaction.message?.fetch()
                 // eslint-disable-next-line no-async-promise-executor
                 .then(Widget.get)
                 .then(async (widget) => {
-                    logger.info('[' + guild.name + '][Button] ' + interactionTypeId + ' activated by ' +
+                    logger.info('[' + guild.name + '][Button] ' + id + ' activated by ' +
                         interaction.user.username);
-                    switch (interactionTypeId) {
+                    switch (id) {
                         case widgetButtonIds.text:
                             if (!await this.checkPermission(
                                 guild,
@@ -132,31 +148,62 @@ export class InteractionHandler {
                 .catch(() => {
                     logger.error('[' + interaction.guild?.name + '] Fatal Error. Unable to reply to user!');
                 });
-        } else if (isSetting) {
+        }
+        if (type === EInteractionType.SETTING) {
             logger.log('Setting interaction');
-            if (interaction.isRoleSelectMenu()) {
-                switch (interactionTypeId) {
-                    case settingsIds.editor:
-                        dbGuild.editorRoleIDs = interaction.roles.map((role) => role.id);
-                        break;
-                    case settingsIds.assistant:
-                        dbGuild.assistantRoleIDs = interaction.roles.map((role) => role.id);
-                        break;
-                    default:
-                        break;
-                }
-            } else if (interaction.isStringSelectMenu()) {
-                logger.log(interactionTypeId);
-                switch (interactionTypeId) {
-                    case settingsIds.voiceType:
-                        dbGuild.voice = interaction.values[0] as Voices;
-                        break;
-                    default:
-                        break;
-                }
+            logger.log('Args: ' + args.toString());
+
+            const setting: Setting | undefined = SETTINGS_LIST.find((setting) => setting.id === id);
+
+            if (args.length === 0 && !!id) {
+                logger.log('No args');
+
+                // No args = subsetting button was pressed -> open a subsetting menu
+                await setting
+                    ?.send(interaction, dbGuild)
+                    .catch((e) => logger.error(e));
+                return;
+            }
+            switch (id) {
+                case ESettingsID.EDITOR:
+                    if (!interaction.isRoleSelectMenu()) return;
+                    dbGuild.editorRoleIDs = interaction.roles.map((role) => role.id);
+                    break;
+                case ESettingsID.ASSISTANT:
+                    if (!interaction.isRoleSelectMenu()) return;
+                    dbGuild.assistantRoleIDs = interaction.roles.map((role) => role.id);
+                    break;
+                case ESettingsID.VOICE:
+                    if (!interaction.isStringSelectMenu()) return;
+                    dbGuild.voice = interaction.values[0] as Voices;
+                    break;
+                case ESettingsID.RAIDHELPER:
+                    if (args[0] === ERaidhelperSettingsOptions.API_KEY) {
+                        if (interaction.isButton()) {
+                            (setting as RaidhelperSettings).showModal(interaction);
+                        } else if (interaction.isModalSubmit() && setting) {
+                            dbGuild.raidHelper.apiKey = interaction.fields
+                                .getTextInputValue(
+                                    setting.getCustomId(
+                                        ESettingsID.RAIDHELPER,
+                                        [ERaidhelperSettingsOptions.API_KEY]
+                                    ));
+                        }
+                    }
+                    if (interaction.isChannelSelectMenu()) {
+                        dbGuild.raidHelper.defaultVoiceChannelId = interaction.values[0];
+                    }
+                    break;
+                default:
+                    await interaction.deferUpdate().then(() => interaction.deleteReply());
+                    return;
             }
             dbGuild.save()
-                .then(() => interaction.deferUpdate())
+                .then(() => {
+                    if (!interaction.deferred) {
+                        return interaction.deferUpdate();
+                    }
+                })
                 .catch((e) => logger.error(e));
         }
 

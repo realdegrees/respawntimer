@@ -1,25 +1,36 @@
+/* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable max-len */
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
 import { Command } from '../common/command';
 import {
     ActionRowBuilder,
+    ButtonBuilder,
     ButtonInteraction,
+    ButtonStyle,
     CacheType,
     Client,
     CommandInteraction,
+    ComponentType,
     EmbedBuilder,
-    RoleSelectMenuBuilder,
-    StringSelectMenuBuilder,
-    StringSelectMenuOptionBuilder
+    Guild,
+    InteractionResponse,
+    RepliableInteraction
 } from 'discord.js';
-import { default as DBGuild } from '../db/guild.schema';
+import { EditorSettings } from '../common/settings/editor.settings';
+import { AssistantSettings } from '../common/settings/assistant.settings';
+import { VoiceSettings } from '../common/settings/voice.settings';
+import { RaidhelperSettings } from '../common/settings/raidhelper.settings';
+import { GuildData } from '../db/guild.schema';
+import { WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../common/constant';
+import { EInteractionType } from '../common/types/interactionType';
 
-export const settingsIds = {
-    editor: 'editor',
-    assistant: 'assistant',
-    voiceType: 'voiceType'
-};
+export const SETTINGS_LIST = [
+    new EditorSettings(),
+    new AssistantSettings(),
+    new VoiceSettings(),
+    new RaidhelperSettings()
+];
 
 export class Settings extends Command {
     public constructor(protected client: Client) {
@@ -32,7 +43,7 @@ export class Settings extends Command {
             .setDescription(this.description)
             .toJSON();
     }
-    // eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-explicit-any
+    // eslint-disable-next-line @typescript-eslint/require-await
     public async execute(interaction: CommandInteraction<CacheType>): Promise<void> {
         this.checkPermission(interaction, 'editor').then(() => {
             openSettings(interaction);
@@ -50,71 +61,21 @@ export const openSettings = async (interaction: ButtonInteraction<CacheType> | C
     if (!guild) {
         return Promise.reject();
     }
-    const dbGuild = await DBGuild.findById(guild.id).then((obj) => obj ?? new DBGuild({
-        _id: guild.id,
-        name: guild.name,
-        assistantRoleIDs: [],
-        editorRoleIDs: [],
-        voice: 'female'
-    }).save());
-
-    const editorRoles = new RoleSelectMenuBuilder()
-        .setCustomId(`${settingsIds.editor}`)
-        .setMinValues(0)
-        .setMaxValues(10)
-        .setPlaceholder('Choose Editor Roles');
-    const assistantRoles = new RoleSelectMenuBuilder()
-        .setCustomId(`${settingsIds.assistant}`)
-        .setMinValues(0)
-        .setMaxValues(10)
-        .setPlaceholder('Choose Assistant Roles');
-    const voice = new StringSelectMenuBuilder()
-        .setCustomId(settingsIds.voiceType)
-        .setPlaceholder('Select Voice')
-        .setMinValues(0)
-        .setMaxValues(1)
-        .addOptions(
-            new StringSelectMenuOptionBuilder()
-                .setLabel('Male')
-                .setDescription('Use male voice to announce respawns')
-                .setValue('male'),
-            new StringSelectMenuOptionBuilder()
-                .setLabel('Female')
-                .setDescription('Use female voice to announce respawns')
-                .setValue('female')
-        );
-    const editorRow = new ActionRowBuilder<RoleSelectMenuBuilder>()
-        .addComponents(editorRoles);
-    const assistantRow = new ActionRowBuilder<RoleSelectMenuBuilder>()
-        .addComponents(assistantRoles);
-    const voicesRow = new ActionRowBuilder<StringSelectMenuBuilder>()
-        .addComponents(voice);
 
     await interaction.reply({
         ephemeral: true, embeds: [new EmbedBuilder()
             .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: 'Settings' })
             .setThumbnail('https://cdn.discordapp.com/avatars/993116789284286484/c5d1f8c2507c7f2a56a2a330109e66d2?size=1024')
-            .setFooter({
-                text: 'If neither Editor nor Assistant roles have been set anyone can control the bot ' +
-                    'via the widget and settings can only be changed by administrators.',
-                iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Orange_exclamation_mark.svg/240px-Orange_exclamation_mark.svg.png'
-            })
-            .setDescription(`**Editor Roles**  
-                    Editors can create new widgets and adjust the bot's settings.  
-                    They can also control the bot via the widget.\n
-                    **Assistant Roles**  
-                    Assistants can control the bot via the widget but are not allowed to edit the bot's settings.`),
-        new EmbedBuilder()
-            .setFooter({
-                text: 'Chosen roles are saved automatically. This message can be dismissed after selection.'
-            })
-            .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: 'Current Settings' })
-            .setDescription(`**Editor Roles**  
-                    ${(await Promise.all(dbGuild.editorRoleIDs.map(async (id) => await guild.roles.fetch(id)))).map((role) => `${role}\n`).join('')}
-                    **Assistant Roles**  
-                    ${(await Promise.all(dbGuild.assistantRoleIDs.map(async (id) => await guild.roles.fetch(id)))).map((role) => `${role}\n`).join('')}
-                    **Voice**
-                    ${dbGuild.voice}`)],
-        components: [editorRow, assistantRow, voicesRow]
+            .setDescription(`Select a button below to edit a specific setting`)],
+        components: [new ActionRowBuilder()
+                .setComponents(
+                    SETTINGS_LIST.map((setting) => new ButtonBuilder({
+                        label: setting.title,
+                        style: ButtonStyle.Primary,
+                        type: ComponentType.Button,
+                        customId: [WARTIMER_INTERACTION_ID, EInteractionType.SETTING, setting.id].join(WARTIMER_INTERACTION_SPLIT)
+                    }))
+                ) as ActionRowBuilder<any>]
     });
 };
+

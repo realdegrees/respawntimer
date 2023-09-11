@@ -159,7 +159,7 @@ class AudioManager {
             const newNetworking = Reflect.get(newState, 'networking');
 
             // eslint-disable-next-line max-len
-            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type, @typescript-eslint/no-explicit-any
+            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
             const networkStateChangeHandler = (oldNetworkState: any, newNetworkState: any) => {
                 const newUdp = Reflect.get(newNetworkState, 'udp');
                 clearInterval(newUdp?.keepAliveInterval);

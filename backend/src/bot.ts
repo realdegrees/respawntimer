@@ -67,8 +67,6 @@ class Bot {
                 .then(() => new Bot(client, commands))
                 .then(resolve)
                 .catch(reject);
-
-
         });
     }
 }
