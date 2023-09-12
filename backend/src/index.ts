@@ -12,15 +12,18 @@ config();
 Promise.resolve()
     .then(() => Database.init())
     .then(() => Bot.init())
-    .then((bot) => logger.info('Invite | ' + bot.user?.client.generateInvite({
-        scopes: [OAuth2Scopes.Bot, OAuth2Scopes.ApplicationsCommands],
-        permissions: [
-            PermissionFlagsBits.SendMessages,
-            PermissionFlagsBits.Speak,
-            PermissionFlagsBits.ViewChannel]
-    })))
-    .then(() => {
-        RespawnInterval.startInterval();
+    .then((bot) => {
+        logger.info('Invite | ' + bot.user?.client.generateInvite({
+            scopes: [OAuth2Scopes.Bot, OAuth2Scopes.ApplicationsCommands],
+            permissions: [
+                PermissionFlagsBits.SendMessages,
+                PermissionFlagsBits.Speak,
+                PermissionFlagsBits.ViewChannel]
+        }));
+        return bot;
+    })
+    .then((bot) => {
+        RespawnInterval.startInterval(bot.client);
     })
     .catch((error) => {
         logger.error('Unable to start!');

@@ -19,11 +19,13 @@ import { VoiceSettings } from '../common/settings/voice.settings';
 import { RaidhelperSettings } from '../common/settings/raidhelper.settings';
 import { WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../common/constant';
 import { EInteractionType } from '../common/types/interactionType';
+import { MiscSettings } from '../common/settings/misc.settings';
 
 export const SETTINGS_LIST = [
     new PermissionSettings(),
     new VoiceSettings(),
-    new RaidhelperSettings()
+    new RaidhelperSettings(),
+    new MiscSettings()
 ];
 
 export class Settings extends Command {
@@ -60,16 +62,20 @@ export const openSettings = async (interaction: ButtonInteraction<CacheType> | C
         ephemeral: true, embeds: [new EmbedBuilder()
             .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: 'Settings' })
             .setThumbnail('https://cdn.discordapp.com/avatars/993116789284286484/c5d1f8c2507c7f2a56a2a330109e66d2?size=1024')
-            .setDescription(`Select a button below to edit a specific setting`)],
+            .setDescription(`Select a button below to edit a specific setting`)
+            .setFooter({
+                text: `If something doesn't work try clearing the bot data in 'Misc Settings'`,
+                iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Orange_exclamation_mark.svg/240px-Orange_exclamation_mark.svg.png'
+            })],
         components: [new ActionRowBuilder()
-                .setComponents(
-                    SETTINGS_LIST.map((setting) => new ButtonBuilder({
-                        label: setting.title,
-                        style: ButtonStyle.Primary,
-                        type: ComponentType.Button,
-                        customId: [WARTIMER_INTERACTION_ID, EInteractionType.SETTING, setting.id].join(WARTIMER_INTERACTION_SPLIT)
-                    }))
-                ) as ActionRowBuilder<any>]
+            .setComponents(
+                SETTINGS_LIST.map((setting) => new ButtonBuilder({
+                    label: setting.title,
+                    style: setting.buttonStyle,
+                    type: ComponentType.Button,
+                    customId: [WARTIMER_INTERACTION_ID, EInteractionType.SETTING, setting.id].join(WARTIMER_INTERACTION_SPLIT)
+                }))
+            ) as ActionRowBuilder<any>]
     });
 };
 

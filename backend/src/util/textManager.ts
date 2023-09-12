@@ -1,4 +1,4 @@
-import applicationSettings from '../common/applicationSettings';
+import logger from '../../lib/logger';
 import { WarInfo } from '../common/types';
 import { clamp } from './util';
 
@@ -12,7 +12,8 @@ let subscribers: {
     timeStamp: number;
     msgId: string;
     guildId: string;
-    onUpdate: (title: string, description: string) => Promise<void>;
+    onUpdate: (title: string, description: string) => Promise<boolean>;
+    onInitialize?: () => void;
     onUnsubscribe: () => void;
 }[] = [];
 
@@ -20,30 +21,26 @@ class TextManager {
 
     public interval(info: WarInfo): void {
         const description = this.getDescription(info);
-        const title = this.getTitle(info.respawn.remaining, info.respawn.timePassed);
+        const title = this.getTitle(info.respawn.remaining, info.respawn.timeUntilRespawn);
 
         subscribers.forEach((subscriber) => {
-            // Toggle widget & voice off at war end if it's been on for more than 15 minutes
-            if (info.war.timeLeftSeconds === 5) {
-                const minutesSubscribed = (Date.now() - subscriber.timeStamp) / 1000 / 60;
-                if (minutesSubscribed >= 15) {
-                    this.unsubscribe(subscriber.msgId);
-                }
+            const minutesSubscribed = (Date.now() - subscriber.timeStamp) / 1000 / 60;
+            if (info.war.timeLeftSeconds <= 30 && minutesSubscribed >= 15 || // Toggle widget off at war end if it's been on for more than 15 minutes
+                minutesSubscribed > 30) { // Toggle widget off if it's been subscribed for over 30 minutes
+                this.unsubscribe(subscriber.msgId);
             }
         });
 
+        // logger.log(JSON.stringify(info.respawn));
         // Updat text for text subs
         subscribers.forEach((subscriber) => {
-            // Update delay > 10 seconds is decided by the settings, 
-            // Under 10 seconds it's in 2s steps and under 5s it's 1s steps
-            if (
-                info.respawn.timePassed % applicationSettings.get(subscriber.guildId).delay !== 0 ||
-                info.respawn.remaining === 0 &&
-                new Date().getSeconds() % applicationSettings.get(subscriber.guildId).delay !== 0
-            ) {
-                return;
-            }
-            subscriber.onUpdate(title, description);
+            if (!subscriber.onInitialize && info.respawn.timeUntilRespawn % 1 !== 0) return;
+            subscriber.onUpdate(title, description).then(() => {
+                if (subscriber.onInitialize) {
+                    subscriber.onInitialize();
+                    subscriber.onInitialize = undefined;
+                }
+            });
         });
     }
     private getDescription(info: WarInfo): string {
@@ -51,7 +48,7 @@ class TextManager {
         const timeLeftSeconds = info.war.timeLeftSeconds - timeLeftMinutes * 60;
 
         return '**' +
-            this.getBar(info.respawn.duration, info.respawn.timePassed) + '**\n\n' +
+            this.getBar(info.respawn.duration, info.respawn.timeUntilRespawn) + '**\n\n' +
             'This Respawn Duration: **' + (info.respawn.duration >= 0 ? info.respawn.duration : '-') + '**\n' +
             'Next Respawn Duration: **' + (info.respawn.durationNext >= 0 ? info.respawn.durationNext : '-') + '**\n' +
             'Respawns Remaining: **' + info.respawn.remaining + '**\n' +
@@ -68,14 +65,14 @@ class TextManager {
     private getTitle(remainingRespawns: number, timeLeft: number): string {
         const respawn = remainingRespawns === 0 ? 'NO RESPAWN' : timeLeft <= 0 ? 'RESPAWN' : timeLeft.toString();
         const spaces = ' '.repeat(3 - timeLeft.toString().length);
-        const info = remainingRespawns === 1 ? '(LAST RESPAWN)' : '';
-        return 'ᐳ '.concat(respawn, spaces, info);
+        return 'ᐳ '.concat(respawn, spaces);
     }
-    
+
     public subscribe(
         msgId: string,
         guildId: string,
-        onUpdate: (title: string, description: string) => Promise<void>,
+        onUpdate: (title: string, description: string) => Promise<boolean>,
+        onInitialize: () => void,
         onUnsubscribe: () => void
     ): void {
         if (subscribers.find((s) => s.msgId === msgId)) {
@@ -91,6 +88,7 @@ class TextManager {
             msgId: msgId,
             guildId,
             onUpdate,
+            onInitialize,
             onUnsubscribe
         });
     }

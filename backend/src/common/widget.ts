@@ -1,17 +1,15 @@
-import { joinVoiceChannel, VoiceConnection } from '@discordjs/voice';
+/* eslint-disable max-lines */
 import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonInteraction, ButtonStyle, CacheType, CommandInteraction, EmbedBuilder, Guild,
-    Message, TextBasedChannel, TextChannel
+    Message, TextBasedChannel, TextChannel, VoiceBasedChannel
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
 import logger from '../../lib/logger';
-import audioManager from '../util/audioManager';
+import audioManager, { Voices } from '../util/audioManager';
 import textManager from '../util/textManager';
-import applicationSettings from './applicationSettings';
 import { getGuild } from '../db/guild.schema';
-import { Voices } from './types';
 import { WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './constant';
 import { EInteractionType } from './types/interactionType';
 
@@ -28,8 +26,7 @@ export class Widget {
     private textState = false;
     private voiceState = false;
     private isResetting = false;
-    private isUpdating = false;
-    private lastUpdateTimeStamp: number | undefined;
+    private isUpdating = 0;
 
     /**
      * @param interaction The interaction that created this widget
@@ -44,17 +41,47 @@ export class Widget {
         onReady: (widget: Widget) => void,
         private onDestroy?: (widget: Widget) => void
     ) {
-        this.init(onReady);
+        this.init(onReady).catch(logger.error);
     }
-    public static async get(message: Message): Promise<Widget> {
-        const guild = await message.guild?.fetch();
-        if (!guild) {
-            return Promise.reject();
+    public static async get(guild: Guild, messageId?: string, channelId?: string): Promise<Widget>;
+    public static async get(message?: Message<boolean>): Promise<Widget>;
+    public static async get(arg1?: Guild | Message<boolean>, arg2?: string, arg3?: string): Promise<Widget> {
+        let message: Message<boolean> | undefined;
+        if (!arg2) {
+            message = arg1 as Message<boolean>;
+        } else {
+            const widgetChannel = arg3 ?
+                await (arg1 as Guild).channels.fetch(arg3) as TextBasedChannel | undefined : undefined;
+            message = arg2 && widgetChannel ? await widgetChannel.messages.fetch().then((messages) =>
+                messages.find((message) => message.id === arg2)) : undefined;
         }
-        const widget = widgets.find((widget) => widget.getId() === message.id);
+        if (!message) return Promise.reject();
+
+        const guild = await message.guild?.fetch().catch(undefined);
+        if (!guild) return Promise.reject('Guild not found');
+        const dbGuild = await getGuild(guild);
+        if (dbGuild.widget.channelId &&
+            dbGuild.widget.messageId &&
+            (message.channel.id !== dbGuild.widget.channelId ||
+                message.id !== dbGuild.widget.messageId)
+        ) {
+            logger.log('Other widget exists, deleting exisitng');
+            await guild.channels.fetch(dbGuild.widget.channelId).then((channel) => {
+                if (channel?.isTextBased()) {
+                    return channel.messages.fetch().then((messages) => messages.find((message) => message.id === dbGuild.widget.messageId)).then((m) => m?.delete());
+                }
+            });
+        }
+
+        dbGuild.widget.channelId = message.channel.id;
+        dbGuild.widget.messageId = message.id;
+        await dbGuild.save();
+
+        const widget = widgets.find((widget) => widget.getId() === message!.id);
+
         if (!widget) {
             return new Promise((res) => {
-                new Widget(message, guild, (widget) => {
+                new Widget(message!, guild, (widget) => {
                     widgets.push(widget);
                     return res(widget);
                 }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
@@ -71,6 +98,17 @@ export class Widget {
         // checks if guild exists in db, creates document if not
         const dbGuild = await getGuild(guild);
 
+        if (dbGuild.widget.channelId && dbGuild.widget.messageId) {
+            logger.log('Widget exists, deleting exisitng');
+            await interaction.guild?.channels.fetch(dbGuild.widget.channelId).then((channel) => {
+                if (channel?.isTextBased()) {
+                    return channel.messages.fetch().then((messages) => {
+                        return messages.find((message) => message.id === dbGuild.widget.messageId);
+                    }).then((m) => m?.delete());
+                }
+            });
+        }
+
         return guild.members.fetch(interaction.user)
             .then((member) => {
                 if (
@@ -85,10 +123,14 @@ export class Widget {
                 channel.send({
                     embeds: [new EmbedBuilder().setTitle('Respawn Timer')]
                 }).then((message) => {
-                    new Widget(message, guild, async (widget) => {
-                        widgets.push(widget);
-                        await interaction.editReply({ content: 'Widget created.' });
-                    }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
+                    dbGuild.widget.channelId = message.channel.id;
+                    dbGuild.widget.messageId = message.id;
+                    dbGuild.save().then(() => {
+                        new Widget(message, guild, async (widget) => {
+                            widgets.push(widget);
+                            await interaction.editReply({ content: 'Widget created.' });
+                        }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
+                    });
                 });
             }).catch((e) => {
                 interaction.reply({
@@ -99,27 +141,28 @@ export class Widget {
     }
     private async init(onReady: (widget: Widget) => void): Promise<void> {
         await setTimeout(500);
-        await this.message.edit({
-            components: [this.getButtons()],
-            embeds: [EmbedBuilder.from(this.message.embeds[0])]
-        }).then((message) => {
-            this.message = message;
-            logger.info('[' + this.guild.name + '][Start] Widget initiated');
-            onReady(this);
+        await this.message.fetch().then((message) => {
+            message.edit({
+                components: [this.getButtons()],
+                embeds: [EmbedBuilder.from(this.message.embeds[0])]
+            }).then((message) => {
+                this.message = message;
+                logger.info('[' + this.guild.name + '][Start] Widget initiated');
+                onReady(this);
+            });
         });
     }
 
-    private async onTextUnsubscribe(): Promise<void> { // onUnsubscribe
+    private async onTextUnsubscribe(): Promise<unknown> { // onUnsubscribe
         logger.info('[' + this.guild.name + '][Unsubscribed Text]');
         this.textState = this.isResetting && this.textState;
-        await this.update(undefined, undefined, true);
-        this.lastUpdateTimeStamp = undefined;
+        return this.update(undefined, undefined).finally();
     }
-    private async onAudioUnsubscribe(): Promise<void> { // onUnsubscribe
+    private async onAudioUnsubscribe(): Promise<unknown> { // onUnsubscribe
         logger.info('[' + this.guild.name + '][Unsubscribed Audio]');
         this.voiceState = false;
         if (!this.textState) {
-            await this.update(undefined, undefined, true);
+            return this.update(undefined, undefined).finally();
         }
     }
     private getCustomId(buttonId: string): string {
@@ -149,61 +192,46 @@ export class Widget {
     public getId(): string {
         return this.message.id;
     }
-    public async update(title?: string, description?: string, forceQueue?: boolean): Promise<void> {
+    public async update(title?: string, description?: string): Promise<boolean> {
         if (this.isResetting) {
-            return;
+            return Promise.resolve(false);
         }
-        if (forceQueue) {
-            while (this.isUpdating) {
-                logger.debug('waiting');
-                await setTimeout(500);
+        if (this.isUpdating > 0) {
+            if (this.isUpdating >= 5) {
+                return this.recreateMessage().then(() => false);
+            } else {
+                this.isUpdating++;
+                logger.debug('X Skipping update because last update hasnt finished');
+                return Promise.resolve(false);
             }
         }
-        if (this.isUpdating) {
-            logger.debug('already updating, skip');
-            return;
-        }
-        this.isUpdating = true;
-
-        await this.message.edit({
+        this.isUpdating++;
+        return this.message.edit({
             components: [this.getButtons()],
             embeds: [EmbedBuilder.from(this.message.embeds[0])
                 .setTitle(title ?? 'Respawn Timer')
                 .setFooter({ text: 'Wartimer' })
                 .setDescription(description ?? '-')]
-        }).then((message) => {
-            this.message = message;
-            this.isUpdating = false;
-            const updateDurationMs = Date.now() - (this.lastUpdateTimeStamp ?? Date.now());
-
-            logger.debug('[' + this.guild.name + '][Message] ' + title?.trim() + ' (' + updateDurationMs + 'ms)');
-
-            if (this.lastUpdateTimeStamp) {
-                const recreateThresholdMs = applicationSettings.get(this.guild.id).delay * 1000 * 2;
-                if (updateDurationMs > recreateThresholdMs) {
-                    this.recreateMessage();
-                    return;
-                }
-            }
-            this.lastUpdateTimeStamp = Date.now();
-
+        }).then(() => {
+            this.isUpdating = 0;
+            return true;
         }).catch(() => {
-            if (this.isResetting) return;
+            if (this.isResetting) return false;
             textManager.unsubscribe(this.message.id);
-            audioManager.unsubscribe(this.guild.id);
             logger.debug('[' + this.guild.name + '][Destroy] Unable to find widget. Destroying instance.');
             this.onDestroy?.(this);
+            return false;
         });
     }
 
-    public recreateMessage(manual = false): void {
+    public async recreateMessage(manual = false): Promise<void> {
         if (!manual) {
             logger.info(
                 '[' + this.guild.name + '][Reset] Response took too long! Resending message.'
             );
         }
         this.isResetting = true;
-        this.message.delete().finally(() => {
+        return this.message.delete().finally(() => {
             (this.message.channel as TextChannel).send({
                 components: [this.getButtons(true, true)],
                 embeds: [EmbedBuilder.from(this.message.embeds[0])
@@ -213,17 +241,22 @@ export class Widget {
                         `Resetting.. (${resetDurationSeconds}s)
                         This only affects the widget.\nAudio announcements still work.`)]
             }).then(message => message.edit({
-                components: [this.getButtons(true)],
-            })).then((message) => {
+                components: [this.getButtons(true)]
+            })).then(async (message) => {
+                await getGuild(message.guild).then((guild) => {
+                    guild.widget.channelId = message.channel.id;
+                    guild.widget.messageId = message.id;
+                    return guild.save();
+                });
+
                 textManager.updateSubscription(this.message.id, message.id);
                 const oldMessageId = this.message.id;
                 this.message = message;
 
                 const reset = (): void => {
                     if (!manual) logger.info('[' + this.guild.name + '][Reset] Done!');
-                    this.lastUpdateTimeStamp = undefined;
-                    this.isUpdating = false;
                     this.isResetting = false;
+                    this.isUpdating = 0;
                     this.update().then(() => {
                         if (this.textState) {
                             if (!textManager.updateSubscription(oldMessageId, this.message.id)) {
@@ -231,89 +264,71 @@ export class Widget {
                                     this.message.id,
                                     this.guild.id,
                                     this.update.bind(this),
+                                    () => { },
                                     this.onTextUnsubscribe.bind(this));
                             }
                         }
                     });
                 };
-                setTimeout(manual ? 0 : resetDurationSeconds * 1000).then(reset);
+                await setTimeout(manual ? 0 : resetDurationSeconds * 1000).then(reset);
             });
-        }).catch();
+        }).then(() => { }).catch(logger.error);
     }
-    public async toggleText(interaction?: ButtonInteraction): Promise<void> {
-        this.textState = !this.textState;
-        if (interaction) {
-            await interaction.deferUpdate().catch((e) => logger.error(e));
-        }
-        if (interaction && this.textState) {
-            textManager.subscribe(
-                this.message.id,
-                this.guild.id,
-                this.update.bind(this),
-                this.onTextUnsubscribe.bind(this));
-        } else {
-            textManager.unsubscribe(this.message.id);
-        }
-    }
-    public async toggleVoice(voice: Voices, interaction?: ButtonInteraction<CacheType>): Promise<void> {
-        this.voiceState = !this.voiceState;
-        // if (interaction) {
-        //     await interaction.deferUpdate().catch((e) => logger.error(e));
-        // }
-        if (interaction && this.voiceState) {
-            try {
-                const connection = await this.getConnection(interaction);
-                interaction.deferUpdate();
-                audioManager.subscribe(
-                    connection,
+    public toggleText(interaction?: ButtonInteraction): Promise<void> {
+        return new Promise((res) => {
+            this.textState = !this.textState;
+            if (interaction && this.textState) {
+                textManager.subscribe(
+                    this.message.id,
                     this.guild.id,
-                    voice,
-                    this.onAudioUnsubscribe.bind(this)
-                );
-                if (!this.textState) {
-                    await this.update(undefined, undefined, true);
-                }
-            } catch (e) {
-                interaction.reply({
-                    ephemeral: true,
-                    content: (e as Error).message
-                });
-                this.voiceState = false;
+                    this.update.bind(this),
+                    res,
+                    this.onTextUnsubscribe.bind(this));
+            } else {
+                textManager.unsubscribe(this.message.id);
+                res();
             }
-
-        } else {
-            if (interaction) {
-                interaction.deferUpdate();
-            }
-            audioManager.unsubscribe(this.guild.id);
-            // if (!this.textState) { // testing to skip this bc it already runs in onunsub
-            //     await this.update(undefined, undefined, true);
-            // }
-        }
-    }
-
-
-    private async getConnection(interaction: ButtonInteraction): Promise<VoiceConnection> {
-        const channel = (await interaction.guild?.members.fetch(interaction.user))?.voice.channel;
-        if (!channel) {
-            throw new Error('You are not in a voice channel!');
-        }
-        if (!channel.permissionsFor(this.guild.client.user)?.has('ViewChannel')) {
-            throw new Error('I am missing permissions to see your voice channel!\n' +
-                'Please contact a server admin to grant permissions.');
-        }
-        if (!channel.permissionsFor(this.guild.client.user)?.has('Connect')) {
-            throw new Error('I am missing permissions to join your voice channel!\n' +
-                'Please contact a server admin to grant permissions.');
-        }
-        if (!channel.permissionsFor(this.guild.client.user)?.has('Speak')) {
-            throw new Error('I am missing permissions to speak in your voice channel!\n' +
-                'Please contact a server admin to grant permissions.');
-        }
-        return joinVoiceChannel({
-            guildId: channel.guild.id,
-            channelId: channel.id,
-            adapterCreator: channel.guild.voiceAdapterCreator
         });
+    }
+    public async toggleVoice(options?: {
+        voice?: Voices;
+        interaction?: ButtonInteraction<CacheType>;
+        channel?: VoiceBasedChannel;
+    }): Promise<unknown> {
+        if (options?.interaction) {
+            if (this.voiceState) {
+                this.voiceState = false;
+                audioManager.disconnect(this.guild.id);
+            } else {
+                const channel = (await options.interaction.guild?.members.fetch(options.interaction.user))?.voice.channel ?? undefined;
+                if (!channel) {
+                    return Promise.reject('You are not in a voice channel!');
+                }
+                return audioManager.connect(
+                    channel,
+                    this.onAudioUnsubscribe.bind(this),
+                    options.voice
+                ).then(() => {
+                    this.voiceState = true;
+                    if (!this.textState) {
+                        return this.update(undefined, undefined);
+                    }
+                });
+            }
+        } else if (options?.channel) {
+            return audioManager.connect(
+                options.channel,
+                this.onAudioUnsubscribe.bind(this),
+                options.voice
+            ).then(() => {
+                this.voiceState = true;
+                if (!this.textState) {
+                    return this.update(undefined, undefined);
+                }
+            });
+        } else {
+            this.voiceState = false;
+            audioManager.disconnect(this.guild.id);
+        }
     }
 }

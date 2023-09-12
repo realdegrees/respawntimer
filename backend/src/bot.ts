@@ -5,7 +5,7 @@ import logger from '../lib/logger';
 import { Create } from './commands/create';
 import { Settings } from './commands/settings';
 import { Command } from './common/command';
-import { InteractionHandler } from './util/interactionHandler';
+import { InteractionHandler } from './interactionHandler';
 
 
 /**
@@ -17,7 +17,7 @@ class Bot {
     public readonly user: User | null;
     public interactionHandler;
     private constructor(
-        private client: Client,
+        public client: Client,
         commands: Command[]
     ) {
         this.user = this.client.user;

@@ -1,6 +1,6 @@
 export interface WarInfo {
     respawn: {
-        timePassed: number;
+        timeUntilRespawn: number;
         duration: number;
         durationNext: number;
         remaining: number;
