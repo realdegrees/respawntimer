@@ -1,6 +1,6 @@
 import { ActionRowBuilder, RepliableInteraction, InteractionResponse, EmbedBuilder, Guild, Message, MessageComponentInteraction, ButtonStyle } from 'discord.js';
 import { GuildData } from '../../db/guild.schema';
-import { WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../constant';
+import { EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../constant';
 import { EInteractionType } from '../types/interactionType';
 import logger from '../../../lib/logger';
 
@@ -8,7 +8,8 @@ export enum ESettingsID {
     PERMISSIONS = 'permissions',
     VOICE = 'voice',
     RAIDHELPER = 'raidhelper',
-    MISC = 'misc'
+    MISC = 'misc',
+    NOTIFICATIONS = 'notifications'
 }
 
 export abstract class Setting {
@@ -46,7 +47,7 @@ export abstract class Setting {
         if (this.footer) {
             settingsEmbed.setFooter({
                 text: this.footer,
-                iconURL: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/39/Orange_exclamation_mark.svg/240px-Orange_exclamation_mark.svg.png'
+                iconURL: EXCLAMATION_ICON_LINK
             });
         }
         const currentSettingsDesc = await this.getCurrentSettings(guild, interaction.guild ?? undefined);
@@ -63,7 +64,9 @@ export abstract class Setting {
         // Delete 
         if (options?.deleteOriginal && !options.update) {
             logger.debug('deleting original');
-            return (interaction as MessageComponentInteraction).deferUpdate().then(() => interaction.deleteReply()).then(undefined);
+            if(interaction.deferred || interaction.replied){
+                return interaction.deleteReply().catch(logger.error).then(undefined);
+            }
         }
 
         const content = {
@@ -72,9 +75,9 @@ export abstract class Setting {
             components: this.settings as ActionRowBuilder<any>[]
         };
         
-        return options?.update ?
-            await (interaction as MessageComponentInteraction).deferUpdate().then(() => interaction.editReply(content)) :
-            interaction.reply(content);
+        return (options?.update ?
+            (interaction as MessageComponentInteraction).deferUpdate().then(() => interaction.editReply(content)) :
+            interaction.reply(content)).catch(logger.error).then(undefined);
     }
     public getCustomId(id: string, args: string[]): string {
         return [WARTIMER_INTERACTION_ID, EInteractionType.SETTING, id, ...args].join(WARTIMER_INTERACTION_SPLIT);

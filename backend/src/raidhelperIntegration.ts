@@ -1,12 +1,13 @@
 import { setTimeout } from 'timers/promises';
-import { RaidhelperEvent } from '../common/types/raidhelperEvent';
-import { GuildData, queryGuilds } from '../db/guild.schema';
+import { RaidhelperEvent } from './common/types/raidhelperEvent';
+import { GuildData, queryGuilds } from './db/guild.schema';
 import { Client, Guild, TextBasedChannel, VoiceBasedChannel } from 'discord.js';
 import { Document } from 'mongoose';
-import logger from '../../lib/logger';
-import { WarInfo } from '../common/types';
-import { Widget } from '../common/widget';
-import audioManager from './audioManager';
+import logger from '../lib/logger';
+import { WarInfo } from './common/types';
+import { Widget } from './common/widget';
+import audioManager from './util/audioManager';
+import { NotificationHandler } from './notificationHandler';
 
 const POLL_INTERVAL_MS = 300000;
 export class RaidhelperIntegration {
@@ -50,26 +51,38 @@ export class RaidhelperIntegration {
                             new Date(new Date(lowest.startTime).getTime() - Date.now()).getTime() ? current : lowest);
 
                     const guild = clientGuilds.find((cg) => cg.id === dbGuild.id);
-                    
+
+                    if (!guild) {
+                        await NotificationHandler.sendNotification(
+                            dbGuild.id, `Tried to join a voice channel for scheduled event '${event.title}' but encountered an error\n
+                            Unable to retrieve server data! Try resetting your server's data in the settings.`
+                        ).catch(logger.error);
+                        return;
+                    }
 
                     const voiceChannel = event.voiceChannelId ?
-                        await guild?.channels.fetch(event.voiceChannelId) as VoiceBasedChannel | undefined :
+                        await guild.channels.fetch(event.voiceChannelId) as VoiceBasedChannel | undefined :
                         dbGuild.raidHelper.defaultVoiceChannelId ?
-                            await guild?.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId) as VoiceBasedChannel | undefined :
+                            await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId) as VoiceBasedChannel | undefined :
                             undefined;
                     const widgetChannel = dbGuild.widget.channelId ?
-                        await guild?.channels.fetch(dbGuild.widget.channelId) as TextBasedChannel | undefined : undefined;
+                        await guild.channels.fetch(dbGuild.widget.channelId) as TextBasedChannel | undefined : undefined;
                     const message = dbGuild.widget.messageId ? await widgetChannel?.messages.fetch().then((messages) =>
                         messages.find((message) => message.id === dbGuild.widget.messageId)) : undefined;
+
                     if (!voiceChannel) {
                         // no voice channelset in event and no default voice channel set in settings
-                        logger.debug('Scheduled event could not be joined due to missing voice channel');
+                        NotificationHandler.sendNotification(
+                            guild, `Scheduled event '${event.title}' triggered but there is no voice channel to join.  
+                            Please set a default voice channel or add a voice channel in the raidhelper settings when creating an event.`).catch(logger.error);
                         return;
                     }
                     if (!message) {
                         // no primary widget
                         await audioManager.connect(voiceChannel, () => Promise.resolve(), dbGuild.voice)
-                            .catch((e) => logger.error(e.toString()));
+                            .catch((reason) => NotificationHandler.sendNotification(
+                                guild, `Tried to join ${voiceChannel} for scheduled event '${event.title}' but encountered an error\n${reason}`
+                            )).catch(logger.error);
                         return;
                     }
                     const widget = await Widget.get(message);
@@ -77,7 +90,9 @@ export class RaidhelperIntegration {
                     widget.toggleVoice({
                         voice: dbGuild.voice,
                         channel: voiceChannel
-                    }).catch((e) => logger.log(e.toString()));
+                    }).catch((reason) => NotificationHandler.sendNotification(
+                        guild, `Tried to join ${voiceChannel} for scheduled event '${event.title}' but encountered an error\n${reason}`
+                    )).catch(logger.error);
                     await setTimeout(100);
                 });
             });
@@ -100,7 +115,9 @@ export class RaidhelperIntegration {
         header.set('Authorization', dbGuild.raidHelper.apiKey);
         header.set('IncludeSignups', 'false');
         header.set('StartTimeFilter', Math.round(Date.now() / 1000 - 60 * 16).toString()); // Unix timestamp to only get future events (-16 minutes to include events that might have start time set to war invites)
-        // TODO: add channel filter as well (needs to be added as raidhelper option)
+        if (dbGuild.raidHelper.eventChannelId) {
+            header.set('ChannelFilter', dbGuild.raidHelper.eventChannelId);
+        }
 
         return fetch(serversEventsUrl, {
             headers: header

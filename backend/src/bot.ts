@@ -6,6 +6,7 @@ import { Create } from './commands/create';
 import { Settings } from './commands/settings';
 import { Command } from './common/command';
 import { InteractionHandler } from './interactionHandler';
+import { NotificationHandler } from './notificationHandler';
 
 
 /**
@@ -16,12 +17,14 @@ import { InteractionHandler } from './interactionHandler';
 class Bot {
     public readonly user: User | null;
     public interactionHandler;
+    public notificationHandler;
     private constructor(
         public client: Client,
         commands: Command[]
     ) {
         this.user = this.client.user;
         this.interactionHandler = new InteractionHandler(client);
+        this.notificationHandler = new NotificationHandler(client);
         this.client.user?.setActivity({name: '/create'});
         this.client.on('interactionCreate', (interaction) => {
             if (!interaction.isCommand()) return;
@@ -31,7 +34,7 @@ class Bot {
 
     public static async init(): Promise<Bot> {
         return new Promise((resolve, reject) => {
-            const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
+            const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMessages] });
             const token = process.env['DISCORD_CLIENT_TOKEN'];
             const clientId = process.env['DISCORD_CLIENT_ID'];
             const commands = [
