@@ -11,6 +11,7 @@ import { WarInfo } from '../common/types';
 import { VoiceBasedChannel } from 'discord.js';
 import { Widget } from '../common/widget';
 import { getGuild } from '../db/guild.schema';
+import { checkChannelPermissions } from './checkChannelPermissions';
 
 const loadFiles = (voice: Voices): {
     id: string;
@@ -205,45 +206,31 @@ class AudioManager {
         subscriber?.onUnsubscribe();
         subscriber?.subscription?.unsubscribe();
         this.subscribers.splice(this.subscribers.findIndex((s) => s.guildId === guildId), 1);
-        getVoiceConnection(guildId)?.disconnect();
         getVoiceConnection(guildId)?.destroy();
     }
 
     public async connect(channel: VoiceBasedChannel, onUnsubscribe: () => Promise<unknown>, voice?: Voices): Promise<void> {
-        return this.getConnection(channel).then((connection) => {
-            connection.on(VoiceConnectionStatus.Disconnected, () => {
-                getGuild(channel.guild).then((dbGuild) => {
-                    Widget.get(channel.guild, dbGuild.widget.messageId, dbGuild.widget.channelId).then((widget) => {
-                        widget.toggleVoice();
-                    });
-                });
+        return this.getConnection(channel).then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
+            getGuild(channel.guild).then((dbGuild) => {
+                Widget.get(channel.guild, dbGuild.widget.messageId, dbGuild.widget.channelId).then((widget) => {
+                    widget.toggleVoice();
+                }).catch(() => logger.debug('Bot was disconnected but couldnt find a widget to toggle'));
             });
-            return this.subscribe(
-                connection,
-                channel.guild.id,
-                voice,
-                onUnsubscribe
-            );
-        });
+        })).then((connection) => this.subscribe(
+            connection,
+            channel.guild.id,
+            voice,
+            onUnsubscribe
+        ));
     }
+
     private getConnection(channel: VoiceBasedChannel): Promise<VoiceConnection> {
-        if (!channel.permissionsFor(channel.client.user)?.has('ViewChannel')) {
-            return Promise.reject(`I am missing permissions to see ${channel}!  
-                Please contact a server admin to grant permissions.`);
-        }
-        if (!channel.permissionsFor(channel.client.user)?.has('Connect')) {
-            return Promise.reject(`I am missing permissions to join ${channel}!  
-                Please contact a server admin to grant permissions.`);
-        }
-        if (!channel.permissionsFor(channel.client.user)?.has('Speak')) {
-            return Promise.reject(`I am missing permissions to speak in ${channel}!  
-                Please contact a server admin to grant permissions.`);
-        }
-        return Promise.resolve(joinVoiceChannel({
-            guildId: channel.guild.id,
-            channelId: channel.id,
-            adapterCreator: channel.guild.voiceAdapterCreator
-        }));
+        return checkChannelPermissions(channel, ['ViewChannel', 'Connect', 'Speak'])
+            .then(() => joinVoiceChannel({
+                guildId: channel.guild.id,
+                channelId: channel.id,
+                adapterCreator: channel.guild.voiceAdapterCreator
+            }));
     }
 }
 export default new AudioManager();

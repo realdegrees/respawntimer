@@ -11,6 +11,7 @@ export interface GuildData {
     editorRoleIDs: string[];
     voice: Voices;
     raidHelper: RaidhelperSettingData;
+    notificationChannelId?: string;
     widget: {
         channelId?: string;
         messageId?: string;
@@ -23,10 +24,12 @@ export const DBGuild = model<GuildData>('Guild', new Schema<GuildData>({
     assistantRoleIDs: [String],
     editorRoleIDs: [String],
     voice: String,
+    notificationChannelId: String,
     raidHelper: {
         enabled: Boolean,
         apiKey: String,
         defaultVoiceChannelId: String,
+        eventChannelId: String,
         events: [{
             id: String,
             title: String,

@@ -4,6 +4,7 @@ import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
 import { CacheType, ChannelType, Client, CommandInteraction, CommandInteractionOptionResolver, TextBasedChannel } from 'discord.js';
 import { Command } from '../common/command';
 import { Widget } from '../common/widget';
+import logger from '../../lib/logger';
 
 
 
@@ -22,11 +23,11 @@ export class Create extends Command {
     // eslint-disable-next-line @typescript-eslint/require-await
     public async execute(interaction: CommandInteraction<CacheType> & { options: Pick<CommandInteractionOptionResolver<CacheType>, 'getRole' | 'getChannel'> }): Promise<void> {
 
-        this.checkPermission(interaction, 'editor').then(() => {
+        this.checkPermission(interaction, 'editor').then(async () => {
             const channel = interaction.options.getChannel('channel') as TextBasedChannel | null ?? interaction.channel;
             const guild = interaction.guild;
             if (!guild) {
-                interaction.reply('This cannot be used in DMs');
+                await interaction.reply('This cannot be used in DMs');
                 return;
             }
             if (!channel || channel.type !== ChannelType.GuildText) {
@@ -38,7 +39,7 @@ export class Create extends Command {
             await interaction.reply({
                 ephemeral: true,
                 content: msg.toString()
-            });
+            }).catch(logger.error);
         });
 
 
