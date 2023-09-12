@@ -210,18 +210,20 @@ class AudioManager {
     }
 
     public async connect(channel: VoiceBasedChannel, onUnsubscribe: () => Promise<unknown>, voice?: Voices): Promise<void> {
-        return this.getConnection(channel).then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
-            getGuild(channel.guild).then((dbGuild) => {
-                Widget.get(channel.guild, dbGuild.widget.messageId, dbGuild.widget.channelId).then((widget) => {
-                    widget.toggleVoice();
-                }).catch(() => logger.debug('Bot was disconnected but couldnt find a widget to toggle'));
-            });
-        })).then((connection) => this.subscribe(
-            connection,
-            channel.guild.id,
-            voice,
-            onUnsubscribe
-        ));
+        return this.getConnection(channel)
+            .then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
+                getGuild(channel.guild).then((dbGuild) => {
+                    Widget.get(channel.guild, dbGuild.widget.messageId, dbGuild.widget.channelId).then((widget) => {
+                        widget.toggleVoice();
+                    }).catch(() => logger.debug('Bot was disconnected but couldnt find a widget to toggle'));
+                });
+            }))
+            .then((connection) => this.subscribe(
+                connection,
+                channel.guild.id,
+                voice,
+                onUnsubscribe
+            ));
     }
 
     private getConnection(channel: VoiceBasedChannel): Promise<VoiceConnection> {
