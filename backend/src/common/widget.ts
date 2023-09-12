@@ -112,6 +112,7 @@ export class Widget {
         return guild.members.fetch(interaction.user)
             .then((member) => {
                 if (
+                    !(member.user.id === process.env['OWNER_ID']) &&
                     !member.permissions.has('Administrator') &&
                     !member.roles.cache.some((role) => dbGuild.editorRoleIDs.includes(role.id))
                 ) {
@@ -210,7 +211,7 @@ export class Widget {
             components: [this.getButtons()],
             embeds: [EmbedBuilder.from(this.message.embeds[0])
                 .setTitle(title ?? 'Respawn Timer')
-                .setFooter({ text: 'Wartimer' })
+                .setFooter({ text: 'Lots of new features! Check the settings.' })
                 .setDescription(description ?? '-')]
         }).then(() => {
             this.isUpdating = 0;

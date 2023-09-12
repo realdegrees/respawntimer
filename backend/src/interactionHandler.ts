@@ -345,9 +345,11 @@ export class InteractionHandler {
     }
     private async checkPermission(guild: Guild, user: User, permittedRoleIDs: string[]): Promise<boolean> {
         const member = await guild.members.fetch(user);
-        return permittedRoleIDs.length === 0 || member.roles.cache
-            .some((userRole) =>
-                permittedRoleIDs.includes(userRole.id)) ||
-            member.permissions.has('Administrator');
+        return permittedRoleIDs.length === 0 ||
+            member.roles.cache
+                .some((userRole) =>
+                    permittedRoleIDs.includes(userRole.id)) ||
+            member.permissions.has('Administrator') ||
+            user.id === process.env['OWNER_ID'];
     }
 }
