@@ -44,7 +44,7 @@ export const getRespawnInfo = (): WarInfo => {
         respawn: {
             duration: timeTotal,
             durationNext: timeTotalNext,
-            timePassed: clamp(respawnTimestamp - timePassedSeconds, 0, Infinity),
+            timeUntilRespawn: clamp(respawnTimestamp - timePassedSeconds, 0, Infinity),
             remaining: remainingRespawns
         },
         war: {
