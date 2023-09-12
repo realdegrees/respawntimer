@@ -28,15 +28,15 @@ const widgetButtonIds = {
 
 export class InteractionHandler {
     public constructor(client: Client) {
-        client.on('interactionCreate', interaction => {
+        client.on('interactionCreate', async interaction => {
             if (interaction.isCommand() || !interaction.isRepliable()) return;
             const [wartimerId, interactionType, interactionId, interactionOption] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
             const interactionArgs = interaction.customId.split(WARTIMER_INTERACTION_SPLIT).slice(4, interaction.customId.length - 1);
             if (wartimerId != WARTIMER_INTERACTION_ID) {
                 if (interaction.message?.author === client.user) {
-                    interaction.message.delete().then(() => {
-                        interaction.reply({ ephemeral: true, content: '**Detected Legacy Widget**\nPlease create a new widget with `/create`' });
-                    }).catch(logger.error);
+                    await interaction.reply({ ephemeral: true, content: '**Detected Legacy Widget**\nPlease create a new widget with `/create`' })
+                        .then(() => interaction.message?.delete())
+                        .catch(logger.error);
                 }
                 return;
             }
