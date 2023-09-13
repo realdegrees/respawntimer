@@ -1,7 +1,7 @@
 /* eslint-disable max-len */
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
-import { CacheType, ChannelType, Client, CommandInteraction, CommandInteractionOptionResolver, TextBasedChannel } from 'discord.js';
+import { CacheType, ChannelType, Client, CommandInteraction } from 'discord.js';
 import { Command } from '../common/command';
 import { Widget } from '../common/widget';
 import logger from '../../lib/logger';
@@ -21,24 +21,21 @@ export class Create extends Command {
             .toJSON();
     }
     // eslint-disable-next-line @typescript-eslint/require-await
-    public async execute(interaction: CommandInteraction<CacheType> & { options: Pick<CommandInteractionOptionResolver<CacheType>, 'getRole' | 'getChannel'> }): Promise<void> {
-
-        this.checkPermission(interaction, 'editor').then(async () => {
-            const channel = interaction.options.getChannel('channel') as TextBasedChannel | null ?? interaction.channel;
+    public async execute(interaction: CommandInteraction<CacheType>): Promise<unknown> {
+        return this.checkPermission(interaction, 'editor').then(async () => {
+            const channel = interaction.channel;
             const guild = interaction.guild;
             if (!guild) {
-                await interaction.reply('This cannot be used in DMs');
-                return;
+                return interaction.reply('This cannot be used in DMs');
             }
             if (!channel || channel.type !== ChannelType.GuildText) {
-                interaction.reply({ ephemeral: true, content: 'Invalid channel' });
-                return;
+                return interaction.reply({ ephemeral: true, content: 'Invalid channel' });
             }
             return Widget.create(interaction, guild, channel);
         }).catch(async (msg) => {
             await interaction.reply({
                 ephemeral: true,
-                content: msg.toString()
+                content: msg?.toString()
             }).catch(logger.error);
         });
 
