@@ -46,9 +46,9 @@ export class Settings extends Command {
     }
     // eslint-disable-next-line @typescript-eslint/require-await
     public async execute(interaction: CommandInteraction<CacheType>): Promise<unknown> {
-        return this.checkPermission(interaction, 'editor').then(() => {
-            openSettings(interaction);
-        }).catch(async (msg) => {
+        return this.checkPermission(interaction, 'editor').then(() => 
+            openSettings(interaction)
+        ).catch(async (msg) => {
             await interaction.reply({
                 ephemeral: true,
                 content: msg?.toString()
@@ -57,13 +57,13 @@ export class Settings extends Command {
     }
 }
 // eslint-disable-next-line max-len
-export const openSettings = async (interaction: ButtonInteraction<CacheType> | CommandInteraction<CacheType>): Promise<void> => {
+export const openSettings = async (interaction: ButtonInteraction<CacheType> | CommandInteraction<CacheType>): Promise<unknown> => {
     const guild = interaction.guild;
     if (!guild) {
         return Promise.reject();
     }
 
-    await interaction.reply({
+    return interaction.reply({
         ephemeral: true, embeds: [new EmbedBuilder()
             .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: 'Settings' })
             .setThumbnail(WARTIMER_ICON_LINK)
