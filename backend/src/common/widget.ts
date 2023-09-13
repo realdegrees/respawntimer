@@ -156,14 +156,14 @@ export class Widget {
 
     private async onTextUnsubscribe(): Promise<unknown> { // onUnsubscribe
         logger.info('[' + this.guild.name + '][Unsubscribed Text]');
-        this.textState = this.isResetting && this.textState;
-        return this.update(undefined, undefined).finally();
+        this.textState = false;
+        return this.update(undefined, undefined, true);
     }
     private async onAudioUnsubscribe(): Promise<unknown> { // onUnsubscribe
         logger.info('[' + this.guild.name + '][Unsubscribed Audio]');
         this.voiceState = false;
         if (!this.textState) {
-            return this.update(undefined, undefined).finally();
+            return this.update(undefined, undefined, true);
         }
     }
     private getCustomId(buttonId: string): string {
@@ -193,11 +193,11 @@ export class Widget {
     public getId(): string {
         return this.message.id;
     }
-    public async update(title?: string, description?: string): Promise<boolean> {
+    public async update(title?: string, description?: string, force?: boolean): Promise<boolean> {
         if (this.isResetting) {
             return Promise.resolve(false);
         }
-        if (this.isUpdating > 0) {
+        if (!force && this.isUpdating > 0) {
             if (this.isUpdating >= 5) {
                 return this.recreateMessage().then(() => false);
             } else {
@@ -225,7 +225,7 @@ export class Widget {
         });
     }
 
-    public async recreateMessage(manual = false): Promise<void> {
+    public async recreateMessage(manual = false): Promise<unknown> {
         if (!manual) {
             logger.info(
                 '[' + this.guild.name + '][Reset] Response took too long! Resending message.'
@@ -269,16 +269,16 @@ export class Widget {
                                     this.onTextUnsubscribe.bind(this));
                             }
                         }
-                    });
+                    }).catch(logger.error);
                 };
-                await setTimeout(manual ? 0 : resetDurationSeconds * 1000).then(reset);
+                return setTimeout(manual ? 0 : resetDurationSeconds * 1000).then(reset);
             });
-        }).then(() => { }).catch(logger.error);
+        }).catch(logger.error);
     }
     public toggleText(interaction?: ButtonInteraction): Promise<void> {
         return new Promise((res) => {
-            this.textState = !this.textState;
-            if (interaction && this.textState) {
+            if (interaction && !this.textState) {
+                this.textState = true;
                 textManager.subscribe(
                     this.message.id,
                     this.guild.id,
@@ -286,6 +286,7 @@ export class Widget {
                     res,
                     this.onTextUnsubscribe.bind(this));
             } else {
+                this.textState = false;
                 textManager.unsubscribe(this.message.id);
                 res();
             }

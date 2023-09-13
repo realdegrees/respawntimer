@@ -35,12 +35,13 @@ class TextManager {
         // Updat text for text subs
         subscribers.forEach((subscriber) => {
             if (!subscriber.onInitialize && info.respawn.timeUntilRespawn % 1 !== 0) return;
-            subscriber.onUpdate(title, description).then(() => {
-                if (subscriber.onInitialize) {
-                    subscriber.onInitialize();
-                    subscriber.onInitialize = undefined;
-                }
-            });
+            subscriber.onUpdate(title, description)
+                .then(() => {
+                    if (subscriber.onInitialize) {
+                        subscriber.onInitialize();
+                        subscriber.onInitialize = undefined;
+                    }
+                }).catch(logger.error);
         });
     }
     private getDescription(info: WarInfo): string {
