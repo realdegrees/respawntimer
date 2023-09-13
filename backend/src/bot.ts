@@ -28,7 +28,7 @@ class Bot {
         this.client.user?.setActivity({name: '/create'});
         this.client.on('interactionCreate', (interaction) => {
             if (!interaction.isCommand()) return;
-            commands.find((command) => command.name === interaction.commandName)?.execute(interaction);
+            commands.find((command) => command.name === interaction.commandName)?.execute(interaction).catch(logger.error);
         });
     }
 

@@ -13,7 +13,7 @@ export class Command {
         throw new Error('Not implemented');
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public execute(interaction: CommandInteraction<CacheType>): Promise<void> {
+    public execute(interaction: CommandInteraction<CacheType>): Promise<unknown> {
         throw new Error('Not implemented');
     }
     // eslint-disable-next-line max-len
