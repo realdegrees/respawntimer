@@ -208,7 +208,6 @@ export class Widget {
 
         // New title if string with content is passed, old title if empty string is passed, no title if undefined is passed
         if (title !== undefined && title) embed.setTitle(title);
-        else if(title !== undefined && !title) embed.setTitle(this.message.embeds[0].title);
 
         return this.message.edit({
             components: [this.getButtons()],
