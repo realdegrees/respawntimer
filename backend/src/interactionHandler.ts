@@ -19,6 +19,7 @@ import audioManager, { Voices } from './util/audioManager';
 import { ENotificationSettingsOptions } from './common/settings/notifications.settings';
 import { checkChannelPermissions } from './util/checkChannelPermissions';
 import { ETimingsSettingsOptions, TimingsSettings } from './common/settings/timings.settings';
+import textManager from './util/textManager';
 
 const widgetButtonIds = {
     text: 'text',
@@ -104,8 +105,10 @@ export class InteractionHandler {
                                     });
                                     return;
                                 } else {
-                                    return widget.toggleText(interaction as ButtonInteraction)
-                                        .then(() => interaction.deferUpdate());
+                                    return widget.toggleText({
+                                        interaction: interaction as ButtonInteraction,
+                                        dbGuild
+                                    }).then(() => interaction.deferUpdate());
                                 }
                             });
                         case widgetButtonIds.voice:
@@ -122,7 +125,7 @@ export class InteractionHandler {
                                     return;
                                 } else {
                                     return widget.toggleVoice({
-                                        voice: dbGuild.voice,
+                                        dbGuild,
                                         interaction: interaction as ButtonInteraction
                                     }).then(() => interaction.deferUpdate());
                                 }
@@ -172,9 +175,6 @@ export class InteractionHandler {
                 });
         }
         if (type === EInteractionType.SETTING) {
-            logger.log('Setting interaction');
-            logger.log('Args: ' + args.toString());
-
             let setting: Setting | undefined;
             SETTINGS_LIST.find((row) => setting = row.find((setting) => setting.id === id));
             if (!setting) {
@@ -311,7 +311,7 @@ export class InteractionHandler {
                     switch (option) {
                         case ETimingsSettingsOptions.TIMINGS:
                             if (interaction.isButton()) {
-                                return (setting as TimingsSettings).showModal(interaction);
+                                return (setting as TimingsSettings).showModal(interaction, dbGuild.customTimings);
                             } else if (interaction.isModalSubmit()) {
                                 const timings = interaction.fields
                                     .getTextInputValue(
@@ -319,14 +319,26 @@ export class InteractionHandler {
                                             ESettingsID.TIMINGS,
                                             [ETimingsSettingsOptions.TIMINGS]
                                         ));
-                                const validSyntax = TimingsSettings.checkSyntax(timings);
-                                if (!validSyntax) return Promise.reject('Invalid Syntax');
-                                dbGuild.customTimings = timings;
-                                return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
+                                const [validSyntax, reason] = TimingsSettings.checkSyntax(timings);
+                                if (!validSyntax) return Promise.reject(reason);
+                                if (TimingsSettings.equalsDefault(timings)) {
+                                    // No need to save if the settings are default
+                                    return Promise.reject('Default Timings');
+                                }
+                                // remove duplicates and trim spaces
+                                dbGuild.customTimings = TimingsSettings.sort(timings).join(',');
+                                return dbGuild.save().then(() => {
+                                    audioManager.setTimings(dbGuild.id, timings);
+                                    textManager.setTimings(dbGuild.id, timings);
+                                    return setting!.send(interaction, dbGuild, { update: true });
+                                });
                             }
                             break;
                         case ETimingsSettingsOptions.RESET:
+                            if(!dbGuild.customTimings) return interaction.deferUpdate();
                             dbGuild.customTimings = undefined;
+                            audioManager.resetTimings(dbGuild.id);
+                            textManager.resetTimings(dbGuild.id);
                             return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
                         default:
                             break;

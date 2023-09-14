@@ -12,6 +12,7 @@ import textManager from '../util/textManager';
 import { getGuild } from '../db/guild.schema';
 import { WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './constant';
 import { EInteractionType } from './types/interactionType';
+import { DBGuild } from './types/dbGuild';
 
 export const widgetButtonIds = {
     text: 'text',
@@ -157,13 +158,13 @@ export class Widget {
     private async onTextUnsubscribe(): Promise<unknown> { // onUnsubscribe
         logger.info('[' + this.guild.name + '][Unsubscribed Text]');
         this.textState = false;
-        return this.update(undefined, undefined, true);
+        return this.update('Respawn Timer', undefined, true);
     }
     private async onAudioUnsubscribe(): Promise<unknown> { // onUnsubscribe
         logger.info('[' + this.guild.name + '][Unsubscribed Audio]');
         this.voiceState = false;
         if (!this.textState) {
-            return this.update(undefined, undefined, true);
+            return this.update('', undefined, true);
         }
     }
     private getCustomId(buttonId: string): string {
@@ -207,12 +208,17 @@ export class Widget {
             }
         }
         this.isUpdating++;
+        const embed = new EmbedBuilder()
+            .setFooter({ text: 'Lots of new features! Check the settings.' })
+            .setDescription(description ?? '-');
+
+        // New title if string with content is passed, old title if empty string is passed, no title if undefined is passed
+        if (title !== undefined && title) embed.setTitle(title);
+        else if(title !== undefined && !title) embed.setTitle(this.message.embeds[0].title);
+
         return this.message.edit({
             components: [this.getButtons()],
-            embeds: [EmbedBuilder.from(this.message.embeds[0])
-                .setTitle(title ?? 'Respawn Timer')
-                .setFooter({ text: 'Lots of new features! Check the settings.' })
-                .setDescription(description ?? '-')]
+            embeds: [embed]
         }).then(() => {
             this.isUpdating = 0;
             return true;
@@ -258,31 +264,26 @@ export class Widget {
                     if (!manual) logger.info('[' + this.guild.name + '][Reset] Done!');
                     this.isResetting = false;
                     this.isUpdating = 0;
-                    this.update().then(() => {
-                        if (this.textState) {
-                            if (!textManager.updateSubscription(oldMessageId, this.message.id)) {
-                                textManager.subscribe(
-                                    this.message.id,
-                                    this.guild.id,
-                                    this.update.bind(this),
-                                    () => { },
-                                    this.onTextUnsubscribe.bind(this));
-                            }
-                        }
-                    }).catch(logger.error);
+                    this.update()
+                        .then(() => textManager.updateSubscription(oldMessageId, this.message.id))
+                        .catch(logger.error);
                 };
                 return setTimeout(manual ? 0 : resetDurationSeconds * 1000).then(reset);
             });
         }).catch(logger.error);
     }
-    public toggleText(interaction?: ButtonInteraction): Promise<void> {
+    public toggleText(options: {
+        interaction: ButtonInteraction;
+        dbGuild: DBGuild;
+    }): Promise<void> {
         return new Promise((res) => {
-            if (interaction && !this.textState) {
+            if (!this.textState) {
                 this.textState = true;
-                textManager.subscribe(
-                    this.message.id,
-                    this.guild.id,
-                    this.update.bind(this),
+                textManager.subscribe({
+                    msgId: this.message.id,
+                    guildId: this.guild.id,
+                    customTimings: options.dbGuild.customTimings
+                }, this.update.bind(this),
                     res,
                     this.onTextUnsubscribe.bind(this));
             } else {
@@ -293,7 +294,7 @@ export class Widget {
         });
     }
     public async toggleVoice(options?: {
-        voice?: Voices;
+        dbGuild?: DBGuild;
         interaction?: ButtonInteraction<CacheType>;
         channel?: VoiceBasedChannel;
     }): Promise<unknown> {
@@ -309,7 +310,7 @@ export class Widget {
                 return audioManager.connect(
                     channel,
                     this.onAudioUnsubscribe.bind(this),
-                    options.voice
+                    options.dbGuild
                 ).then(() => {
                     this.voiceState = true;
                     if (!this.textState) {
@@ -321,7 +322,7 @@ export class Widget {
             return audioManager.connect(
                 options.channel,
                 this.onAudioUnsubscribe.bind(this),
-                options.voice
+                options.dbGuild
             ).then(() => {
                 this.voiceState = true;
                 if (!this.textState) {

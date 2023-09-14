@@ -3,7 +3,7 @@ export interface WarInfo {
         timeUntilRespawn: number;
         duration: number;
         durationNext: number;
-        remaining: number;
+        remainingRespawns: number;
     };
     war: {
         timeLeftSeconds: number;

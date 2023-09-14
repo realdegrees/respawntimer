@@ -2,6 +2,7 @@ import { ActionRowBuilder, Guild, RoleSelectMenuBuilder } from 'discord.js';
 import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, Setting } from './settings';
 import { Document } from 'mongoose';
+import { DBGuild } from '../types/dbGuild';
 
 export enum EPermissionSettingsOptions {
     EDITOR = 'Editor',
@@ -36,9 +37,7 @@ export class PermissionSettings extends Setting {
             editorRow, assistantRow
         );
     }
-    public async getCurrentSettings(guildData: Document<unknown, object, GuildData> & GuildData & Required<{
-        _id: string;
-    }>, guild?: Guild | undefined): Promise<string> {
+    public async getCurrentSettings(guildData: DBGuild, guild?: Guild | undefined): Promise<string> {
         return `**Editor Roles**  
                 ${(await Promise.all(guildData.editorRoleIDs.map((id) => guild?.roles.fetch(id))))
                 .filter((role) => !!role)

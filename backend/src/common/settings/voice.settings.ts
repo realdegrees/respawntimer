@@ -3,6 +3,7 @@ import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, Setting } from './settings';
 import audioManager from '../../util/audioManager';
 import { Document } from 'mongoose';
+import { DBGuild } from '../types/dbGuild';
 
 export enum EVoiceSettingsOptions {
     VOICE = 'voice'
@@ -16,10 +17,10 @@ export class VoiceSettings extends Setting {
             .setPlaceholder('Select Voice')
             .setMinValues(0)
             .setMaxValues(1)
-            .addOptions(audioManager.sounds.map((s) => new StringSelectMenuOptionBuilder()
-                .setLabel(s.voice.split(' ').map((voice) => voice.charAt(0).toUpperCase() + voice.slice(1)).join(' '))
+            .addOptions(audioManager.voices.map((s) => new StringSelectMenuOptionBuilder()
+                .setLabel(s.voiceType.split(' ').map((voice) => voice.charAt(0).toUpperCase() + voice.slice(1)).join(' '))
                 .setDescription(s.voiceDescription)
-                .setValue(s.voice)));
+                .setValue(s.voiceType)));
 
         const voicesRow = new ActionRowBuilder<StringSelectMenuBuilder>()
             .addComponents(voice);
@@ -31,9 +32,7 @@ export class VoiceSettings extends Setting {
             voicesRow
         );
     }
-    public async getCurrentSettings(guild: Document<unknown, object, GuildData> & GuildData & Required<{
-        _id: string;
-    }>): Promise<string> {
+    public async getCurrentSettings(guild: DBGuild): Promise<string> {
         return Promise.resolve(guild.voice.split(' ').map((voice) => voice.charAt(0).toUpperCase() + voice.slice(1)).join(' '));
     }
 }

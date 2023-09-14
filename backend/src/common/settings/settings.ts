@@ -3,6 +3,7 @@ import { GuildData } from '../../db/guild.schema';
 import { EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../constant';
 import { EInteractionType } from '../types/interactionType';
 import { Document } from 'mongoose';
+import { DBGuild } from '../types/dbGuild';
 
 export enum ESettingsID {
     PERMISSIONS = 'permissions',
@@ -77,7 +78,5 @@ export abstract class Setting {
     public getCustomId(id: string, args: string[]): string {
         return [WARTIMER_INTERACTION_ID, EInteractionType.SETTING, id, ...args].join(WARTIMER_INTERACTION_SPLIT);
     }
-    public abstract getCurrentSettings(dbGuild: Document<unknown, object, GuildData> & GuildData & Required<{
-        _id: string;
-    }>, guild?: Guild,): Promise<string>;
+    public abstract getCurrentSettings(dbGuild: DBGuild, guild?: Guild,): Promise<string>;
 }

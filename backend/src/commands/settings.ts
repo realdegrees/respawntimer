@@ -22,12 +22,14 @@ import { EInteractionType } from '../common/types/interactionType';
 import { MiscSettings } from '../common/settings/misc.settings';
 import { NotificationSettings } from '../common/settings/notifications.settings';
 import logger from '../../lib/logger';
+import { TimingsSettings } from '../common/settings/timings.settings';
 
 export const SETTINGS_LIST = [
     [
         new PermissionSettings(),
         new VoiceSettings(),
-        new RaidhelperSettings()]
+        new RaidhelperSettings(),
+        new TimingsSettings()]
     , [
         new NotificationSettings(),
         new MiscSettings()
@@ -46,7 +48,7 @@ export class Settings extends Command {
     }
     // eslint-disable-next-line @typescript-eslint/require-await
     public async execute(interaction: CommandInteraction<CacheType>): Promise<unknown> {
-        return this.checkPermission(interaction, 'editor').then(() => 
+        return this.checkPermission(interaction, 'editor').then(() =>
             openSettings(interaction)
         ).catch(async (msg) => {
             await interaction.reply({
