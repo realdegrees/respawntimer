@@ -16,6 +16,7 @@ export interface GuildData {
         channelId?: string;
         messageId?: string;
     };
+    customTimings?: string;
 }
 
 export const DBGuild = model<GuildData>('Guild', new Schema<GuildData>({
@@ -25,6 +26,7 @@ export const DBGuild = model<GuildData>('Guild', new Schema<GuildData>({
     editorRoleIDs: [String],
     voice: String,
     notificationChannelId: String,
+    customTimings: String,
     raidHelper: {
         enabled: Boolean,
         apiKey: String,

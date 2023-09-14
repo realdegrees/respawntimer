@@ -18,6 +18,7 @@ import { EMiscSettingsOptions } from './common/settings/misc.settings';
 import audioManager, { Voices } from './util/audioManager';
 import { ENotificationSettingsOptions } from './common/settings/notifications.settings';
 import { checkChannelPermissions } from './util/checkChannelPermissions';
+import { ETimingsSettingsOptions, TimingsSettings } from './common/settings/timings.settings';
 
 const widgetButtonIds = {
     text: 'text',
@@ -302,6 +303,31 @@ export class InteractionHandler {
                                             .then(() => setting!.send(interaction, dbGuild, { update: true }));
                                     }
                                 });
+                        default:
+                            break;
+                    }
+                    break;
+                case ESettingsID.TIMINGS:
+                    switch (option) {
+                        case ETimingsSettingsOptions.TIMINGS:
+                            if (interaction.isButton()) {
+                                return (setting as TimingsSettings).showModal(interaction);
+                            } else if (interaction.isModalSubmit()) {
+                                const timings = interaction.fields
+                                    .getTextInputValue(
+                                        setting.getCustomId(
+                                            ESettingsID.TIMINGS,
+                                            [ETimingsSettingsOptions.TIMINGS]
+                                        ));
+                                const validSyntax = TimingsSettings.checkSyntax(timings);
+                                if (!validSyntax) return Promise.reject('Invalid Syntax');
+                                dbGuild.customTimings = timings;
+                                return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
+                            }
+                            break;
+                        case ETimingsSettingsOptions.RESET:
+                            dbGuild.customTimings = undefined;
+                            return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
                         default:
                             break;
                     }
