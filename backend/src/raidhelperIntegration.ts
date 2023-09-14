@@ -40,12 +40,10 @@ export class RaidhelperIntegration {
             queryGuilds({
                 'raidHelper.enabled': { $eq: true }
             }).then((guilds) => {
-                logger.debug(guilds.length + ' guilds with raidhelper enabled');
                 return guilds.filter((guild) => guild.raidHelper.events.find((event) =>
                     event.startTime && Math.abs(new Date(new Date(event.startTime).getTime() - Date.now()).getTime() / 1000 / 60) < 20
                 ));
             }).then((dbGuilds) => {
-                logger.debug(dbGuilds.length + ' guilds with a scheduled event');
                 const clientGuilds = client.guilds.cache.filter((guild) => !!dbGuilds.find((el) => el.id === guild.id));
                 dbGuilds.forEach(async (dbGuild) => {
                     const event = dbGuild.raidHelper.events.reduce((lowest, current) =>

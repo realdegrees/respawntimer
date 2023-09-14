@@ -66,7 +66,6 @@ export class Widget {
             (message.channel.id !== dbGuild.widget.channelId ||
                 message.id !== dbGuild.widget.messageId)
         ) {
-            logger.log('Other widget exists, deleting exisitng');
             await guild.channels.fetch(dbGuild.widget.channelId).then((channel) => {
                 if (channel?.isTextBased()) {
                     return channel.messages.fetch().then((messages) => messages.find((message) => message.id === dbGuild.widget.messageId)).then((m) => m?.delete());
@@ -100,7 +99,6 @@ export class Widget {
         const dbGuild = await getGuild(guild);
 
         if (dbGuild.widget.channelId && dbGuild.widget.messageId) {
-            logger.log('Widget exists, deleting exisitng');
             await interaction.guild?.channels.fetch(dbGuild.widget.channelId).then((channel) => {
                 if (channel?.isTextBased()) {
                     return channel.messages.fetch().then((messages) => {
@@ -149,19 +147,16 @@ export class Widget {
                 embeds: [EmbedBuilder.from(this.message.embeds[0])]
             }).then((message) => {
                 this.message = message;
-                logger.info('[' + this.guild.name + '][Start] Widget initiated');
                 onReady(this);
             });
         });
     }
 
     private async onTextUnsubscribe(): Promise<unknown> { // onUnsubscribe
-        logger.info('[' + this.guild.name + '][Unsubscribed Text]');
         this.textState = false;
         return this.update('Respawn Timer', undefined, true);
     }
     private async onAudioUnsubscribe(): Promise<unknown> { // onUnsubscribe
-        logger.info('[' + this.guild.name + '][Unsubscribed Audio]');
         this.voiceState = false;
         if (!this.textState) {
             return this.update('', undefined, true);
@@ -199,11 +194,10 @@ export class Widget {
             return Promise.resolve(false);
         }
         if (!force && this.isUpdating > 0) {
-            if (this.isUpdating >= 5) {
+            if (this.isUpdating >= 4) {
                 return this.recreateMessage().then(() => false);
             } else {
                 this.isUpdating++;
-                logger.debug('X Skipping update because last update hasnt finished');
                 return Promise.resolve(false);
             }
         }
@@ -225,18 +219,12 @@ export class Widget {
         }).catch(() => {
             if (this.isResetting) return false;
             textManager.unsubscribe(this.message.id);
-            logger.debug('[' + this.guild.name + '][Destroy] Unable to find widget. Destroying instance.');
             this.onDestroy?.(this);
             return false;
         });
     }
 
     public async recreateMessage(manual = false): Promise<unknown> {
-        if (!manual) {
-            logger.info(
-                '[' + this.guild.name + '][Reset] Response took too long! Resending message.'
-            );
-        }
         this.isResetting = true;
         return this.message.delete().finally(() => {
             (this.message.channel as TextChannel).send({
@@ -261,7 +249,6 @@ export class Widget {
                 this.message = message;
 
                 const reset = (): void => {
-                    if (!manual) logger.info('[' + this.guild.name + '][Reset] Done!');
                     this.isResetting = false;
                     this.isUpdating = 0;
                     this.update()

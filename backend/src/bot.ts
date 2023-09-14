@@ -7,6 +7,7 @@ import { Settings } from './commands/settings';
 import { Command } from './common/command';
 import { InteractionHandler } from './interactionHandler';
 import { NotificationHandler } from './notificationHandler';
+import { getAllGuilds } from './db/guild.schema';
 
 
 /**
@@ -25,7 +26,7 @@ class Bot {
         this.user = this.client.user;
         this.interactionHandler = new InteractionHandler(client);
         this.notificationHandler = new NotificationHandler(client);
-        this.client.user?.setActivity({name: '/create'});
+        this.client.user?.setActivity({ name: '/create' });
         this.client.on('interactionCreate', (interaction) => {
             if (!interaction.isCommand()) return;
             commands.find((command) => command.name === interaction.commandName)?.execute(interaction).catch(logger.error);
@@ -57,13 +58,13 @@ class Bot {
             client.once('ready', () => {
                 logger.info('Client ready!');
                 // Register Commands once client is ready
-                const rest = new REST({ version: '9' }).setToken(token);
+                const rest = new REST({ version: '10' }).setToken(token);
                 rest.put(
                     Routes.applicationCommands(clientId),
                     { body: commands.map((command) => command.build()) }
-                ).then(() => {
-                    logger.info(commands.length + ' commands registered!');
-                });
+                )
+                    .then(() => logger.info('Commands Registered: ' + commands.map((command) => '/' + command.name).join(', ')))
+                    .catch(logger.error);
             });
 
             client.login(token)

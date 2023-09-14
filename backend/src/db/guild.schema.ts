@@ -12,6 +12,7 @@ export interface GuildData {
     voice: Voices;
     raidHelper: RaidhelperSettingData;
     notificationChannelId?: string;
+    lastActivityTimestamp?: number;
     widget: {
         channelId?: string;
         messageId?: string;
@@ -27,6 +28,7 @@ export const GuildModel = model<GuildData>('Guild', new Schema<GuildData>({
     voice: String,
     notificationChannelId: String,
     customTimings: String,
+    lastActivityTimestamp: Number,
     raidHelper: {
         enabled: Boolean,
         apiKey: String,
@@ -45,23 +47,31 @@ export const GuildModel = model<GuildData>('Guild', new Schema<GuildData>({
     }
 }));
 export const getGuild = async (guild: Guild): Promise<Document<unknown, object, GuildData> & GuildData & Required<{ _id: string }>> => {
-    return GuildModel.findById(guild.id).then((obj) => obj ?? new GuildModel({
-        _id: guild.id,
-        name: guild.name,
-        assistantRoleIDs: [],
-        editorRoleIDs: [],
-        voice: 'female',
-        raidHelper: {
-            enabled: false,
-            events: []
-        },
-        widget: {}
-    }).save());
+    return GuildModel.findById(guild.id).then((obj) => {
+        if (obj) {
+            obj.lastActivityTimestamp = Date.now();
+            return obj;
+        } else {
+            return new GuildModel({
+                _id: guild.id,
+                name: guild.name,
+                assistantRoleIDs: [],
+                editorRoleIDs: [],
+                voice: 'female',
+                lastActivityTimestamp: Date.now(),
+                raidHelper: {
+                    enabled: false,
+                    events: []
+                },
+                widget: {}
+            });
+        }
+    }).then((obj) => obj.save());
 };
 
-export const deleteGuild = async (guild: Guild): Promise<void> => {
+export const deleteGuild = async (guildId: string): Promise<void> => {
     return GuildModel.deleteOne({
-        _id: guild.id
+        _id: guildId
     }).then();
 };
 export const getAllGuilds = async (): Promise<(Document<unknown, object, GuildData> & GuildData & Required<{

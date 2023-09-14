@@ -10,23 +10,18 @@ const sourceChannelId = '1151202146268741682';
 export class NotificationHandler {
     public constructor(client: Client) {
         client.on('messageCreate', (message) => {
-            logger.log('Update received!');
             if (message.channel.id === sourceChannelId && message.guild?.id === sourceServerId) {
                 queryGuilds({
                     'notificationChannelId': { $regex: /\d+/ }
                 }).then((dbGuilds) => {
-                    logger.log('Sending Update to ' + dbGuilds.length + ' guilds!');
                     dbGuilds.forEach((dbGuild) => {
                         client.guilds.fetch(dbGuild.id)
                             .then((guild) => dbGuild.notificationChannelId ? guild.channels.fetch(dbGuild.notificationChannelId) : undefined)
                             .then(async (channel) => {
-                                logger.debug('notification channel found ' + channel?.isTextBased());
-
                                 if (!channel || !channel.isTextBased()) {
                                     return Promise.reject();
                                 } else {
                                     const embeds = await message.fetch().then((m) => m.embeds);
-                                    logger.debug(JSON.stringify(embeds));
                                     await channel.send({
                                         embeds: embeds
                                     });

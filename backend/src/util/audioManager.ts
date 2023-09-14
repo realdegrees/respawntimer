@@ -232,7 +232,7 @@ class AudioManager {
                 getGuild(channel.guild)
                     .then((dbGuild) => Widget.get(channel.guild, dbGuild.widget.messageId, dbGuild.widget.channelId))
                     .then((widget) => widget.toggleVoice())
-                    .catch(() => logger.debug('Bot was disconnected but couldnt find a widget to toggle'));
+                    .catch(() => { });
             }))
             .then((connection) =>
                 this.subscribe({
@@ -250,7 +250,11 @@ class AudioManager {
                 guildId: channel.guild.id,
                 channelId: channel.id,
                 adapterCreator: channel.guild.voiceAdapterCreator
-            }));
+            }))
+            .then((connection) => {
+                logger.info('[' + channel.guild.name + '] Connected to VoiceChannel');
+                return connection;
+            });
     }
 }
 export default new AudioManager();
