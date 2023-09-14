@@ -1,9 +1,11 @@
 import {
     ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle
 } from 'discord.js';
-import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, Setting } from './settings';
-import { Document } from 'mongoose';
+import { DBGuild } from '../types/dbGuild';
+import { WarInfo } from '../types';
+import { clamp } from '../../util/util.generic';
+import { string } from 'yargs';
 
 export enum ETimingsSettingsOptions {
     TIMINGS = 'timings',
@@ -25,48 +27,112 @@ export class TimingsSettings extends Setting {
         '05:44', '04:52', '03:52', '02:52', '01:52',
         '00:52'];
 
-    public async getCurrentSettings(guildData: Document<unknown, object, GuildData> & GuildData & Required<{
-        _id: string;
-    }>): Promise<string> {
+    public async getCurrentSettings(guildData: DBGuild): Promise<string> {
         let timings: string[];
         let resetMessage = '';
 
         if (!guildData.customTimings) {
             timings = TimingsSettings.DEFAULT;
-        } else if (!TimingsSettings.checkSyntax(guildData.customTimings)) {
+        } else if (!TimingsSettings.checkSyntax(guildData.customTimings)[0]) {
             guildData.customTimings = undefined;
             await guildData.save()
                 .then(() => {
-                    resetMessage = 'The previously saved respawn timers have incorrect syntax and have been reset to default';
+                    resetMessage = 'The saved respawn timers had invalid entries and have been reset to default';
                 })
                 .catch(() => {
-                    resetMessage = 'The previously saved respawn timers have incorrect syntax';
+                    resetMessage = 'The saved respawn timers have invalid entries';
                 });
             timings = TimingsSettings.DEFAULT;
         } else {
             timings = TimingsSettings.sort(guildData.customTimings);
         }
-        
-        const chunks = [];
+
+        const chunks: string[][] = [];
         // 5 is the number of 'timers' that are shown per row
-        for (let i = 0; i < timings.length; i++) {
-            chunks.push(timings.slice(i, i + 5));
+        for (let i = 0; i < timings.length; i += 4) {
+            chunks.push(timings.slice(i, i + 4).map((v) => v.trim()));
         }
 
-        return `${chunks.map((chunk) => chunk.join(', ')).join('\n')}${resetMessage ? '\n' + resetMessage : ''}`;
+        return `${chunks.map((chunk) => `\`\`\`brainfuck\n${chunk.map((val) =>
+            !TimingsSettings.DEFAULT.includes(val) ? `[${val}]` : val)
+            .join(' > ')}\`\`\``)
+            .join('')}${resetMessage ? '\n' + resetMessage : ''}`;
     }
 
-    public static checkSyntax(text: string): boolean {
-        return text.split(',').every((val) => /^[0-29]?\d:[0-5]\d$/.test(val.trim()));
+    public static checkSyntax(text: string): [boolean, string];
+    public static checkSyntax(text: string[]): [boolean, string];
+    public static checkSyntax(text: string[] | string): [boolean, string] {
+        const list = Array.isArray(text) ? text : text.split(',');
+        const invalid = list.find((val) => !/^[0-2]?\d:[0-5]\d$/.test(val.trim()));
+        return [!invalid, `Invalid Entry: **${invalid}**`];
+    }
+    /**
+     * @param time a string containing all timers seperated by comma
+     */
+    public static convertToSeconds(time?: string): number[] | undefined;
+    /**
+     * @param time an array of single time values
+     */
+    public static convertToSeconds(time?: string[]): number[] | undefined;
+    public static convertToSeconds(time?: string[] | string): number[] | undefined {
+        const parse = (s: string): number => {
+            const [minutes, seconds] = s.split(':').map((v) => Number.parseInt(v));
+            return minutes * 60 + seconds;
+        };
+        if (!time) return undefined;
+        else if (typeof time === 'string') return time.split(',').map(parse).sort((a, b) => a - b).reverse();
+        else if (time.length > 0) return time.map(parse);
+        else return undefined;
     }
     public static sort(text: string): string[] {
-        return text.split(',').map((val) => {
+        return [...new Set(text.split(',').map((val) => {
             const [minutes, seconds] = val.split(':').map((str) => Number.parseInt(str));
             return {
                 seconds: minutes * 60 + seconds,
-                text: val
+                text: val.trim()
             };
-        }).sort((a, b) => a.seconds - b.seconds).reverse().map((val) => val.text);
+        }).sort((a, b) => a.seconds - b.seconds).reverse().map((val) => val.text))];
+    }
+    public static equalsDefault(text: string): boolean {
+        return TimingsSettings.sort(text).sort().toString() === [...TimingsSettings.DEFAULT].sort().toString();
+    }
+
+    public static convertToRespawnData(timers: number[]): WarInfo {
+        const start = new Date();
+        start.setMinutes(start.getMinutes() >= 30 ? 30 : 0);
+        start.setSeconds(0);
+        start.setMilliseconds(0);
+        const now = new Date();
+
+        const timePassedSeconds = Math.round((now.getTime() - start.getTime()) / 1000);
+        const timeLeftTotalSeconds = 30 * 60 - timePassedSeconds;
+        const currentIndex = timers.findIndex((timer) => timer < timeLeftTotalSeconds);
+
+        const prev: number | undefined = timers[currentIndex - 1];
+        const current: number | undefined = timers[currentIndex];
+        const next: number | undefined = timers[currentIndex + 1];
+
+        const duration = current ? prev ? prev - current : 30 * 60 - current : -1;
+        const durationNext = next && current ? current - next : -1;
+        const remainingRespawns = current ? timers.length - currentIndex : 0;
+        //const timeUntilRespawn = clamp(timeLeftTotalSeconds - prev, 0, Infinity);
+        const timeUntilRespawn = current ?
+            timeLeftTotalSeconds - current === duration ?
+                0 :
+                timeLeftTotalSeconds - current :
+            -1;
+
+        return {
+            respawn: {
+                duration,
+                durationNext,
+                timeUntilRespawn,
+                remainingRespawns
+            },
+            war: {
+                timeLeftSeconds: timeLeftTotalSeconds
+            }
+        };
     }
 
     public constructor() {
@@ -94,7 +160,7 @@ export class TimingsSettings extends Setting {
             row);
     }
 
-    public showModal(interaction: ButtonInteraction): Promise<void> {
+    public showModal(interaction: ButtonInteraction, timings?: string): Promise<void> {
         const modal = new ModalBuilder()
             .setCustomId(this.getCustomId(this.id, [ETimingsSettingsOptions.TIMINGS]))
             .setTitle('Customize Respawn Timers');
@@ -102,7 +168,7 @@ export class TimingsSettings extends Setting {
             .setCustomId(this.getCustomId(this.id, [ETimingsSettingsOptions.TIMINGS]))
             .setLabel('Current Settings')
             .setStyle(TextInputStyle.Paragraph)
-            .setValue(TimingsSettings.DEFAULT.join(', '));
+            .setValue(timings ? TimingsSettings.sort(timings).join(', ') : [...TimingsSettings.DEFAULT].sort().reverse().join(', '));
         const apiKeyRow = new ActionRowBuilder<TextInputBuilder>()
             .addComponents(timingsInput);
         modal.addComponents(apiKeyRow);

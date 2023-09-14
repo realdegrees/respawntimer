@@ -1,13 +1,12 @@
 import { setTimeout } from 'timers/promises';
 import { RaidhelperEvent } from './common/types/raidhelperEvent';
-import { GuildData, queryGuilds } from './db/guild.schema';
+import { queryGuilds } from './db/guild.schema';
 import { Client, Guild, TextBasedChannel, VoiceBasedChannel } from 'discord.js';
-import { Document } from 'mongoose';
 import logger from '../lib/logger';
-import { WarInfo } from './common/types';
 import { Widget } from './common/widget';
 import audioManager from './util/audioManager';
 import { NotificationHandler } from './notificationHandler';
+import { DBGuild } from './common/types/dbGuild';
 
 const POLL_INTERVAL_MS = 300000;
 export class RaidhelperIntegration {
@@ -33,8 +32,11 @@ export class RaidhelperIntegration {
             });
         }, POLL_INTERVAL_MS);
     }
-    public interval(info: WarInfo, client: Client): void {
-        if (info.war.timeLeftSeconds === 1800) {
+    public interval(client: Client): void {
+        const date = new Date();
+        const [minutes, seconds] = [date.getMinutes(), date.getSeconds()];
+
+        if ((minutes === 0 || minutes === 30) && seconds === 0) {
             queryGuilds({
                 'raidHelper.enabled': { $eq: true }
             }).then((guilds) => {
@@ -79,7 +81,7 @@ export class RaidhelperIntegration {
                     }
                     if (!message) {
                         // no primary widget
-                        await audioManager.connect(voiceChannel, () => Promise.resolve(), dbGuild.voice)
+                        await audioManager.connect(voiceChannel, () => Promise.resolve(), dbGuild)
                             .catch((reason) => NotificationHandler.sendNotification(
                                 guild, `Tried to join ${voiceChannel} for scheduled event '${event.title}' but encountered an error\n${reason}`
                             )).catch(logger.error);
@@ -88,7 +90,7 @@ export class RaidhelperIntegration {
                     const widget = await Widget.get(message);
                     // do not await
                     widget.toggleVoice({
-                        voice: dbGuild.voice,
+                        dbGuild,
                         channel: voiceChannel
                     }).catch((reason) => NotificationHandler.sendNotification(
                         guild, `Tried to join ${voiceChannel} for scheduled event '${event.title}' but encountered an error\n${reason}`
@@ -104,9 +106,7 @@ export class RaidhelperIntegration {
      * @param guild 
      * @returns 
      */
-    public async getEvents(dbGuild: (Document<unknown, object, GuildData> & GuildData & Required<{
-        _id: string;
-    }>)): Promise<RaidhelperEvent[]> {
+    public async getEvents(dbGuild: DBGuild): Promise<RaidhelperEvent[]> {
         if (!dbGuild.raidHelper.apiKey) {
             return Promise.reject('Raidhelper API Key not set.');
         }

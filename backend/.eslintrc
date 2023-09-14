@@ -24,7 +24,7 @@
         "max-lines": [
             "error",
             {
-                "max": 300,
+                "max": 500,
                 "skipBlankLines": true,
                 "skipComments": true
             }
@@ -33,7 +33,7 @@
             "error",
             {
                 "ignoreUrls": true,
-                "code": 180,
+                "code": 210,
                 "ignoreTrailingComments": true
             }
         ],

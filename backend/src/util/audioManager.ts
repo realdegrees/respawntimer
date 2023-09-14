@@ -1,17 +1,19 @@
 import {
     AudioPlayer,
     createAudioPlayer,
-    createAudioResource, getVoiceConnection, joinVoiceChannel, PlayerSubscription, VoiceConnection, VoiceConnectionStatus
+    createAudioResource, getVoiceConnection, joinVoiceChannel, VoiceConnection, VoiceConnectionStatus
 } from '@discordjs/voice';
 import fs from 'fs';
 import path from 'path';
 import logger from '../../lib/logger';
 import { timers } from '../common/timer';
-import { WarInfo } from '../common/types';
 import { VoiceBasedChannel } from 'discord.js';
 import { Widget } from '../common/widget';
 import { getGuild } from '../db/guild.schema';
 import { checkChannelPermissions } from './checkChannelPermissions';
+import { TimingsSettings } from '../common/settings/timings.settings';
+import { DBGuild } from '../common/types/dbGuild';
+import { WarInfo } from '../common/types';
 
 const loadFiles = (voice: Voices): {
     id: string;
@@ -19,18 +21,6 @@ const loadFiles = (voice: Voices): {
 }[] => {
     const sounds = [];
     const directoryPath = path.resolve(process.cwd(), 'audio', voice.toLowerCase());
-
-    const filePathStart = directoryPath + '/start.mp3';
-
-    try {
-        if (fs.lstatSync(filePathStart).isFile()) {
-
-            sounds.push({
-                id: 'start',
-                path: filePathStart
-            });
-        }
-    } catch (e) { /* empty */ }
 
     for (let i = -1; i < 60; i++) {
         const filePathCountdown = directoryPath + '/' + i + '.mp3';
@@ -67,18 +57,20 @@ const loadFiles = (voice: Voices): {
 };
 
 export type Voices = 'male' | 'female' | 'material' | 'rocket league';
-
+type Subscriber = {
+    timeStamp: number;
+    guildId: string;
+    voice: Voices;
+    connection: VoiceConnection;
+    audioPlayer: AudioPlayer;
+    timings?: number[];
+    onUnsubscribe: () => void;
+};
 // TODO: create a new audioplayer for every single subscriber that joins that has custom timings saved in the db and play aduio from that for the subscriber
 class AudioManager {
-    private subscribers: {
-        timeStamp: number;
-        guildId: string;
-        connection: VoiceConnection;
-        onUnsubscribe: () => void;
-        subscription?: PlayerSubscription;
-    }[] = [];
-    public sounds: {
-        voice: Voices;
+    private subscribers: Subscriber[] = [];
+    public voices: {
+        voiceType: Voices;
         voiceDescription: string;
         files: {
             id: string;
@@ -87,106 +79,132 @@ class AudioManager {
         player: AudioPlayer;
     }[] = [
             {
-                voice: 'male',
+                voiceType: 'male',
                 voiceDescription: 'A generic male voice',
                 files: loadFiles('male'),
                 player: createAudioPlayer()
             }, {
-                voice: 'female',
+                voiceType: 'female',
                 voiceDescription: 'A generic female voice',
                 files: loadFiles('female'),
                 player: createAudioPlayer()
             },
             {
-                voice: 'material',
+                voiceType: 'material',
                 voiceDescription: 'Sound effects from the material library',
                 files: loadFiles('material'),
                 player: createAudioPlayer()
             },
             {
-                voice: 'rocket league',
+                voiceType: 'rocket league',
                 voiceDescription: 'Rocket League sound effects',
                 files: loadFiles('rocket league'),
                 player: createAudioPlayer()
             }
         ];
-    public constructor() {
-    }
 
-    public interval(info: WarInfo): void {
-
+    public interval(): void {
+        if (this.subscribers.length === 0) return;
         this.subscribers.forEach((subscriber) => {
-            // Toggle widget & voice off at war end if it's been on for more than 15 minutes
-            if (info.war.timeLeftSeconds === 5) {
-                const minutesSubscribed = new Date(Date.now() - subscriber.timeStamp).getTime() / 1000 / 60;
-                if (minutesSubscribed >= 15) {
-                    this.disconnect(subscriber.guildId);
-                }
+            // Disconnect at war end if it's been on for more than 15 minutes
+            const date = new Date();
+            const [minutes, seconds] = [date.getMinutes(), date.getSeconds()];
+            const minutesSubscribed = new Date(date.getTime() - subscriber.timeStamp).getTime() / 1000 / 60;
+
+            if ((minutes === 59 || minutes === 29) && seconds === 59 && minutesSubscribed >= 15) {
+                this.disconnect(subscriber.guildId);
             }
         });
 
-        if (info.war.timeLeftSeconds === 1800 - 2) {
-            this.playStart();
-        }
+        const defaultRespawnData = TimingsSettings.convertToRespawnData(TimingsSettings.convertToSeconds(TimingsSettings.DEFAULT)!);
+        const customSubscribers = this.subscribers.filter((s) => s.timings);
 
+        // Play sounds for all subscribers with custom timings
+        customSubscribers.forEach((subscriber) => {
+            const customRespawnData = TimingsSettings.convertToRespawnData(subscriber.timings!);
+            this.handleSounds(customRespawnData, subscriber.voice, subscriber.audioPlayer);
+        });
+        // Play sounds for all subscribers listening to default timings
+        this.voices.forEach((voice) => this.handleSounds(defaultRespawnData, voice.voiceType, voice.player));
+    }
+
+    private handleSounds(data: WarInfo, voice: Voices, audioPlayer: AudioPlayer): void {
         // Audioplayer only plays at the second marks provided by available sound files
         // Skip any announcements higher than 50% of the total time 
-        if (info.respawn.timeUntilRespawn / info.respawn.duration < 0.50 && info.respawn.remaining > 0) {
-            this.playCountdown(info.respawn.timeUntilRespawn);
+        if (data.respawn.timeUntilRespawn / data.respawn.duration < 0.50 && data.respawn.remainingRespawns > 0) {
+            this.playCountdown(data.respawn.timeUntilRespawn, voice, audioPlayer);
         }
-        if (info.respawn.remaining <= 5 && info.respawn.duration - info.respawn.timeUntilRespawn === 2) {
-            this.playRespawnCount(info.respawn.remaining);
+        if (data.respawn.remainingRespawns <= 5 && data.respawn.duration - data.respawn.timeUntilRespawn === 2) {
+            this.playRespawnCount(data.respawn.remainingRespawns, voice, audioPlayer);
         }
-        if (info.respawn.remaining === 0 && 1800 - timers[timers.length - 1] - info.war.timeLeftSeconds === 5) {
+        if (data.respawn.remainingRespawns === 0 && 1800 - timers[timers.length - 1] - data.war.timeLeftSeconds === 5) {
             // Plays last respawn sound
-            this.playRespawnCount(0);
+            this.playRespawnCount(0, voice, audioPlayer);
         }
     }
 
-    private playCountdown(timestamp: number): void {
-        this.sounds.forEach((sounds) => {
-            const sound = sounds.files.find((sound) => sound.id === timestamp.toString()) ??
-                sounds.files.find((sound) => sound.id === '+' + (timestamp - 1).toString());
-            if (sound) {
-                sounds.player.play(createAudioResource(sound.path));
-            }
-        });
+    private playCountdown(num: number, voice: Voices, player?: AudioPlayer): void {
+        const voiceData = this.voices.find((v) => v.voiceType === voice);
+        const audioPlayer = player ?? voiceData?.player;
+        const sound = voiceData?.files.find((file) => file.id === num.toString()) ??
+            voiceData?.files.find((file) => file.id === '+' + (num - 1).toString());
+        if (sound) {
+            audioPlayer?.play(createAudioResource(sound.path));
+        }
     }
-    private playRespawnCount(count: number): void {
-        this.sounds.forEach((sounds) => {
-            const sound = sounds.files.find((sound) => sound.id === 'respawn-' + count);
-            if (sound) {
-                sounds.player.play(createAudioResource(sound.path));
-            }
-        });
+    private playRespawnCount(count: number, voice: Voices, player?: AudioPlayer): void {
+        const voiceData = this.voices.find((v) => v.voiceType === voice);
+        const audioPlayer = player ?? voiceData?.player;
+        const sound = voiceData?.files.find((file) => file.id === 'respawn-' + count);
+        if (sound) {
+            audioPlayer?.play(createAudioResource(sound.path));
+        }
     }
-    private playStart(): void {
-        this.sounds.forEach((sounds) => {
-            const sound = sounds.files.find((sound) => sound.id === 'start');
-            if (sound) {
-                sounds.player.play(createAudioResource(sound.path));
-            }
-        });
-    }
+
     public setVoice(guildId: string, voice: Voices): void {
         const subscriber = this.subscribers.find((s) => s.guildId === guildId);
-        subscriber?.connection.subscribe(this.sounds.find((sounds) => sounds.voice === voice)!.player);
+        if (!subscriber) return;
+        subscriber.voice = voice;
+        // No need to change audioplayer susbcription because subscribers with custom timings have individual audioplayers they are already subscribed to
+        if (subscriber.timings) return;
+        subscriber.connection.subscribe(this.voices.find((sounds) => sounds.voiceType === voice)!.player);
+    }
+
+    public setTimings(guildId: string, timings: string): void {
+        const subscriber = this.subscribers.find((s) => s.guildId === guildId);
+        if (!subscriber) return;
+        const timingsList = TimingsSettings.convertToSeconds(timings);
+        if (!timingsList) return this.resetTimings(guildId);
+        subscriber.timings = timingsList;
+    }
+    public resetTimings(guildId: string): void {
+        const subscriber = this.subscribers.find((s) => s.guildId === guildId);
+        if (!subscriber?.timings) return;
+        subscriber.audioPlayer = this.voices.find((sounds) => sounds.voiceType === subscriber.voice)!.player;
+        subscriber.connection.subscribe(subscriber.audioPlayer);
     }
     // eslint-disable-next-line max-len
-    public subscribe(connection: VoiceConnection, guildId: string, voice: Voices | undefined, onUnsubscribe: () => void): void {
-        if (!voice) {
-            voice = 'female';
-        }
+    public subscribe(options: {
+        connection: VoiceConnection;
+        guildId: string;
+        voice?: Voices;
+        customTimings?: string;
+    }, onUnsubscribe: () => void): void {
+        const timings = TimingsSettings.convertToSeconds(options.customTimings ?? '');
+        const audioPlayer = timings ? createAudioPlayer() : this.voices.find((sounds) => sounds.voiceType === options.voice)!.player;
+        options.connection.subscribe(audioPlayer);
         this.subscribers.push({
             timeStamp: Date.now(),
-            guildId,
-            connection,
-            onUnsubscribe,
-            subscription: connection.subscribe(this.sounds.find((sounds) => sounds.voice === voice)!.player)
+            guildId: options.guildId,
+            voice: options.voice ?? 'female',
+            connection: options.connection,
+            audioPlayer,
+            timings,
+            onUnsubscribe
         });
 
         // ! TEMPORARY FIX FOR DISCORD API ISSUE https://github.com/discordjs/discord.js/issues/9185
-        connection.on('stateChange', (oldState, newState) => {
+        options.connection.on('stateChange', (oldState, newState) => {
             const oldNetworking = Reflect.get(oldState, 'networking');
             const newNetworking = Reflect.get(newState, 'networking');
 
@@ -204,12 +222,11 @@ class AudioManager {
     public disconnect(guildId: string): void {
         const subscriber = this.subscribers.find((s) => s.guildId === guildId);
         subscriber?.onUnsubscribe();
-        subscriber?.subscription?.unsubscribe();
         this.subscribers.splice(this.subscribers.findIndex((s) => s.guildId === guildId), 1);
         getVoiceConnection(guildId)?.destroy();
     }
 
-    public async connect(channel: VoiceBasedChannel, onUnsubscribe: () => Promise<unknown>, voice?: Voices): Promise<void> {
+    public async connect(channel: VoiceBasedChannel, onUnsubscribe: () => Promise<unknown>, dbGuild?: DBGuild): Promise<void> {
         return this.getConnection(channel)
             .then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
                 getGuild(channel.guild)
@@ -217,12 +234,14 @@ class AudioManager {
                     .then((widget) => widget.toggleVoice())
                     .catch(() => logger.debug('Bot was disconnected but couldnt find a widget to toggle'));
             }))
-            .then((connection) => this.subscribe(
-                connection,
-                channel.guild.id,
-                voice,
-                onUnsubscribe
-            ));
+            .then((connection) =>
+                this.subscribe({
+                    connection,
+                    guildId: dbGuild?.id,
+                    voice: dbGuild?.voice,
+                    customTimings: dbGuild?.customTimings
+                }, onUnsubscribe)
+            );
     }
 
     private getConnection(channel: VoiceBasedChannel): Promise<VoiceConnection> {
