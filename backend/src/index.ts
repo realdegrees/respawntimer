@@ -13,12 +13,10 @@ config();
 
 const logStats = (guildsDb: DBGuild[]): void => {
     logger.info('Total Guilds in Database: ' + guildsDb.length + '\n- ' + guildsDb.map((guild) => guild.name).join('\n- ') + '\n');
-    logger.info('Recently Active Guilds in Database: ' + guildsDb.filter((guild) =>
-        guild.lastActivityTimestamp && Date.now() - guild.lastActivityTimestamp < 1000 * 60 * 60 * 24 * 5).length);
-    logger.info('Guilds with active Raidhelper Integration in Database: ' + guildsDb.filter((guild) =>
-        guild.raidHelper.apiKey && guild.raidHelper.enabled).length);
-    logger.info('Guilds with Custom Respawn Timings in Database: ' + guildsDb.filter((guild) =>
-        guild.customTimings).length);
+    logger.info('Recently Active Guilds (3d): ' + guildsDb.filter((guild) => guild.lastActivityTimestamp && Date.now() - guild.lastActivityTimestamp < 1000 * 60 * 60 * 24 * 3).length);
+    logger.info('Guilds with Notifications enabled: ' + guildsDb.filter((guild) => guild.notificationChannelId).length);
+    logger.info('Guilds with active Raidhelper Integration: ' + guildsDb.filter((guild) => guild.raidHelper.apiKey && guild.raidHelper.enabled).length);
+    logger.info('Guilds with Custom Respawn Timings: ' + guildsDb.filter((guild) => guild.customTimings).length);
 };
 
 Promise.resolve()
