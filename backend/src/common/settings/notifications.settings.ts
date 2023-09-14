@@ -2,6 +2,7 @@ import { ActionRowBuilder, ButtonStyle, ChannelSelectMenuBuilder, ChannelType, G
 import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, Setting } from './settings';
 import { checkChannelPermissions } from '../../util/checkChannelPermissions';
+import { Document } from 'mongoose';
 
 export enum ENotificationSettingsOptions {
     UPDATE_CHANNEL = 'updatechannel'
@@ -29,7 +30,9 @@ export class NotificationSettings extends Setting {
         );
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public async getCurrentSettings(guildData: GuildData, guild?: Guild | undefined): Promise<string> {
+    public async getCurrentSettings(guildData: Document<unknown, object, GuildData> & GuildData & Required<{
+        _id: string;
+    }>, guild?: Guild | undefined): Promise<string> {
         const channel = guildData.notificationChannelId ?
             await guild?.channels.fetch(guildData.notificationChannelId).catch() : undefined;
         return channel && channel.isTextBased() ? checkChannelPermissions(channel, ['ViewChannel', 'SendMessages'])

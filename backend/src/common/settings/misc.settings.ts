@@ -1,6 +1,7 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, Guild } from 'discord.js';
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, Setting } from './settings';
+import { Document } from 'mongoose';
 
 export enum EMiscSettingsOptions {
     CLEAR = 'clear'
@@ -26,7 +27,9 @@ export class MiscSettings extends Setting {
         );
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public async getCurrentSettings(guildData: GuildData, guild?: Guild | undefined): Promise<string> {
+    public async getCurrentSettings(guildData: Document<unknown, object, GuildData> & GuildData & Required<{
+        _id: string;
+    }>): Promise<string> {
         return Promise.resolve('');
     }
 
