@@ -25,7 +25,8 @@ export class NotificationSettings extends Setting {
         this.init(
             'Notification Settings',
             `**Notification Channel**  
-            This channel will receive notifications about updates etc.`,
+            This channel will receive notifications about updates and new features.  
+            If the bot encounters any errors you will also get notified about it in this channel.`,
             '',
             channelRow
         );
