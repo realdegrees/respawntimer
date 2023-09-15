@@ -60,14 +60,14 @@ export class RaidhelperIntegration {
                     }
 
                     const voiceChannel = event.voiceChannelId ?
-                        await guild.channels.fetch(event.voiceChannelId).catch() as VoiceBasedChannel | undefined :
+                        await guild.channels.fetch(event.voiceChannelId).catch(() => undefined) as VoiceBasedChannel | undefined :
                         dbGuild.raidHelper.defaultVoiceChannelId ?
-                            await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId).catch() as VoiceBasedChannel | undefined :
+                            await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId).catch(() => undefined) as VoiceBasedChannel | undefined :
                             undefined;
                     const widgetChannel = dbGuild.widget.channelId ?
-                        await guild.channels.fetch(dbGuild.widget.channelId).catch() as TextBasedChannel | undefined : undefined;
-                    const message = dbGuild.widget.messageId ? await widgetChannel?.messages.fetch().then((messages) =>
-                        messages.find((message) => message.id === dbGuild.widget.messageId)).catch() : undefined;
+                        await guild.channels.fetch(dbGuild.widget.channelId).catch(() => undefined) as TextBasedChannel | undefined : undefined;
+                    const widgetMessage = dbGuild.widget.messageId ? await widgetChannel?.messages.fetch().then((messages) =>
+                        messages.find((message) => message.id === dbGuild.widget.messageId)).catch(() => undefined) : undefined;
 
                     if (!voiceChannel) {
                         // no voice channelset in event and no default voice channel set in settings
@@ -76,19 +76,20 @@ export class RaidhelperIntegration {
                             Please set a default voice channel or add a voice channel in the raidhelper settings when creating an event.`)
                             .catch(logger.error);
                     }
-                    if (!message) {
+                    if (!widgetMessage) {
                         // no primary widget
                         return audioManager.connect(voiceChannel, () => Promise.resolve(), dbGuild)
                             .catch((reason) => NotificationHandler.sendNotification(
                                 guild, `Tried to join ${voiceChannel} for scheduled event '${event.title}' but encountered an error\n${reason}`
                             )).catch(logger.error);
+                    } else {
+                        Widget.get(widgetMessage).then((widget) => widget ? widget.toggleVoice({
+                            dbGuild,
+                            channel: voiceChannel
+                        }) : Promise.reject('Widget Not Found')).catch((reason) => NotificationHandler.sendNotification(
+                            guild, `Tried to join ${voiceChannel} for scheduled event '${event.title}' but encountered an error\n${reason}`
+                        )).catch(logger.error);
                     }
-                    Widget.get(message).then((widget) => widget.toggleVoice({
-                        dbGuild,
-                        channel: voiceChannel
-                    }).catch((reason) => NotificationHandler.sendNotification(
-                        guild, `Tried to join ${voiceChannel} for scheduled event '${event.title}' but encountered an error\n${reason}`
-                    ))).catch(logger.error);
                 });
             }).catch(logger.error);
         }

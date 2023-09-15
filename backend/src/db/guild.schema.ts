@@ -13,6 +13,7 @@ export interface GuildData {
     raidHelper: RaidhelperSettingData;
     notificationChannelId?: string;
     lastActivityTimestamp?: number;
+    hideWidgetButtons?: boolean;
     widget: {
         channelId?: string;
         messageId?: string;
@@ -29,6 +30,7 @@ export const GuildModel = model<GuildData>('Guild', new Schema<GuildData>({
     notificationChannelId: String,
     customTimings: String,
     lastActivityTimestamp: Number,
+    hideWidgetButtons: Boolean,
     raidHelper: {
         enabled: Boolean,
         apiKey: String,
