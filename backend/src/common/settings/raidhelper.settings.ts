@@ -2,12 +2,11 @@ import {
     ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle,
     ChannelSelectMenuBuilder, ChannelType, Guild, ModalBuilder, TextInputBuilder, TextInputStyle, VoiceBasedChannel
 } from 'discord.js';
-import { GuildData, getGuild } from '../../db/guild.schema';
+import { getGuild } from '../../db/guild.schema';
 import { ESettingsID, Setting } from './settings';
 import raidhelperIntegration from '../../raidhelperIntegration';
 import { formatTime } from '../../util/formatTime';
 import { checkChannelPermissions } from '../../util/checkChannelPermissions';
-import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
 
 export enum ERaidhelperSettingsOptions {

@@ -17,18 +17,15 @@ export class NotificationHandler {
                     dbGuilds.forEach((dbGuild) => {
                         client.guilds.fetch(dbGuild.id)
                             .then((guild) => dbGuild.notificationChannelId ? guild.channels.fetch(dbGuild.notificationChannelId) : undefined)
-                            .then(async (channel) => {
-                                if (!channel || !channel.isTextBased()) {
-                                    return Promise.reject();
-                                } else {
-                                    const embeds = await message.fetch().then((m) => m.embeds);
-                                    await channel.send({
-                                        embeds: embeds
-                                    });
-                                    await setTimeout(2000);
-                                }
-                            })
-                            .catch((e) => {
+                            .then(async (channel) =>
+                                !channel || !channel.isTextBased() ?
+                                    Promise.reject() :
+                                    message.fetch()
+                                        .then((message) => channel.send({
+                                            embeds: message.embeds
+                                        }))
+                                        .then(() => setTimeout(2000))
+                            ).catch((e) => {
                                 logger.error(e);
                                 dbGuild.notificationChannelId = undefined;
                                 return dbGuild.save();
@@ -38,15 +35,14 @@ export class NotificationHandler {
             }
         });
     }
-    public static async sendNotification(guild: Guild, text: string): Promise<void> {
-        const dbGuild = await getGuild(guild);
-        return dbGuild.notificationChannelId ?
+    public static async sendNotification(guild: Guild, text: string): Promise<unknown> {
+        return getGuild(guild).then((dbGuild) => dbGuild.notificationChannelId ?
             guild.channels.fetch(dbGuild.notificationChannelId)
                 .then(async (channel) => {
                     if (!channel || !channel.isTextBased()) {
                         return Promise.reject();
                     } else {
-                        await channel.send({
+                        return channel.send({
                             embeds: [
                                 new EmbedBuilder()
                                     .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer Notification' })
@@ -60,6 +56,6 @@ export class NotificationHandler {
                     logger.error(e);
                     dbGuild.notificationChannelId = undefined;
                     return dbGuild.save().then();
-                }) : Promise.reject();
+                }) : Promise.reject());
     }
 }

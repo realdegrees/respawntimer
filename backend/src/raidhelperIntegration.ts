@@ -53,49 +53,44 @@ export class RaidhelperIntegration {
                     const guild = clientGuilds.find((cg) => cg.id === dbGuild.id);
 
                     if (!guild) {
-                        await NotificationHandler.sendNotification(
+                        return NotificationHandler.sendNotification(
                             dbGuild.id, `Tried to join a voice channel for scheduled event '${event.title}' but encountered an error\n
                             Unable to retrieve server data! Try resetting your server's data in the settings.`
                         ).catch(logger.error);
-                        return;
                     }
 
                     const voiceChannel = event.voiceChannelId ?
-                        await guild.channels.fetch(event.voiceChannelId) as VoiceBasedChannel | undefined :
+                        await guild.channels.fetch(event.voiceChannelId).catch() as VoiceBasedChannel | undefined :
                         dbGuild.raidHelper.defaultVoiceChannelId ?
-                            await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId) as VoiceBasedChannel | undefined :
+                            await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId).catch() as VoiceBasedChannel | undefined :
                             undefined;
                     const widgetChannel = dbGuild.widget.channelId ?
-                        await guild.channels.fetch(dbGuild.widget.channelId) as TextBasedChannel | undefined : undefined;
+                        await guild.channels.fetch(dbGuild.widget.channelId).catch() as TextBasedChannel | undefined : undefined;
                     const message = dbGuild.widget.messageId ? await widgetChannel?.messages.fetch().then((messages) =>
-                        messages.find((message) => message.id === dbGuild.widget.messageId)) : undefined;
+                        messages.find((message) => message.id === dbGuild.widget.messageId)).catch() : undefined;
 
                     if (!voiceChannel) {
                         // no voice channelset in event and no default voice channel set in settings
-                        NotificationHandler.sendNotification(
+                        return NotificationHandler.sendNotification(
                             guild, `Scheduled event '${event.title}' triggered but there is no voice channel to join.  
-                            Please set a default voice channel or add a voice channel in the raidhelper settings when creating an event.`).catch(logger.error);
-                        return;
+                            Please set a default voice channel or add a voice channel in the raidhelper settings when creating an event.`)
+                            .catch(logger.error);
                     }
                     if (!message) {
                         // no primary widget
-                        await audioManager.connect(voiceChannel, () => Promise.resolve(), dbGuild)
+                        return audioManager.connect(voiceChannel, () => Promise.resolve(), dbGuild)
                             .catch((reason) => NotificationHandler.sendNotification(
                                 guild, `Tried to join ${voiceChannel} for scheduled event '${event.title}' but encountered an error\n${reason}`
                             )).catch(logger.error);
-                        return;
                     }
-                    const widget = await Widget.get(message);
-                    // do not await
-                    widget.toggleVoice({
+                    Widget.get(message).then((widget) => widget.toggleVoice({
                         dbGuild,
                         channel: voiceChannel
                     }).catch((reason) => NotificationHandler.sendNotification(
                         guild, `Tried to join ${voiceChannel} for scheduled event '${event.title}' but encountered an error\n${reason}`
-                    )).catch(logger.error);
-                    await setTimeout(100);
+                    ))).catch(logger.error);
                 });
-            });
+            }).catch(logger.error);
         }
     }
     /**
@@ -123,21 +118,20 @@ export class RaidhelperIntegration {
             .then((res) => res.json())
             .then(async (data: {
                 postedEvents?: RaidhelperEvent[];
-            }) => {
-                const events = await Promise.all(data.postedEvents?.map(async (event) =>
-                    await fetch(`https://raid-helper.dev/api/v2/events/${event.id}`, { headers: header })
-                        .then((res) => res.json())
-                        .then((event: RaidhelperEvent & { advancedSettings: { voice_channel: string } }) => ({ // Need to map to new object so the entire event object doesn't get saved to databse
-                            id: event.id,
-                            startTime: event.startTime * 1000,
-                            title: event.title,
-                            voiceChannelId: event.advancedSettings.voice_channel.match(/^[0-9]+$/) ? event.advancedSettings.voice_channel : undefined,
-                        } as RaidhelperEvent))) ?? []);
-
-                dbGuild.raidHelper.events = events;
-                return dbGuild.save();
-            })
-            .then((dbGuild) => dbGuild.raidHelper.events);
+            }) => Promise.all(data.postedEvents?.map((event) =>
+                fetch(`https://raid-helper.dev/api/v2/events/${event.id}`, { headers: header })
+                    .then((res) => res.json())
+                    .then((event: RaidhelperEvent & { advancedSettings: { voice_channel: string } }) => ({ // Need to map to new object so the entire event object doesn't get saved to databse
+                        id: event.id,
+                        startTime: event.startTime * 1000,
+                        title: event.title,
+                        voiceChannelId: event.advancedSettings.voice_channel.match(/^[0-9]+$/) ? event.advancedSettings.voice_channel : undefined,
+                    } as RaidhelperEvent))) ?? [])
+                .then((events) => {
+                    dbGuild.raidHelper.events = events;
+                    return dbGuild.save();
+                })
+            ).then((dbGuild) => dbGuild.raidHelper.events);
     }
     public async checkApiKey(guild: Guild, apiKey: string): Promise<boolean> {
         return new Promise((res) => {
