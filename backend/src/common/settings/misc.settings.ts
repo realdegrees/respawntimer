@@ -28,7 +28,8 @@ export class MiscSettings extends Setting {
             `**Toggle Text-Widget Buttons**
             You can choose to hide the buttons below the widget if you want a clearer image for the discord overlay for example\n
             **Clear Saved Data**  
-            Removes everything that is saved in the Wartimer database for this discord`,
+            Removes everything that is saved in the Wartimer database for this discord. *This will unlink any existing widgets.  
+            In order for any future settings to affect that widget you will need to press one of its buttons for it to get linked again!*`,
             '',
             row
         );
