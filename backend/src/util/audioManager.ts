@@ -227,7 +227,8 @@ class AudioManager {
         getVoiceConnection(guildId)?.destroy();
     }
 
-    public async connect(channel: VoiceBasedChannel, onUnsubscribe: () => Promise<unknown>, dbGuild?: DBGuild): Promise<void> {
+    public async connect(channel: VoiceBasedChannel, onUnsubscribe: () => Promise<unknown>, dbGuild: DBGuild): Promise<void> {
+        if(this.subscribers.find((s) => s.guildId === dbGuild.id)) return Promise.reject('Already connected');
         return this.getConnection(channel)
             .then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
                 getGuild(channel.guild)
@@ -238,9 +239,9 @@ class AudioManager {
             .then((connection) =>
                 this.subscribe({
                     connection,
-                    guildId: dbGuild?.id,
-                    voice: dbGuild?.voice,
-                    customTimings: dbGuild?.customTimings
+                    guildId: dbGuild.id,
+                    voice: dbGuild.voice,
+                    customTimings: dbGuild.customTimings
                 }, onUnsubscribe)
             );
     }

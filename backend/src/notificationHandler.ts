@@ -6,7 +6,10 @@ import { WARTIMER_ICON_LINK } from './common/constant';
 
 const sourceServerId = '979269592360837120';
 const sourceChannelId = '1151202146268741682';
-
+type NotificationResponse = {
+    type: 'sent' | 'nochannel' | 'error';
+    info?: string;
+};
 export class NotificationHandler {
     public constructor(client: Client) {
         client.on('messageCreate', (message) => {
@@ -35,12 +38,13 @@ export class NotificationHandler {
             }
         });
     }
-    public static async sendNotification(guild: Guild, text: string): Promise<unknown> {
+    public static async sendNotification(guild: Guild, text: string): Promise<NotificationResponse> {
         return getGuild(guild).then((dbGuild) => dbGuild.notificationChannelId ?
             guild.channels.fetch(dbGuild.notificationChannelId)
                 .then(async (channel) => {
                     if (!channel || !channel.isTextBased()) {
-                        return Promise.reject();
+                        dbGuild.notificationChannelId = undefined;
+                        return dbGuild.save().then(() => Promise.reject(text));
                     } else {
                         return channel.send({
                             embeds: [
@@ -51,11 +55,15 @@ export class NotificationHandler {
                             ]
                         });
                     }
-                })
-                .catch((e) => {
-                    logger.error(e);
-                    dbGuild.notificationChannelId = undefined;
-                    return dbGuild.save().then();
-                }) : Promise.reject());
+                }).then(() => ({
+                    type: 'sent'
+                } as NotificationResponse))
+                .catch((e) => ({
+                    type: 'error',
+                    info: e.toString()
+                } as NotificationResponse)) : new Promise((res) => {
+                    logger.debug('[' + guild.name + '] Notification: ' + text);
+                    res({ type: 'nochannel' });
+                }));
     }
 }

@@ -5,7 +5,6 @@ import {
 import { getGuild } from '../../db/guild.schema';
 import { ESettingsID, Setting } from './settings';
 import raidhelperIntegration from '../../raidhelperIntegration';
-import { formatTime } from '../../util/formatTime';
 import { checkChannelPermissions } from '../../util/checkChannelPermissions';
 import { DBGuild } from '../types/dbGuild';
 
@@ -13,7 +12,8 @@ export enum ERaidhelperSettingsOptions {
     API_KEY = 'apikey',
     DEFAULT_CHANNEL = 'defaultchannel',
     EVENT_CHANNEL = 'eventchannel',
-    TOGGLE = 'toggle'
+    TOGGLE_AUTO_VOICE = 'toggleautovoice',
+    TOGGLE_AUTO_WIDGET = 'toggleautowidget'
 }
 
 export class RaidhelperSettings extends Setting {
@@ -37,11 +37,11 @@ export class RaidhelperSettings extends Setting {
             (await Promise.all(events.map(async (event) => {
                 const voiceChannel = event.voiceChannelId ?
                     await guild.channels.fetch(event.voiceChannelId).catch(() => undefined) as VoiceBasedChannel | undefined : undefined;
-                const time = formatTime(new Date(event.startTime));
+                const time = '🗓️ ' + `<t:${event.startTime}:d>` + ' 🕑 ' + `<t:${event.startTime}:t>`;
                 const voiceChannelPermissions = voiceChannel && voiceChannel.isVoiceBased() ? await checkChannelPermissions(voiceChannel, ['ViewChannel', 'Connect', 'Speak'])
                     .then(() => '')
                     .catch(() => `⚠️`) : '';
-                return `- 📝  ${event.title}  🕑  ${time}${voiceChannel ? `  🔗 ${voiceChannel} ${voiceChannelPermissions}` : ''}`;
+                return `- 📝  ${event.title}  ${time}${voiceChannel ? `  🔗 ${voiceChannel} ${voiceChannelPermissions}` : ''}`;
             }))).join('\n') : '*None*';
 
         const apiKeyValidText = apiKey ?
@@ -68,7 +68,11 @@ export class RaidhelperSettings extends Setting {
         **Events Channel**  
         ${eventChannelText}\n
         **Auto-Join**  
+        *The bot will automatically join voice when an event starts*
         ${guildData.raidHelper.enabled ? '```diff\n+ Enabled ```' : '```diff\n- Disabled ```'}
+        **Auto-Widget**  
+        *The bot will automatically start the text-widget (if it exists) when an event starts*
+        ${guildData.raidHelper.widget ? '```diff\n+ Enabled ```' : '```diff\n- Disabled ```'}
         **Default Voice Channel**  
         ${defaultChannelText}\n
         **Scheduled Events**${scheduledEvents.includes('⚠️') ? ' ≫ *Missing Some Permissions*' : ''}  
@@ -82,10 +86,15 @@ export class RaidhelperSettings extends Setting {
             label: 'Set API Key',
             style: ButtonStyle.Primary
         });
-        const toggleButton = new ButtonBuilder({
-            custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.TOGGLE]),
+        const autoJoinToggleButton = new ButtonBuilder({
+            custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.TOGGLE_AUTO_VOICE]),
             label: 'Toggle Auto-Join',
-            style: ButtonStyle.Secondary
+            style: ButtonStyle.Success
+        });
+        const autoWidgetToggleButton = new ButtonBuilder({
+            custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.TOGGLE_AUTO_WIDGET]),
+            label: 'Toggle Auto-Widget',
+            style: ButtonStyle.Success
         });
         const defaultVoiceChannel = new ChannelSelectMenuBuilder()
             .setCustomId(this.getCustomId(this.id, [ERaidhelperSettingsOptions.DEFAULT_CHANNEL]))
@@ -102,7 +111,8 @@ export class RaidhelperSettings extends Setting {
 
         const apiKeyRow = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(apiKeyButton)
-            .addComponents(toggleButton);
+            .addComponents(autoJoinToggleButton)
+            .addComponents(autoWidgetToggleButton);
         const defaultVoiceChannelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>()
             .addComponents(defaultVoiceChannel);
         const raidhelperEventChannelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>()
