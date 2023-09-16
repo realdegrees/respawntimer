@@ -203,22 +203,6 @@ class AudioManager {
             audioPlayer,
             timings
         });
-
-        // ! TEMPORARY FIX FOR DISCORD API ISSUE https://github.com/discordjs/discord.js/issues/9185
-        options.connection.on('stateChange', (oldState, newState) => {
-            const oldNetworking = Reflect.get(oldState, 'networking');
-            const newNetworking = Reflect.get(newState, 'networking');
-
-            // eslint-disable-next-line max-len
-            // eslint-disable-next-line @typescript-eslint/explicit-function-return-type
-            const networkStateChangeHandler = (oldNetworkState: any, newNetworkState: any) => {
-                const newUdp = Reflect.get(newNetworkState, 'udp');
-                clearInterval(newUdp?.keepAliveInterval);
-            };
-
-            oldNetworking?.off('stateChange', networkStateChangeHandler);
-            newNetworking?.on('stateChange', networkStateChangeHandler);
-        });
     }
     public disconnect(guild: Guild, dbGuild: DBGuild): void {
         Widget.get(guild, dbGuild.widget.messageId, dbGuild.widget.channelId).then((widget) => {
