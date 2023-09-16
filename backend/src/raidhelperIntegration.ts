@@ -72,7 +72,7 @@ export class RaidhelperIntegration {
 
                             dbGuild.raidHelper.events = events;
                             return dbGuild.save().then(() => {
-                                if (events.length !== 0 && guild) {
+                                if (guild) {
                                     return Widget.get(guild, dbGuild.widget.messageId, dbGuild.widget.channelId)
                                         .then((widget) => {
                                             if (!widget?.textState) {
