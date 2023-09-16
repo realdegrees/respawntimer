@@ -55,7 +55,6 @@ class Bot {
 
             client.on('error', (e) => {
                 logger.error(e);
-                process.exit(1);
             });
 
             client.once('ready', () => {
