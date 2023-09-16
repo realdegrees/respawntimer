@@ -25,15 +25,13 @@ import logger from '../../lib/logger';
 import { TimingsSettings } from '../common/settings/timings.settings';
 
 export const SETTINGS_LIST = [
-    [
-        new PermissionSettings(),
-        new VoiceSettings(),
-        new RaidhelperSettings(),
-        new TimingsSettings()]
-    , [
-        new NotificationSettings(),
-        new MiscSettings()
-    ]];
+    [new PermissionSettings(),
+    new VoiceSettings(),
+    new RaidhelperSettings(),
+    new TimingsSettings()],
+    [new NotificationSettings(),
+    new MiscSettings()]
+];
 
 export class Settings extends Command {
     public constructor(protected client: Client) {
@@ -50,10 +48,10 @@ export class Settings extends Command {
         return this.checkPermission(interaction, 'editor').then(() =>
             openSettings(interaction)
         ).catch(async (msg) => interaction.reply({
-                ephemeral: true,
-                content: msg?.toString()
-            })
-        ).catch (logger.error);
+            ephemeral: true,
+            content: msg?.toString()
+        })
+        ).catch(logger.error);
     }
 }
 // eslint-disable-next-line max-len

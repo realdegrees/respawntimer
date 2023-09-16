@@ -7,7 +7,6 @@ import { Settings } from './commands/settings';
 import { Command } from './common/command';
 import { InteractionHandler } from './interactionHandler';
 import { NotificationHandler } from './notificationHandler';
-import { getAllGuilds } from './db/guild.schema';
 import { WidgetHandler } from './widgetHandler';
 
 

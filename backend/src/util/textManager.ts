@@ -15,11 +15,11 @@ type Subscriber = {
     msgId: string;
     guildId: string;
     timings?: number[];
-    onUpdate: (options?: {
+    update: (options?: {
         title?: string;
         description?: string;
         force?: boolean;
-    }) => Promise<boolean>;
+    }) => Promise<unknown>;
     onInitialize?: () => void;
     onUnsubscribe: () => void;
 };
@@ -41,22 +41,22 @@ class TextManager {
 
         const defaultRespawnData = TimingsSettings.convertToRespawnData(TimingsSettings.convertToSeconds(TimingsSettings.DEFAULT)!);
         const customSubscribers = this.subscribers.filter((s) => !!s.timings);
-        const defaultSusbcribers = this.subscribers.filter((s) => !s.timings);
+        const defaultSubscribers = this.subscribers.filter((s) => !s.timings);
 
-        customSubscribers.forEach((subscriber) => {
-            this.handleSubscriber(subscriber, subscriber.timings ?
-                TimingsSettings.convertToRespawnData(subscriber.timings) :
-                defaultRespawnData);
-        });
-        defaultSusbcribers.forEach((subscriber) => {
+        for (const subscriber of customSubscribers) {
+            const respawnData = subscriber.timings ? TimingsSettings.convertToRespawnData(subscriber.timings) : defaultRespawnData;
+            this.handleSubscriber(subscriber, respawnData);
+        }
+
+        for (const subscriber of defaultSubscribers) {
             this.handleSubscriber(subscriber, defaultRespawnData);
-        });
+        }
     }
     private async handleSubscriber(subscriber: Subscriber, respawnData: WarInfo): Promise<void> {
         const description = this.getDescription(respawnData);
 
         if (!subscriber.onInitialize && respawnData.respawn.timeUntilRespawn % 1 !== 0) return Promise.resolve();
-        return subscriber.onUpdate({ description })
+        return subscriber.update({ description })
             .then(() => {
                 if (subscriber.onInitialize) {
                     subscriber.onInitialize();
@@ -103,11 +103,11 @@ class TextManager {
         msgId: string;
         guildId: string;
         customTimings?: string;
-    }, onUpdate: (options?: {
+    }, update: (options?: {
         title?: string;
         description?: string;
         force?: boolean;
-    }) => Promise<boolean>,
+    }) => Promise<unknown>,
         onInitialize: () => void,
         onUnsubscribe: () => void
     ): void {
@@ -127,7 +127,7 @@ class TextManager {
             msgId: options.msgId,
             guildId: options.guildId,
             timings,
-            onUpdate,
+            update,
             onInitialize,
             onUnsubscribe
         });

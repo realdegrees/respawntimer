@@ -1,17 +1,30 @@
-import { ActionRowBuilder, ButtonStyle, ChannelSelectMenuBuilder, ChannelType, Guild } from 'discord.js';
+import { ActionRowBuilder, AnySelectMenuInteraction, BaseSelectMenuBuilder, ButtonInteraction, ButtonStyle, CacheType, ChannelSelectMenuBuilder, ChannelSelectMenuInteraction, ChannelType, EmbedBuilder, Guild, Interaction, MessageComponentInteraction, ModalSubmitInteraction, StringSelectMenuBuilder } from 'discord.js';
 import { GuildData } from '../../db/guild.schema';
-import { ESettingsID, Setting } from './settings';
+import { ESettingsID, BaseSetting } from './base.setting';
 import { checkChannelPermissions } from '../../util/checkChannelPermissions';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
+import logger from '../../../lib/logger';
+import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK } from '../constant';
 
 export enum ENotificationSettingsOptions {
     UPDATE_CHANNEL = 'updatechannel'
 }
 
-export class NotificationSettings extends Setting {
+export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> {
+    
+
     public constructor() {
-        super(ESettingsID.NOTIFICATIONS, ButtonStyle.Secondary);
+        super(ESettingsID.NOTIFICATIONS,
+            'Notification Settings',
+            `**Notification Channel**  
+            This channel will receive notifications about updates and new features.  
+            If the bot encounters any errors you will also get notified about it in this channel.`,
+            '',
+            ButtonStyle.Secondary
+        );
+    }
+    public getSettingsRows() {
         const channel = new ChannelSelectMenuBuilder()
             .setCustomId(this.getCustomId(this.id, [ENotificationSettingsOptions.UPDATE_CHANNEL]))
             .setChannelTypes(ChannelType.GuildText)
@@ -21,23 +34,44 @@ export class NotificationSettings extends Setting {
 
         const channelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>()
             .addComponents(channel);
-
-        this.init(
-            'Notification Settings',
-            `**Notification Channel**  
-            This channel will receive notifications about updates and new features.  
-            If the bot encounters any errors you will also get notified about it in this channel.`,
-            '',
-            channelRow
-        );
+        return Promise.resolve([channelRow]);
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public async getCurrentSettings(guildData: DBGuild, guild?: Guild | undefined): Promise<string> {
+    public async getCurrentSettings(guildData: DBGuild, guild?: Guild | undefined) {
         const channel = guildData.notificationChannelId ?
             await guild?.channels.fetch(guildData.notificationChannelId).catch(() => undefined) : undefined;
         return channel && channel.isTextBased() ? checkChannelPermissions(channel, ['ViewChannel', 'SendMessages'])
             .then(() => `**Notification Channel**\n${channel}`)
             .catch((reason) => `**Notification Channel**\n${channel}\n\n⚠️ ${reason}`) :
             `**Notification Channel**\n*None*`;
+    }
+    public async onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, option: string): Promise<unknown> {
+        if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
+        switch (option) {
+            case ENotificationSettingsOptions.UPDATE_CHANNEL:
+                if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+                return interaction.guild.channels.fetch(interaction.values[0])
+                    .then(async (channel) => {
+                        if (!channel?.isTextBased()) {
+                            return Promise.reject('Invalid Channel');
+                        } else {
+                            await checkChannelPermissions(channel, ['ViewChannel', 'SendMessages']);
+                            logger.info('[' + channel.guild.name + '] Enabled Notifications');
+                            dbGuild.notificationChannelId = interaction.values[0];
+                            await channel.send({
+                                embeds: [new EmbedBuilder()
+                                    .setAuthor({
+                                        iconURL: EXCLAMATION_ICON_LINK,
+                                        name: 'Wartimer Notifications'
+                                    })
+                                    .setThumbnail(WARTIMER_ICON_LINK)
+                                    .setDescription('This channel will now receive bot update notifications!')]
+                            });
+                            await dbGuild.save();
+                            return await this.send(interaction, dbGuild, { update: true });
+                        }
+                    });
+            default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
+        }
     }
 }

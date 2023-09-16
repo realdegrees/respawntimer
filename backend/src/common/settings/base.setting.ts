@@ -1,4 +1,7 @@
-import { ActionRowBuilder, RepliableInteraction, InteractionResponse, EmbedBuilder, Guild, Message, MessageComponentInteraction, ButtonStyle } from 'discord.js';
+import {
+    ActionRowBuilder, RepliableInteraction, InteractionResponse, EmbedBuilder,
+    Guild, Message, MessageComponentInteraction, ButtonStyle, Interaction, StringSelectMenuBuilder, ButtonBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ModalSubmitInteraction, ButtonInteraction, RoleSelectMenuInteraction, ChannelSelectMenuInteraction, StringSelectMenuInteraction, ComponentBuilder, InteractionReplyOptions, AnySelectMenuInteraction
+} from 'discord.js';
 import { GuildData } from '../../db/guild.schema';
 import { EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../constant';
 import { EInteractionType } from '../types/interactionType';
@@ -14,25 +17,18 @@ export enum ESettingsID {
     TIMINGS = 'timings'
 }
 
-export abstract class Setting {
-    private settings: ActionRowBuilder[] = [];
-    public title: string = '';
-    public description: string = '';
-    public footer: string = '';
+export abstract class BaseSetting<
+    MenuOptions extends ButtonBuilder | StringSelectMenuBuilder | ChannelSelectMenuBuilder | RoleSelectMenuBuilder =
+    ButtonBuilder | RoleSelectMenuBuilder | StringSelectMenuBuilder | ChannelSelectMenuBuilder> {
+    protected constructor(
+        public id: string,
+        public title: string,
+        public description: string,
+        public footer: string,
+        public buttonStyle: ButtonStyle = ButtonStyle.Primary) { }
 
-    protected constructor(public id: string, public buttonStyle: ButtonStyle = ButtonStyle.Primary) { }
-    protected init(
-        title: string,
-        description: string,
-        footer: string,
-        ...settings: ActionRowBuilder[]): void {
-        this.title = title;
-        this.description = description;
-        this.footer = footer;
-        this.settings = settings;
-    }
     public async send(
-        interaction: RepliableInteraction | MessageComponentInteraction,
+        interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
         dbGuild: Document<unknown, object, GuildData> & GuildData & Required<{
             _id: string;
         }>,
@@ -64,19 +60,22 @@ export abstract class Setting {
         if (!options?.removeCurrentSettings && currentSettingsDesc) embeds.push(currentSettingsEmbed);
         if (options?.customEmbed) embeds.push(options.customEmbed);
 
+        const rows = await this.getSettingsRows(dbGuild);
         const content = {
             ephemeral: true,
             embeds: embeds,
-            components: this.settings as ActionRowBuilder<any>[]
+            components: rows
         };
 
         return options?.update ?
-            (interaction as MessageComponentInteraction).deferUpdate()
+            interaction.deferUpdate()
                 .then(() => interaction.editReply(content)) :
             interaction.reply(content);
     }
     public getCustomId(id: string, args: string[]): string {
         return [WARTIMER_INTERACTION_ID, EInteractionType.SETTING, id, ...args].join(WARTIMER_INTERACTION_SPLIT);
     }
-    public abstract getCurrentSettings(dbGuild: DBGuild, guild?: Guild,): Promise<string>;
+    public abstract getSettingsRows(dbGuild: DBGuild): Promise<ActionRowBuilder<MenuOptions>[]>;
+    public abstract getCurrentSettings(dbGuild: DBGuild, guild?: Guild): Promise<string>;
+    public abstract onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, option: string): Promise<unknown>;
 }

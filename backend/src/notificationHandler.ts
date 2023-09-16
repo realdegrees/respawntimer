@@ -1,8 +1,9 @@
 import { Client, ColorResolvable, Colors, EmbedBuilder, Guild } from 'discord.js';
-import { getGuild, queryGuilds } from './db/guild.schema';
 import { setTimeout } from 'timers/promises';
 import logger from '../lib/logger';
 import { WARTIMER_ICON_LINK } from './common/constant';
+import Database from './db/database';
+
 
 type NotificationResponse = {
     type: 'sent' | 'nochannel' | 'error' | 'duplicate';
@@ -18,7 +19,7 @@ export class NotificationHandler {
     public constructor(client: Client) {
         client.on('messageCreate', (message) => {
             if (message.channel.id === sourceChannelId && message.guild?.id === sourceServerId) {
-                queryGuilds({
+                Database.queryGuilds({
                     'notificationChannelId': { $regex: /\d+/ }
                 }).then((dbGuilds) => {
                     dbGuilds.forEach((dbGuild) => {
@@ -27,11 +28,9 @@ export class NotificationHandler {
                             .then(async (channel) =>
                                 !channel || !channel.isTextBased() ?
                                     Promise.reject() :
-                                    message.fetch()
-                                        .then((message) => channel.send({
-                                            embeds: message.embeds
-                                        }))
-                                        .then(() => setTimeout(2000))
+                                    channel.send({
+                                        embeds: message.embeds
+                                    }).then(() => setTimeout(2000))
                             ).catch((e) => {
                                 logger.error(e);
                                 dbGuild.notificationChannelId = undefined;
@@ -49,7 +48,7 @@ export class NotificationHandler {
                 type: 'duplicate'
             });
         }
-        return getGuild(guild).then((dbGuild) => dbGuild.notificationChannelId ?
+        return Database.getGuild(guild).then((dbGuild) => dbGuild.notificationChannelId ?
             guild.channels.fetch(dbGuild.notificationChannelId)
                 .then(async (channel) => {
                     if (!channel || !channel.isTextBased()) {
@@ -102,7 +101,7 @@ export class NotificationHandler {
                             }
                             previousGuildNotificationMap.logs.push([title, text].join());
                         }
-                    }                    
+                    }
                     res({ type: 'nochannel' });
                 }));
     }

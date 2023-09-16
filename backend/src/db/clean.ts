@@ -1,7 +1,7 @@
 import { Client } from 'discord.js';
 import { DBGuild } from '../common/types/dbGuild';
-import { deleteGuild } from './guild.schema';
 import logger from '../../lib/logger';
+import Database from './database';
 
 /**
  * @returns deleted guilds
@@ -14,7 +14,7 @@ export const cleanGuilds = async (client: Client, guilds: DBGuild[]): Promise<st
                 const inactiveDurationDays = (Date.now() - dbGuild.lastActivityTimestamp) / 1000 / 60 / 60 / 24;
                 logger.info(`[${dbGuild.name}] Last Activity ${(inactiveDurationDays * 24).toFixed(2)} hours ago`);
                 if (inactiveDurationDays > 48) {
-                    return deleteGuild(dbGuild.id).then(() => `${dbGuild.name} (Inactive ${inactiveDurationDays}d)`);
+                    return Database.deleteGuild(dbGuild.id).then(() => `${dbGuild.name} (Inactive ${inactiveDurationDays}d)`);
                 } else {
                     return Promise.resolve();
                 }
@@ -22,7 +22,7 @@ export const cleanGuilds = async (client: Client, guilds: DBGuild[]): Promise<st
                 return Promise.resolve();
             }
         } else {
-            return deleteGuild(dbGuild.id).then(() => dbGuild.name);
+            return Database.deleteGuild(dbGuild.id).then(() => dbGuild.name);
         }
     }))).then((guildsStates) => guildsStates.filter((state) => !!state) as string[]);
 };

@@ -1,6 +1,5 @@
 import { setTimeout } from 'timers/promises';
 import { RaidhelperAPIEvent, ScheduledEvent } from './common/types/raidhelperEvent';
-import { queryGuilds } from './db/guild.schema';
 import { Client, Colors, Guild } from 'discord.js';
 import logger from '../lib/logger';
 import { Widget } from './common/widget';
@@ -8,9 +7,11 @@ import audioManager from './util/audioManager';
 import { NotificationHandler } from './notificationHandler';
 import { DBGuild } from './common/types/dbGuild';
 import { checkChannelPermissions } from './util/checkChannelPermissions';
+import Database from './db/database';
 
 const RETRY_ATTEMPT_DUR = 3;
 const RETRY_INTERVAL_SECONDS = 5;
+export const EVENT_REFRESH_INTERVAL = 5;
 const API_KEY_RATE_LIMIT_MESSAGE = 'This API Key was likely rate-limited. Please get a new key with /apikey refresh';
 
 export class RaidhelperIntegration {
@@ -19,8 +20,8 @@ export class RaidhelperIntegration {
         const date = new Date();
         const [minutes, seconds] = [date.getMinutes(), date.getSeconds()];
 
-        if (minutes % 10 === 0 && seconds === 0) {
-            queryGuilds({
+        if (minutes % EVENT_REFRESH_INTERVAL === 0 && seconds === 0) {
+            Database.queryGuilds({
                 'raidHelper.apiKey': { $exists: true }
             }).then(async (dbGuilds) => {
                 for (const dbGuild of dbGuilds) {
@@ -53,7 +54,7 @@ export class RaidhelperIntegration {
                                                 .fetch(event.voiceChannelId)
                                                 .catch(() => undefined) : undefined;
                                         const time = '🗓️ ' + `<t:${event.startTime}:d>` + ' 🕑 ' + `<t:${event.startTime}:t>`;
-                                        const voiceChannelPermissions = voiceChannel && voiceChannel.isVoiceBased() ? await checkChannelPermissions(voiceChannel, ['ViewChannel', 'Connect', 'Speak'])
+                                        const voiceChannelPermissions = voiceChannel?.isVoiceBased() ? await checkChannelPermissions(voiceChannel, ['ViewChannel', 'Connect', 'Speak'])
                                             .then(() => '')
                                             .catch(() => `⚠️`) : '';
                                         return `- 📝  ${event.title}  ${time}${voiceChannel ? `  🔗 ${voiceChannel} ${voiceChannelPermissions}` : ''}`;
@@ -92,7 +93,7 @@ export class RaidhelperIntegration {
         if (minutes >= 0 && minutes < RETRY_ATTEMPT_DUR ||
             minutes >= 30 && minutes < 30 + RETRY_ATTEMPT_DUR &&
             seconds % RETRY_INTERVAL_SECONDS === 0) {
-            queryGuilds({
+            Database.queryGuilds({
                 'raidHelper.apiKey': { $exists: true }
             }).then((dbGuilds) =>
                 dbGuilds.filter((guild) =>

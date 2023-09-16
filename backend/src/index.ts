@@ -5,7 +5,6 @@ import logger from '../lib/logger';
 import { OAuth2Scopes, PermissionFlagsBits } from 'discord.js';
 import { RespawnInterval } from './common/respawnInterval';
 import Database from './db/database';
-import { getAllGuilds } from './db/guild.schema';
 import { DBGuild } from './common/types/dbGuild';
 import { cleanGuilds } from './db/clean';
 install();
@@ -34,7 +33,7 @@ Promise.resolve()
     })
     .then((bot) => {
         // If cleanup fails it gets logged, no need to await
-        getAllGuilds()
+        Database.getAllGuilds()
             .then((guilds) => {
                 logStats(guilds);
                 return cleanGuilds(bot.client, guilds);

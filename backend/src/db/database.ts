@@ -1,5 +1,10 @@
 import { connect } from 'mongoose';
 import logger from '../../lib/logger';
+import { FilterQuery } from 'mongoose';
+import { Document } from 'mongoose';
+import { Guild } from 'discord.js';
+import { GuildData, GuildModel } from './guild.schema';
+import { DBGuild } from '../common/types/dbGuild';
 
 let instance: Database | undefined;
 class Database {
@@ -25,5 +30,40 @@ class Database {
             }, 1000);
         });
     }
+
+    public static async getGuild(guild: Guild): Promise<Document<unknown, object, GuildData> & GuildData & Required<{ _id: string }>> {
+        return GuildModel.findById(guild.id).then((obj) => {
+            if (obj) {
+                obj.lastActivityTimestamp = Date.now();
+                obj.name = guild.name;
+                return obj;
+            } else {
+                return new GuildModel({
+                    _id: guild.id,
+                    name: guild.name,
+                    assistantRoleIDs: [],
+                    editorRoleIDs: [],
+                    voice: 'female',
+                    lastActivityTimestamp: Date.now(),
+                    raidHelper: {
+                        events: []
+                    },
+                    widget: {}
+                });
+            }
+        }).then((obj) => obj.save());
+    }
+    public static async deleteGuild(guildId: string): Promise<unknown> {
+        return GuildModel.deleteOne({
+            _id: guildId
+        });
+    }
+    public static async getAllGuilds(): Promise<DBGuild[]> {
+        return GuildModel.find({}).exec();
+    }
+    public static async queryGuilds(filter: FilterQuery<GuildData>): Promise<DBGuild[]> {
+        return GuildModel.find(filter).exec();
+    }
 }
+
 export default Database;
