@@ -7,7 +7,7 @@ import fs from 'fs';
 import path from 'path';
 import logger from '../../lib/logger';
 import { timers } from '../common/timer';
-import { VoiceBasedChannel } from 'discord.js';
+import { Guild, VoiceBasedChannel } from 'discord.js';
 import { Widget } from '../common/widget';
 import { getGuild } from '../db/guild.schema';
 import { checkChannelPermissions } from './checkChannelPermissions';
@@ -59,12 +59,11 @@ const loadFiles = (voice: Voices): {
 export type Voices = 'male' | 'female' | 'material' | 'rocket league';
 type Subscriber = {
     timeStamp: number;
-    guildId: string;
+    guild: Guild;
     voice: Voices;
     connection: VoiceConnection;
     audioPlayer: AudioPlayer;
     timings?: number[];
-    onUnsubscribe: () => void;
 };
 // TODO: create a new audioplayer for every single subscriber that joins that has custom timings saved in the db and play aduio from that for the subscriber
 class AudioManager {
@@ -112,7 +111,9 @@ class AudioManager {
             const minutesSubscribed = new Date(date.getTime() - subscriber.timeStamp).getTime() / 1000 / 60;
 
             if ((minutes === 59 || minutes === 29) && seconds === 59 && minutesSubscribed >= 15) {
-                this.disconnect(subscriber.guildId);
+                getGuild(subscriber.guild).then((dbGuild) => 
+                    this.disconnect(subscriber.guild, dbGuild)
+                ).catch(logger.error);
             }
         });
 
@@ -121,7 +122,7 @@ class AudioManager {
 
         // Play sounds for all subscribers with custom timings
         customSubscribers.forEach((subscriber) => {
-            if(!subscriber.timings) return;
+            if (!subscriber.timings) return;
             const customRespawnData = TimingsSettings.convertToRespawnData(subscriber.timings);
             this.handleSounds(customRespawnData, subscriber.voice, subscriber.audioPlayer);
         });
@@ -163,7 +164,7 @@ class AudioManager {
     }
 
     public setVoice(guildId: string, voice: Voices): void {
-        const subscriber = this.subscribers.find((s) => s.guildId === guildId);
+        const subscriber = this.subscribers.find((s) => s.guild.id === guildId);
         if (!subscriber) return;
         subscriber.voice = voice;
         // No need to change audioplayer susbcription because subscribers with custom timings have individual audioplayers they are already subscribed to
@@ -172,14 +173,14 @@ class AudioManager {
     }
 
     public setTimings(guildId: string, timings: string): void {
-        const subscriber = this.subscribers.find((s) => s.guildId === guildId);
+        const subscriber = this.subscribers.find((s) => s.guild.id === guildId);
         if (!subscriber) return;
         const timingsList = TimingsSettings.convertToSeconds(timings);
         if (!timingsList) return this.resetTimings(guildId);
         subscriber.timings = timingsList;
     }
     public resetTimings(guildId: string): void {
-        const subscriber = this.subscribers.find((s) => s.guildId === guildId);
+        const subscriber = this.subscribers.find((s) => s.guild.id === guildId);
         if (!subscriber?.timings) return;
         subscriber.audioPlayer = this.voices.find((sounds) => sounds.voiceType === subscriber.voice)!.player;
         subscriber.connection.subscribe(subscriber.audioPlayer);
@@ -187,21 +188,20 @@ class AudioManager {
     // eslint-disable-next-line max-len
     public subscribe(options: {
         connection: VoiceConnection;
-        guildId: string;
+        guild: Guild;
         voice?: Voices;
         customTimings?: string;
-    }, onUnsubscribe: () => void): void {
+    }): void {
         const timings = TimingsSettings.convertToSeconds(options.customTimings ?? '');
         const audioPlayer = timings ? createAudioPlayer() : this.voices.find((sounds) => sounds.voiceType === options.voice)!.player;
         options.connection.subscribe(audioPlayer);
         this.subscribers.push({
             timeStamp: Date.now(),
-            guildId: options.guildId,
+            guild: options.guild,
             voice: options.voice ?? 'female',
             connection: options.connection,
             audioPlayer,
-            timings,
-            onUnsubscribe
+            timings
         });
 
         // ! TEMPORARY FIX FOR DISCORD API ISSUE https://github.com/discordjs/discord.js/issues/9185
@@ -220,29 +220,35 @@ class AudioManager {
             newNetworking?.on('stateChange', networkStateChangeHandler);
         });
     }
-    public disconnect(guildId: string): void {
-        const subscriber = this.subscribers.find((s) => s.guildId === guildId);
-        subscriber?.onUnsubscribe();
-        this.subscribers.splice(this.subscribers.findIndex((s) => s.guildId === guildId), 1);
-        getVoiceConnection(guildId)?.destroy();
+    public disconnect(guild: Guild, dbGuild: DBGuild): void {
+        Widget.get(guild, dbGuild.widget.messageId, dbGuild.widget.channelId).then((widget) => {
+            widget?.onAudioUnsubscribe();
+        }).finally(() => {
+            this.subscribers.splice(this.subscribers.findIndex((s) => s.guild.id === guild.id), 1);
+            getVoiceConnection(guild.id)?.destroy();
+        }).catch(logger.error);
     }
 
-    public async connect(channel: VoiceBasedChannel, onUnsubscribe: () => Promise<unknown>, dbGuild: DBGuild): Promise<void> {
-        if(this.subscribers.find((s) => s.guildId === dbGuild.id)) return Promise.reject('Already connected');
+    public isConnected(guildId: string): boolean {
+        return !!this.subscribers.find((subscriber) => subscriber.guild.id === guildId);
+    }
+
+    public async connect(channel: VoiceBasedChannel, dbGuild: DBGuild): Promise<void> {
+        if (this.subscribers.find((s) => s.guild.id === dbGuild.id)) return Promise.reject('Already connected');
         return this.getConnection(channel)
             .then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
                 getGuild(channel.guild)
                     .then((dbGuild) => Widget.get(channel.guild, dbGuild.widget.messageId, dbGuild.widget.channelId))
-                    .then((widget) => widget?.toggleVoice())
+                    .then((widget) => widget?.toggleVoice({dbGuild}))
                     .catch(() => { });
             }))
             .then((connection) =>
                 this.subscribe({
                     connection,
-                    guildId: dbGuild.id,
+                    guild: channel.guild,
                     voice: dbGuild.voice,
                     customTimings: dbGuild.customTimings
-                }, onUnsubscribe)
+                })
             );
     }
 

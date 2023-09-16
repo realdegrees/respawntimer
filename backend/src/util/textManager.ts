@@ -15,7 +15,11 @@ type Subscriber = {
     msgId: string;
     guildId: string;
     timings?: number[];
-    onUpdate: (title?: string, description?: string) => Promise<boolean>;
+    onUpdate: (options?: {
+        title?: string;
+        description?: string;
+        force?: boolean;
+    }) => Promise<boolean>;
     onInitialize?: () => void;
     onUnsubscribe: () => void;
 };
@@ -52,7 +56,7 @@ class TextManager {
         const description = this.getDescription(respawnData);
 
         if (!subscriber.onInitialize && respawnData.respawn.timeUntilRespawn % 1 !== 0) return Promise.resolve();
-        return subscriber.onUpdate('', description)
+        return subscriber.onUpdate({ description })
             .then(() => {
                 if (subscriber.onInitialize) {
                     subscriber.onInitialize();
@@ -99,7 +103,11 @@ class TextManager {
         msgId: string;
         guildId: string;
         customTimings?: string;
-    }, onUpdate: (title?: string, description?: string) => Promise<boolean>,
+    }, onUpdate: (options?: {
+        title?: string;
+        description?: string;
+        force?: boolean;
+    }) => Promise<boolean>,
         onInitialize: () => void,
         onUnsubscribe: () => void
     ): void {

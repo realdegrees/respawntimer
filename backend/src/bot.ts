@@ -8,6 +8,7 @@ import { Command } from './common/command';
 import { InteractionHandler } from './interactionHandler';
 import { NotificationHandler } from './notificationHandler';
 import { getAllGuilds } from './db/guild.schema';
+import { WidgetHandler } from './widgetHandler';
 
 
 /**
@@ -19,6 +20,7 @@ class Bot {
     public readonly user: User | null;
     public interactionHandler;
     public notificationHandler;
+    public widgetHandler;
     private constructor(
         public client: Client,
         commands: Command[]
@@ -26,6 +28,7 @@ class Bot {
         this.user = this.client.user;
         this.interactionHandler = new InteractionHandler(client);
         this.notificationHandler = new NotificationHandler(client);
+        this.widgetHandler = new WidgetHandler(client);
         this.client.user?.setActivity({ name: '/create' });
         this.client.on('interactionCreate', (interaction) => {
             if (!interaction.isCommand()) return;

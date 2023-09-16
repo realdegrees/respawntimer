@@ -1,10 +1,10 @@
-import { RaidhelperEvent } from './raidhelperEvent';
+import { ScheduledEvent } from './raidhelperEvent';
 
 export interface RaidhelperSettingData {
-    enabled: boolean;
+    enabled?: boolean;
     widget?: boolean;
     apiKey?: string;
     defaultVoiceChannelId?: string;
     eventChannelId?: string;
-    events: RaidhelperEvent[];
+    events: ScheduledEvent[];
 }

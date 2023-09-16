@@ -23,7 +23,7 @@ export class RaidhelperSettings extends Setting {
         const apiKeyValid = apiKey ?
             await raidhelperIntegration.checkApiKey(guild, apiKey) : false;
         const events = await getGuild(guild)
-            .then((dbGuild) => raidhelperIntegration.getEvents(dbGuild))
+            .then((dbGuild) => dbGuild.raidHelper.events)
             .catch(() => []);
 
         const defaultChannel = guildData.raidHelper.defaultVoiceChannelId ?
@@ -75,7 +75,7 @@ export class RaidhelperSettings extends Setting {
         ${guildData.raidHelper.widget ? '```diff\n+ Enabled ```' : '```diff\n- Disabled ```'}
         **Default Voice Channel**  
         ${defaultChannelText}\n
-        **Scheduled Events**${scheduledEvents.includes('⚠️') ? ' ≫ *Missing Some Permissions*' : ''}  
+        **Scheduled Events**${(scheduledEvents.includes('⚠️') ? ' ≫ *Missing Some Permissions*' : '') || ' *(Updates every 10 minutes)*'}  
         ${scheduledEvents}`;
     }
 
