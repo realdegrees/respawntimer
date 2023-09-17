@@ -70,8 +70,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
     }
     public async getCurrentSettings(guildData: DBGuild, guild: Guild) {
         const apiKey = guildData.raidHelper.apiKey;
-        const apiKeyValid = apiKey ?
-            await raidhelperIntegration.checkApiKey(guild, apiKey) : false;
+        const apiKeyValid = guildData.raidHelper.apiKeyValid;
         const events = await Database.getGuild(guild)
             .then((dbGuild) => dbGuild.raidHelper.events)
             .catch(() => []);
@@ -160,6 +159,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                             if (valid) {
                                 logger.info('[' + interaction.guild?.name + '] Added Raidhelper API Key');
                                 dbGuild.raidHelper.apiKey = apiKey;
+                                dbGuild.raidHelper.apiKeyValid = true;
                             } else {
                                 return Promise.reject('Invalid API Key');
                             }

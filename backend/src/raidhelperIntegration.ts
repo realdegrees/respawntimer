@@ -31,7 +31,7 @@ export class RaidhelperIntegration {
                         })
                         .catch((res: Response) => {
                             dbGuild.raidHelper.apiKeyValid = false;
-                            logger.info('[' + dbGuild.name + '] Raidhelper API Error: ' + JSON.stringify(res.json()))
+                            logger.info('[' + dbGuild.name + '] Raidhelper API Error ' + res.statusText + '(' + res.status + '): ' + JSON.stringify(res.json()))
                             return [] as ScheduledEvent[];
                         })
                         .then(async (events) => {
