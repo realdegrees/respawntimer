@@ -91,6 +91,7 @@ export class MiscSettings extends BaseSetting<ButtonBuilder> {
                         });
                     });
             case EMiscSettingsOptions.TOGGLE_WIDGET_BUTTONS:
+                if (interaction.guild.id === UPDATE_SOURCE_SERVER_ID && !debug) return Promise.reject('This setting cannot be changed on this server.');
                 dbGuild.hideWidgetButtons = !dbGuild.hideWidgetButtons;
                 return dbGuild.save().then(() => this.send(interaction, dbGuild, { update: true }))
                     .then(async () => {
