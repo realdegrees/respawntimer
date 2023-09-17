@@ -100,9 +100,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                 ' » *Invalid Key* ⚠️' :
             '';
         const apiKeyText = apiKey ?
-            apiKeyValid ?
                 '||```fix\n' + apiKey + '```||' :
-                '```fix\n' + apiKey + '```' :
             `Use \`/apikey show\` to retrieve your Raidhelper API Key  
                 Or \`/apikey refresh\` if you don't have an API Key\n\`\`\`diff\n- Not Set\`\`\``;
 
