@@ -36,7 +36,8 @@ export class WidgetHandler {
                 const widget = await Widget.get({
                     guild: clientGuild,
                     channelId: dbGuild.widget.channelId,
-                    messageId: dbGuild.widget.messageId
+                    messageId: dbGuild.widget.messageId,
+                    dbGuild
                 });
                 await widget?.update({ force: true });
             }

@@ -79,6 +79,7 @@ export class Widget {
         message?: Message<boolean>;
         messageId?: string;
         channelId?: string;
+        dbGuild?: DBGuild;
     }): Promise<Widget | undefined> {
         return new Promise<Message<boolean> | PartialMessage | undefined>((res) => {
             if (options.message) {
@@ -96,7 +97,7 @@ export class Widget {
         }).then(async (message) => {
             if (!message || message.flags.has('Ephemeral')) return Promise.resolve(undefined);
             if (!message.guild) return Promise.reject('Unable to find to find required data on the Discord API response. Try again later.');
-            const dbGuild = await Database.getGuild(message.guild);
+            const dbGuild = options.dbGuild ?? await Database.getGuild(message.guild);
             // if the clicked message doesn't equal the message stored in the db we try to find the message corresponding to the stored data and delete it
             if (dbGuild.widget.channelId && dbGuild.widget.messageId && (message.channel.id !== dbGuild.widget.channelId || message.id !== dbGuild.widget.messageId)) {
                 // delete old message
