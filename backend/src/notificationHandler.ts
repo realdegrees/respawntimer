@@ -19,25 +19,28 @@ export class NotificationHandler {
     public constructor(client: Client) {
         client.on('messageCreate', (message) => {
             if (message.channel.id === sourceChannelId && message.guild?.id === sourceServerId) {
-                Database.queryGuilds({
-                    'notificationChannelId': { $regex: /\d+/ }
-                }).then((dbGuilds) => {
-                    dbGuilds.forEach((dbGuild) => {
-                        client.guilds.fetch(dbGuild.id)
+                message.fetch().then(async (message) => {
+                    const dbGuilds = await Database.queryGuilds({
+                        'notificationChannelId': { $regex: /\d+/ }
+                    });
+                    for (const dbGuild of dbGuilds) {
+                        await client.guilds.fetch(dbGuild.id)
                             .then((guild) => dbGuild.notificationChannelId ? guild.channels.fetch(dbGuild.notificationChannelId) : undefined)
-                            .then(async (channel) =>
-                                !channel || !channel.isTextBased() ?
-                                    Promise.reject() :
-                                    channel.send({
-                                        embeds: message.embeds
-                                    }).then(() => setTimeout(2000))
-                            ).catch((e) => {
+                            .then(async (channel) => !channel || !channel.isTextBased() ?
+                                Promise.reject() :
+                                channel.send({
+                                    embeds: message.embeds.map((embed) => EmbedBuilder.from(embed).setTimestamp())
+                                })
+                            ).then(() => {
+                                logger.info(`[${dbGuild.name}] Received Update`)
+                            }).then(() => setTimeout(2000))
+                            .catch((e) => {
                                 logger.error(e);
                                 dbGuild.notificationChannelId = undefined;
                                 return dbGuild.save();
-                            });
-                    });
-                });
+                            }).catch(logger.error);
+                    }
+                }).catch(() => logger.error('Unable to fetch dev update message!'));
             }
         });
     }
@@ -62,9 +65,10 @@ export class NotificationHandler {
                                     .setTitle(title)
                                     .setDescription(text)
                                     .setColor(color ?? Colors.Red)
-                                    .setTimestamp(Date.now())
+                                    .setTimestamp()
                             ]
                         }).then(() => {
+                            logger.debug('[' + guild.name + '] Notification (server): ' + title);
                             if (!previousGuildNotificationMap) {
                                 notificationMap.push({
                                     guildId: guild.id,
@@ -87,7 +91,7 @@ export class NotificationHandler {
                     info: e.toString()
                 } as NotificationResponse)) : new Promise((res) => {
                     if (!previousGuildNotificationMap?.logs.includes([title, text].join())) {
-                        logger.debug('[' + guild.name + '] Notification: ' + text);
+                        logger.debug('[' + guild.name + '] Notification (log): ' + title);
 
                         if (!previousGuildNotificationMap) {
                             notificationMap.push({
