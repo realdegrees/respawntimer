@@ -26,19 +26,21 @@ export class NotificationHandler {
                     for (const dbGuild of dbGuilds) {
                         await client.guilds.fetch(dbGuild.id)
                             .then((guild) => dbGuild.notificationChannelId ? guild.channels.fetch(dbGuild.notificationChannelId) : undefined)
-                            .then(async (channel) => !channel || !channel.isTextBased() ?
-                                Promise.reject() :
-                                channel.send({
-                                    embeds: message.embeds.map((embed) => EmbedBuilder.from(embed).setTimestamp())
-                                })
-                            ).then(() => {
+                            .then(async (channel) => {
+                                if (!channel || !channel.isTextBased()) {
+                                    dbGuild.notificationChannelId = undefined;
+                                    return dbGuild.save();
+                                }else {
+                                    return channel.send({
+                                        embeds: message.embeds.map((embed) => EmbedBuilder.from(embed).setTimestamp())
+                                    })
+                                }
+                            })
+                            .then(() => {
                                 logger.info(`[${dbGuild.name}] Received Update`)
-                            }).then(() => setTimeout(2000))
-                            .catch((e) => {
-                                logger.error(e);
-                                dbGuild.notificationChannelId = undefined;
-                                return dbGuild.save();
-                            }).catch(logger.error);
+                            })
+                            .then(() => setTimeout(2000))
+                            .catch(logger.error);
                     }
                 }).catch(() => logger.error('Unable to fetch dev update message!'));
             }
