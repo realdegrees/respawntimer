@@ -6,13 +6,14 @@ import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
 import logger from '../../../lib/logger';
 import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK } from '../constant';
+import { Widget } from '../widget';
 
 export enum ENotificationSettingsOptions {
     UPDATE_CHANNEL = 'updatechannel'
 }
 
 export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> {
-    
+
 
     public constructor() {
         super(ESettingsID.NOTIFICATIONS,
@@ -45,7 +46,12 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
             .catch((reason) => `**Notification Channel**\n${channel}\n\n⚠️ ${reason}`) :
             `**Notification Channel**\n*None*`;
     }
-    public async onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, option: string): Promise<unknown> {
+    public async onInteract(
+        dbGuild: DBGuild,
+        interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
+        widget: Widget | undefined,
+        option: string
+    ): Promise<unknown> {
         if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
         switch (option) {
             case ENotificationSettingsOptions.UPDATE_CHANNEL:
@@ -67,7 +73,11 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
                                     .setThumbnail(WARTIMER_ICON_LINK)
                                     .setDescription('This channel will now receive bot update notifications!')]
                             });
-                            await dbGuild.save();
+                            await dbGuild.save().then(() => {
+                                if (!widget?.textState) {
+                                    widget?.update({ force: true });
+                                }
+                            });
                             return await this.send(interaction, dbGuild, { update: true });
                         }
                     });

@@ -1,12 +1,13 @@
 import {
     ActionRowBuilder, RepliableInteraction, InteractionResponse, EmbedBuilder,
-    Guild, Message, MessageComponentInteraction, ButtonStyle, Interaction, StringSelectMenuBuilder, ButtonBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ModalSubmitInteraction, ButtonInteraction, RoleSelectMenuInteraction, ChannelSelectMenuInteraction, StringSelectMenuInteraction, ComponentBuilder, InteractionReplyOptions, AnySelectMenuInteraction
+    Guild, Message, MessageComponentInteraction, ButtonStyle, Interaction, StringSelectMenuBuilder, ButtonBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, ModalSubmitInteraction, ButtonInteraction, RoleSelectMenuInteraction, ChannelSelectMenuInteraction, StringSelectMenuInteraction, ComponentBuilder, InteractionReplyOptions, AnySelectMenuInteraction, MessageResolvable
 } from 'discord.js';
 import { GuildData } from '../../db/guild.schema';
 import { EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../constant';
 import { EInteractionType } from '../types/interactionType';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
+import { Widget } from '../widget';
 
 export enum ESettingsID {
     PERMISSIONS = 'permissions',
@@ -16,10 +17,15 @@ export enum ESettingsID {
     NOTIFICATIONS = 'notifications',
     TIMINGS = 'timings'
 }
+const openSettingsUserMap: {
+    userId: string;
+    deleteCallback: () => Promise<void>
+}[] = [];
 
 export abstract class BaseSetting<
     MenuOptions extends ButtonBuilder | StringSelectMenuBuilder | ChannelSelectMenuBuilder | RoleSelectMenuBuilder =
     ButtonBuilder | RoleSelectMenuBuilder | StringSelectMenuBuilder | ChannelSelectMenuBuilder> {
+
     protected constructor(
         public id: string,
         public title: string,
@@ -66,6 +72,16 @@ export abstract class BaseSetting<
             embeds: embeds,
             components: rows
         };
+        if (!options?.update) {
+            const currentlyOpenedSettingIndex = openSettingsUserMap.findIndex((openSetting) => openSetting.userId === interaction.user.id);
+            if (currentlyOpenedSettingIndex !== -1) {
+                await openSettingsUserMap.splice(currentlyOpenedSettingIndex, 1)[0].deleteCallback();
+            }
+            openSettingsUserMap.push({
+                userId: interaction.user.id,
+                deleteCallback: () => interaction.deleteReply().catch(() => { })
+            });
+        }
 
         return options?.update ?
             interaction.deferUpdate()
@@ -77,5 +93,5 @@ export abstract class BaseSetting<
     }
     public abstract getSettingsRows(dbGuild: DBGuild): Promise<ActionRowBuilder<MenuOptions>[]>;
     public abstract getCurrentSettings(dbGuild: DBGuild, guild?: Guild): Promise<string>;
-    public abstract onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, option: string): Promise<unknown>;
+    public abstract onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, widget: Widget | undefined, option: string): Promise<unknown>;
 }

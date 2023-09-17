@@ -3,6 +3,7 @@ import { ESettingsID, BaseSetting } from './base.setting';
 import audioManager, { Voices } from '../../util/audioManager';
 import { DBGuild } from '../types/dbGuild';
 import logger from '../../../lib/logger';
+import { Widget } from '../widget';
 
 export enum EVoiceSettingsOptions {
     VOICE = 'voice'
@@ -36,7 +37,12 @@ export class VoiceSettings extends BaseSetting<StringSelectMenuBuilder> {
     public async getCurrentSettings(guild: DBGuild) {
         return '';
     }
-    public async onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, option: string): Promise<unknown> {
+    public async onInteract(
+        dbGuild: DBGuild,
+        interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
+        widget: Widget | undefined,
+        option: string
+    ): Promise<unknown> {
         if (!interaction.isStringSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
 
         dbGuild.voice = interaction.values[0] as Voices;

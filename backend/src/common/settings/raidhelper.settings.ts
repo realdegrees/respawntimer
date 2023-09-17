@@ -9,6 +9,7 @@ import { checkChannelPermissions } from '../../util/checkChannelPermissions';
 import { DBGuild } from '../types/dbGuild';
 import Database from '../../db/database';
 import logger from '../../../lib/logger';
+import { Widget } from '../widget';
 
 export enum ERaidhelperSettingsOptions {
     API_KEY = 'apikey',
@@ -141,7 +142,12 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
         modal.addComponents(apiKeyRow);
         return interaction.showModal(modal);
     }
-    public async onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, option: string): Promise<unknown> {
+    public async onInteract(
+        dbGuild: DBGuild,
+        interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
+        widget: Widget | undefined,
+        option: string
+    ): Promise<unknown> {
         if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
         switch (option) {
             case ERaidhelperSettingsOptions.API_KEY:
@@ -165,6 +171,11 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                             }
                         })
                         .then(() => dbGuild.save())
+                        .then(() => {
+                            if (!widget?.textState) {
+                                widget?.update({ force: true });
+                            }
+                        })
                         .then(() => this.send(interaction, dbGuild, { update: true }));
                 } else {
                     return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');

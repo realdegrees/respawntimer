@@ -111,7 +111,7 @@ class AudioManager {
             const minutesSubscribed = new Date(date.getTime() - subscriber.timeStamp).getTime() / 1000 / 60;
 
             if ((minutes === 59 || minutes === 29) && seconds === 59 && minutesSubscribed >= 15) {
-                Database.getGuild(subscriber.guild).then((dbGuild) => 
+                Database.getGuild(subscriber.guild).then((dbGuild) =>
                     this.disconnect(subscriber.guild, dbGuild)
                 ).catch(logger.error);
             }
@@ -205,7 +205,11 @@ class AudioManager {
         });
     }
     public disconnect(guild: Guild, dbGuild: DBGuild): void {
-        Widget.get(guild, dbGuild.widget.messageId, dbGuild.widget.channelId).then((widget) => {
+        Widget.get({
+            guild,
+            messageId: dbGuild.widget.messageId,
+            channelId: dbGuild.widget.channelId
+        }).then((widget) => {
             widget?.onAudioUnsubscribe();
         }).finally(() => {
             this.subscribers.splice(this.subscribers.findIndex((s) => s.guild.id === guild.id), 1);
@@ -222,8 +226,12 @@ class AudioManager {
         return this.getConnection(channel)
             .then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
                 Database.getGuild(channel.guild)
-                    .then((dbGuild) => Widget.get(channel.guild, dbGuild.widget.messageId, dbGuild.widget.channelId))
-                    .then((widget) => widget?.toggleVoice({dbGuild}))
+                    .then((dbGuild) => Widget.get({
+                        guild: channel.guild,
+                        messageId: dbGuild.widget.messageId,
+                        channelId: dbGuild.widget.channelId
+                    }))
+                    .then((widget) => widget?.toggleVoice({ dbGuild }))
                     .catch(() => { });
             }))
             .then((connection) =>

@@ -15,4 +15,13 @@ export class WidgetHandler {
             }
         });
     }
+    public static removeWidgetFromMemory(id: string): void {
+        const widgetIndex = WidgetHandler.WIDGETS.findIndex((widget) => widget.getId() === id);
+        if (widgetIndex !== -1) {
+            if (!WidgetHandler.WIDGETS[widgetIndex].isResetting) {
+                const [widget] = WidgetHandler.WIDGETS.splice(widgetIndex, 1);
+                textManager.unsubscribe(widget.getId(), true);
+            }
+        }
+    }
 }

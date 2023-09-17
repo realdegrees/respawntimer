@@ -38,7 +38,7 @@ export class InteractionHandler {
                 return;
             }
             this.onInteraction(interaction, interactionType, interactionId, interactionOption, interactionArgs)
-                .catch((e) => interaction.reply({ ephemeral: true, content: e?.toString() }))
+                .catch((e) => interaction.reply({ ephemeral: true, content: e?.toString() ?? 'Unknown Error' }))
                 .catch(logger.error);
         });
     }
@@ -64,13 +64,17 @@ export class InteractionHandler {
         if (!interaction.guild) {
             return Promise.reject('Unable to complete request! Cannot retrieve server data');
         }
-        return Database.getGuild(interaction.guild).then((dbGuild) => {
+        return Database.getGuild(interaction.guild).then(async (dbGuild) => {
             if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
-
+            const widget = await Widget.get({
+                guild: interaction.guild,
+                messageId: dbGuild.widget.messageId,
+                channelId: dbGuild.widget.channelId
+            }) ?? await Widget.get({ message: interaction.message ?? undefined });
             if (type === EInteractionType.WIDGET && interaction.isButton()) {
-                return this.handleWidgetButtons(interaction, dbGuild, id);
+                return this.handleWidgetButtons(interaction, widget, dbGuild, id);
             } else if (type === EInteractionType.SETTING) {
-                return this.handleSettingsInteractions(interaction, dbGuild, id, option);
+                return this.handleSettingsInteractions(interaction, widget, dbGuild, id, option);
             }
         });
     }
@@ -82,9 +86,9 @@ export class InteractionHandler {
         ChannelSelectMenuInteraction<CacheType> |
         ButtonInteraction<CacheType> |
         ModalSubmitInteraction<CacheType>,
-        dbGuild: DBGuild, id: string, option: string): Promise<unknown> {
-
-
+        widget: Widget | undefined,
+        dbGuild: DBGuild, id: string, option: string
+    ): Promise<unknown> {
         let setting: BaseSetting | undefined;
         for (const row of SETTINGS_LIST) {
             for (const item of row) {
@@ -99,10 +103,14 @@ export class InteractionHandler {
             // No args = subsetting button was pressed -> open a subsetting menu
             return setting.send(interaction, dbGuild);
         }
-        return setting.onInteract(dbGuild, interaction, option);
+        return setting.onInteract(dbGuild, interaction, widget, option);
     }
-    private async handleWidgetButtons(interaction: ButtonInteraction, dbGuild: DBGuild, id: string,): Promise<unknown> {
-        const widget = await Widget.get(interaction.message);
+    private async handleWidgetButtons(
+        interaction: ButtonInteraction,
+        widget: Widget | undefined,
+        dbGuild: DBGuild,
+        id: string
+    ): Promise<unknown> {
         if (!widget) return Promise.reject('Unable to find widget for this interaction. This should not happen.');
         switch (id) {
             case widgetButtonIds.text:
