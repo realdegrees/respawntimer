@@ -4,11 +4,12 @@ import { ActivityType, Client, GatewayIntentBits, Message, PresenceUpdateStatus,
 import logger from '../lib/logger';
 import { Create } from './commands/create';
 import { Settings } from './commands/settings';
-import { Command } from './common/command';
+import { Command } from './commands/command';
 import { InteractionHandler } from './interactionHandler';
 import { NotificationHandler } from './notificationHandler';
 import { WidgetHandler } from './widgetHandler';
 import { Invite } from './commands/invite';
+import Database from './db/database';
 
 
 /**
@@ -31,8 +32,10 @@ class Bot {
         this.widgetHandler = new WidgetHandler(client);
         this.client.user?.setActivity({ name: 'New World', type: ActivityType.Playing });
         this.client.on('interactionCreate', (interaction) => {
-            if (!interaction.isCommand()) return;
-            commands.find((command) => command.name === interaction.commandName)?.execute(interaction).catch(logger.error);
+            if (!interaction.isCommand() || !interaction.guild) return;
+            Database.getGuild(interaction.guild).then((dbGuild) => {
+                return commands.find((command) => command.name === interaction.commandName)?.execute(interaction, dbGuild);
+            }).catch(logger.error)
         });
     }
 

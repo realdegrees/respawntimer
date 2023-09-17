@@ -19,7 +19,7 @@ export class PermissionSettings extends BaseSetting<RoleSelectMenuBuilder> {
             'Permission Settings',
             `*Assistants* can control the bot via the widget but are not allowed to edit the bot's settings  
             *Editors* can create new widgets and adjust the bot's settings. They can also control the bot via the widget.`,
-            'If neither Editor nor Assistant roles have been set anyone can control the bot via the widget and settings can only be changed by administrators.'
+            'If Assistant roles are not set everyone can control the bot via the widget.\nSettings are always only accessible by admins and editors.'
         );
     }
     public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
@@ -64,21 +64,27 @@ export class PermissionSettings extends BaseSetting<RoleSelectMenuBuilder> {
         widget: Widget | undefined,
         option: string
     ): Promise<unknown> {
+        if (!interaction.isRoleSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+        if (!interaction.guild) return Promise.reject('Unable to retrieve server data, please try again in a few minutes');
+        const roleIds = interaction.roles.map((role) => role.id);
         switch (option) {
             case EPermissionSettingsOptions.EDITOR:
-                if (!interaction.isRoleSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                if (!interaction.guild) return Promise.reject('Unable to retrieve server data, please try again in a few minutes');
-                const roleIds = interaction.roles.map((role) => role.id);
                 return InteractionHandler.checkPermission(interaction.guild, interaction.user, roleIds)
                     .then((perm) => perm ?
                         dbGuild.editorRoleIDs = roleIds :
-                        Promise.reject('Unable to complete request. This action would remove your own editor permissions!'))
+                        Promise.reject('Unable to complete request. This action would remove your editor permissions!'))
                     .then(() => dbGuild.save())
-                    .then(() => this.send(interaction, dbGuild, { update: true }));
+                    .then(() => this.send(interaction, dbGuild, { update: true }))
+
             case EPermissionSettingsOptions.ASSISTANT:
-                if (!interaction.isRoleSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                dbGuild.assistantRoleIDs = interaction.roles.map((role) => role.id);
-                return dbGuild.save().then(() => this.send(interaction, dbGuild, { update: true }));
+                dbGuild.assistantRoleIDs = roleIds;
+                return dbGuild.save()
+                    .then(() => this.send(interaction, dbGuild, { update: true }))
+                    .then(() => {
+                        if (!widget?.textState) {
+                            widget?.update({ force: true });
+                        }
+                    });
         }
 
     }
