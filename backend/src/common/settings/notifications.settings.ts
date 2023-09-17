@@ -25,7 +25,7 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
             ButtonStyle.Secondary
         );
     }
-    public getSettingsRows() {
+    public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const channel = new ChannelSelectMenuBuilder()
             .setCustomId(this.getCustomId(this.id, [ENotificationSettingsOptions.UPDATE_CHANNEL]))
             .setChannelTypes(ChannelType.GuildText)

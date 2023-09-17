@@ -71,6 +71,7 @@ export class Widget {
         private showButtons: boolean,
         onReady: (widget: Widget) => void
     ) {
+        WidgetHandler.WIDGETS.push(this);
         this.init(onReady).catch(logger.error);
     }
     public static async get(options: {
@@ -86,41 +87,36 @@ export class Widget {
                 options.channelId ?
                     res(options.guild?.channels.fetch(options.channelId)
                         .then((channel) => {
-                            return options.messageId && channel?.isTextBased() ?
+                            return options.messageId && channel?.isTextBased?.() ?
                                 channel.messages.fetch(options.messageId).catch(() => undefined) :
                                 undefined;
                         })) :
                     res(undefined);
             }
         }).then(async (message) => {
-            if (!message) return Promise.resolve(undefined);
+            if (!message || message.flags.has('Ephemeral')) return Promise.resolve(undefined);
             if (!message.guild) return Promise.reject('Unable to find to find required data on the Discord API response. Try again later.');
             const dbGuild = await Database.getGuild(message.guild);
-
             // if the clicked message doesn't equal the message stored in the db we try to find the message corresponding to the stored data and delete it
-            if (dbGuild.widget.channelId &&
-                dbGuild.widget.messageId &&
-                (message.channel.id !== dbGuild.widget.channelId ||
-                    message.id !== dbGuild.widget.messageId)) {
+            if (dbGuild.widget.channelId && dbGuild.widget.messageId && (message.channel.id !== dbGuild.widget.channelId || message.id !== dbGuild.widget.messageId)) {
                 // delete old message
                 await message.guild.channels.fetch(dbGuild.widget.channelId)
                     .then((channel) => {
-                        if (channel?.isTextBased()) {
+                        if (channel?.isTextBased?.()) {
                             return channel.messages.fetch().then((messages) => messages.find((message_1) => message_1.id === dbGuild.widget.messageId)).then((m) => m?.delete());
                         }
                     }).catch(logger.error);
             }
-            dbGuild.widget.channelId = message.channel.id;
-            dbGuild.widget.messageId = message.id;
+            dbGuild.widget = {
+                channelId: message.channel.id,
+                messageId: message.id
+            }
             await dbGuild.save();
             const widget = WidgetHandler.WIDGETS.find((widget) => widget.getId() === message!.id);
             if (!widget) {
                 return new Promise((res) => {
                     if (!message.guild) return Promise.reject('Unable to find to find required data on the Discord API response. Try again later.');
-                    new Widget(message, message.guild, !dbGuild.hideWidgetButtons, (widget) => {
-                        WidgetHandler.WIDGETS.push(widget);
-                        return res(widget);
-                    });
+                    new Widget(message, message.guild, !dbGuild.hideWidgetButtons, (widget) => res(widget));
                 });
             } else {
                 return Promise.resolve(widget);
@@ -128,9 +124,11 @@ export class Widget {
 
         });
     }
-    public setButtonsDisplay(state: boolean): Promise<unknown> {
+    public async setButtonsDisplay(state: boolean): Promise<unknown> {
         this.showButtons = state;
-        return this.update({ force: true });
+        if (!this.textState) {
+            return this.update({ force: true });
+        } else return;
     }
 
     public static async create(
@@ -141,14 +139,14 @@ export class Widget {
         // checks if guild exists in db, creates document if not
         const dbGuild = await Database.getGuild(guild);
 
-        if (dbGuild.widget.channelId && dbGuild.widget.messageId) {
+        if (dbGuild.widget) {
             await Widget.get({
                 guild,
                 messageId: dbGuild.widget.messageId,
                 channelId: dbGuild.widget.channelId
-            }).then((widget) => {
+            }).then((widget) =>
                 widget?.message.delete()
-            }).catch(logger.error);
+            ).catch(logger.error);
         }
 
         return guild.members.fetch(interaction.user)
@@ -162,21 +160,22 @@ export class Widget {
                     return Promise.reject('You must have editor permissions to use this command! Ask an administrator or editor to adjust the bot `/settings`');
                 }
             })
-            .then(() => interaction.deferReply({ ephemeral: true }))
             .then(async () =>
                 channel.send({
                     embeds: [await Widget.getEmbed(guild)]
                 }).then((message) => {
-                    dbGuild.widget.channelId = message.channel.id;
-                    dbGuild.widget.messageId = message.id;
-                    dbGuild.save().then(() => {
+                    dbGuild.widget = {
+                        channelId: message.channel.id,
+                        messageId: message.id
+                    }
+                    return dbGuild.save().then(() => new Promise((res) => {
                         new Widget(
                             message,
                             guild,
                             !dbGuild.hideWidgetButtons,
-                            (widget) => WidgetHandler.WIDGETS.push(widget));
-                    });
-                }).finally(() => interaction.editReply({ content: 'Widget created.' })))
+                            res);
+                    }));
+                }))
             .catch((e) =>
                 interaction.editReply({
                     content: (e as Error).message
@@ -309,10 +308,12 @@ export class Widget {
                         `Resetting.. (${resetDurationSeconds}s)
                         This only affects the widget.\nAudio announcements still work.`)]
             }).then(async (message) => {
-                await Database.getGuild(message.guild).then((guild) => {
-                    guild.widget.channelId = message.channel.id;
-                    guild.widget.messageId = message.id;
-                    return guild.save();
+                await Database.getGuild(message.guild).then((dbGuild) => {
+                    dbGuild.widget = {
+                        channelId: message.channel.id,
+                        messageId: message.id
+                    }
+                    return dbGuild.save();
                 }).catch(logger.error);
 
                 textManager.updateSubscription(this.message.id, message.id);
@@ -358,7 +359,7 @@ export class Widget {
     }): Promise<unknown> {
         if (options.interaction) {
             if (this.voiceState) {
-                audioManager.disconnect(this.guild, options.dbGuild);
+                return audioManager.disconnect(this.guild, options.dbGuild);
             } else {
                 const channel = (await options.interaction.guild?.members.fetch(options.interaction.user).catch(() => undefined))?.voice.channel ?? undefined;
                 if (!channel) {
@@ -385,7 +386,7 @@ export class Widget {
                 }
             });
         } else {
-            audioManager.disconnect(this.guild, options.dbGuild);
+            return audioManager.disconnect(this.guild, options.dbGuild);
         }
     }
 }

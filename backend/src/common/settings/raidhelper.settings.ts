@@ -28,21 +28,21 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
             'Wartimer will connect to the voice channel specified in the Raidhelper event.\nIf no event is set it will use the default voice channel set below.');
     }
 
-    public getSettingsRows() {
+    public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const apiKeyButton = new ButtonBuilder({
             custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.API_KEY]),
             label: 'Set API Key',
-            style: ButtonStyle.Primary
+            style: dbGuild.raidHelper.apiKeyValid ? ButtonStyle.Secondary : ButtonStyle.Primary
         });
         const autoJoinToggleButton = new ButtonBuilder({
             custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.TOGGLE_AUTO_VOICE]),
-            label: 'Toggle Auto-Join',
-            style: ButtonStyle.Success
+            label: `${dbGuild.raidHelper.enabled ? 'Disable' : 'Enable'} Auto-Join`,
+            style: dbGuild.raidHelper.enabled ? ButtonStyle.Danger : ButtonStyle.Success
         });
         const autoWidgetToggleButton = new ButtonBuilder({
             custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.TOGGLE_AUTO_WIDGET]),
-            label: 'Toggle Auto-Widget',
-            style: ButtonStyle.Success
+            label: `${dbGuild.raidHelper.widget ? 'Disable' : 'Enable'} Auto-Widget`,
+            style: dbGuild.raidHelper.widget ? ButtonStyle.Danger : ButtonStyle.Success
         });
         const defaultVoiceChannel = new ChannelSelectMenuBuilder()
             .setCustomId(this.getCustomId(this.id, [ERaidhelperSettingsOptions.DEFAULT_CHANNEL]))
@@ -57,17 +57,22 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
             .setMaxValues(1)
             .setPlaceholder('Select an event channel');
 
-        const apiKeyRow = new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(apiKeyButton)
+        const autoRow = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(autoJoinToggleButton)
             .addComponents(autoWidgetToggleButton);
+        const apiKeyRow = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(apiKeyButton);
         const defaultVoiceChannelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>()
             .addComponents(defaultVoiceChannel);
         const raidhelperEventChannelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>()
             .addComponents(raidhelperEventChannel);
 
-
-        return Promise.resolve([raidhelperEventChannelRow, defaultVoiceChannelRow, apiKeyRow]);
+        return Promise.resolve([
+            raidhelperEventChannelRow,
+            defaultVoiceChannelRow,
+            autoRow,
+            apiKeyRow
+        ]);
     }
     public async getCurrentSettings(guildData: DBGuild, guild: Guild) {
         const apiKey = guildData.raidHelper.apiKey;
@@ -100,7 +105,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                 ' » *Invalid Key* ⚠️' :
             '';
         const apiKeyText = apiKey ?
-                '||```fix\n' + apiKey + '```||' :
+            '||```fix\n' + apiKey + '```||' :
             `Use \`/apikey show\` to retrieve your Raidhelper API Key  
                 Or \`/apikey refresh\` if you don't have an API Key\n\`\`\`diff\n- Not Set\`\`\``;
 

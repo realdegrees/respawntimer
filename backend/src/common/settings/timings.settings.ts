@@ -1,5 +1,5 @@
 import {
-    ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, Guild, Interaction, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, TextInputBuilder, TextInputStyle
+    ActionRowBuilder, AnySelectMenuInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, Guild, Interaction, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, TextInputBuilder, TextInputStyle
 } from 'discord.js';
 import { ESettingsID, BaseSetting } from './base.setting';
 import { DBGuild } from '../types/dbGuild';
@@ -36,7 +36,7 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
             `Wartimer uses a field-tested set of respawn timers.\nIf you feel like some are off and want to customize them you can do so below.`,
             'Use the reset button to go back the default timers');
     }
-    public getSettingsRows(dbGuild: DBGuild) {
+    public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const customTimingsButton = new ButtonBuilder({
             custom_id: this.getCustomId(this.id, [ETimingsSettingsOptions.TIMINGS]),
             label: 'Set Custom Timers',
@@ -155,7 +155,7 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
         const list = Array.isArray(text) ? text : text.split(',');
         const invalid = list.find((val) => !/^[0-2]?\d:[0-5]\d$/.test(val.trim()));
         const reason = !invalid ? '' : `Invalid Entry: **${invalid}**\n\`\`\`fix\n${list
-            .map((item) => `${item === invalid ? `⚠️${item}` : item}`)
+            .map((item) => `${item === invalid ? `⚠️${item}⚠️` : item}`)
             .map((item) => item.trim())
             .join(', ')}\`\`\``;
         return [!invalid, reason];
