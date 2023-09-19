@@ -124,7 +124,6 @@ export class Widget {
                     !member.permissions.has('Administrator') &&
                     !member.roles.cache.some((role) => dbGuild.editorRoleIDs.includes(role.id))
                 ) {
-                    // eslint-disable-next-line max-len
                     return Promise.reject('You must have editor permissions to use this command! Ask an administrator or editor to adjust the bot `/settings`');
                 }
             })
@@ -139,24 +138,22 @@ export class Widget {
                     ).catch(logger.error);
                 }
             })
-            .then(async () =>
-                channel.send({
-                    embeds: [await Widget.getEmbed(guild)]
-                }).then(async (message) => {
-                    dbGuild.widget = {
-                        channelId: message.channel.id,
-                        messageId: message.id
-                    }
-                    await dbGuild.save();
+            .then(async () => channel.send({ embeds: [await Widget.getEmbed(guild)] }))
+            .then(async (message) => {
+                dbGuild.widget = {
+                    channelId: message.channel.id,
+                    messageId: message.id
+                }
+                await dbGuild.save();
 
-                    return new Promise((res) => {
-                        new Widget(
-                            message,
-                            guild,
-                            !dbGuild.hideWidgetButtons,
-                            res);
-                    });
-                }))
+                return new Promise((res) => {
+                    new Widget(
+                        message,
+                        guild,
+                        !dbGuild.hideWidgetButtons,
+                        res);
+                });
+            })
             .catch((e) =>
                 interaction.editReply({
                     content: (e as Error).message
@@ -412,7 +409,8 @@ export class Widget {
             return this.update({ force: true });
         }
     }
-    // ---------------------- Utility
+    //endregion
+    //region - Utility
     private getCustomId(buttonId: string): string {
         return [WARTIMER_INTERACTION_ID, EInteractionType.WIDGET, buttonId].join(WARTIMER_INTERACTION_SPLIT);
     }
@@ -459,15 +457,17 @@ export class Widget {
                 }
                 await dbGuild.save();
 
-                textManager.subscribe({
-                    guildId: message.guild.id,
-                    msgId: message.id,
-                    customTimings: dbGuild.customTimings
-                },
-                    this.update.bind(this),
-                    () => { },
-                    this.onTextUnsubscribe.bind(this)
-                );
+                if (this.textState) {
+                    textManager.subscribe({
+                        guildId: message.guild.id,
+                        msgId: message.id,
+                        customTimings: dbGuild.customTimings
+                    },
+                        this.update.bind(this),
+                        () => { },
+                        this.onTextUnsubscribe.bind(this)
+                    );
+                }
 
                 this.message = message;
                 this.startListening();
