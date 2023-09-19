@@ -46,6 +46,7 @@ export class VoiceSettings extends BaseSetting<StringSelectMenuBuilder> {
     ): Promise<SettingsPostInteractAction[]> {
         if (!interaction.isStringSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
         dbGuild.voice = interaction.values[0] as Voices || 'female';
+        audioManager.setVoice(dbGuild.id, dbGuild.voice);
         return ['saveGuild', 'update', 'updateWidget'];
     }
 }

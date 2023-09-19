@@ -1,7 +1,7 @@
 import { ActionRowBuilder, AnySelectMenuInteraction, BaseSelectMenuBuilder, ButtonInteraction, ButtonStyle, CacheType, ChannelSelectMenuBuilder, ChannelSelectMenuInteraction, ChannelType, Colors, EmbedBuilder, Guild, Interaction, MessageComponentInteraction, ModalSubmitInteraction, StringSelectMenuBuilder } from 'discord.js';
 import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, BaseSetting } from './base.setting';
-import { checkChannelPermissions } from '../../util/checkChannelPermissions';
+import { checkChannelPermissions } from '../../util/permissions';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
 import logger from '../../../lib/logger';
@@ -62,9 +62,10 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
                 if (!interaction.values?.[0] && dbGuild.notificationChannelId) {
                     await NotificationHandler.sendNotification(
                         interaction.guild,
+                        dbGuild,
                         'Notifications',
                         'This channel will not receive any more notifications and dev updates!',
-                        Colors.Red
+                        { color: Colors.Red }
                     );
                     dbGuild.notificationChannelId = undefined;
                     return ['saveGuild', 'update', 'updateWidget'];
@@ -76,7 +77,7 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
                         await checkChannelPermissions(channel, ['ViewChannel', 'SendMessages']);
                         logger.info('[' + channel.guild.name + '] Enabled Notifications');
                         dbGuild.notificationChannelId = interaction.values[0];
-                        await NotificationHandler.sendNotification(channel.guild, 'Notifications', 'This channel will now receive notifications and dev updates!', Colors.DarkGold)
+                        await NotificationHandler.sendNotification(channel.guild, dbGuild, 'Notifications', 'This channel will now receive notifications and dev updates!', { color: Colors.DarkGold })
                         return ['saveGuild', 'update', 'updateWidget'];
                     }
                 }

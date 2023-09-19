@@ -4,7 +4,6 @@ import { DBGuild } from '../types/dbGuild';
 import Database from '../../db/database';
 import logger from '../../../lib/logger';
 import { Widget } from '../widget';
-import { WidgetHandler } from '../../handlers/widgetHandler';
 import { NotificationHandler, UPDATE_SOURCE_SERVER_ID } from '../../handlers/notificationHandler';
 import { debug } from '../constant';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
@@ -79,7 +78,7 @@ export class MiscSettings extends BaseSetting<ButtonBuilder> {
                 break;
             case EMiscSettingsOptions.CLEAR_CONFIRM:
                 if (interaction.guild.id === UPDATE_SOURCE_SERVER_ID && !debug) return Promise.reject('Data cannot be deleted on this server.');
-                await NotificationHandler.sendNotification(interaction.guild, 'Data Deletion', `${interaction.user} just deleted all data for this server.\nIf this was not intentional you will have to redo your settings!`)
+                await NotificationHandler.sendNotification(interaction.guild, dbGuild, 'Data Deletion', `${interaction.user} just deleted all data for this server.\nIf this was not intentional you will have to redo your settings!`)
                 return ['update', 'deleteGuild'];
                 break;
             case EMiscSettingsOptions.TOGGLE_WIDGET_BUTTONS:

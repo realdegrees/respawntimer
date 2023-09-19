@@ -2,7 +2,8 @@
 import {
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonInteraction, ButtonStyle, CacheType, CommandInteraction, DiscordAPIError, Embed, EmbedBuilder, Guild,
+    ButtonInteraction, ButtonStyle, CacheType, Client, CommandInteraction, ComponentType, DiscordAPIError, Embed, EmbedBuilder, Guild,
+    InteractionCollector,
     Message, PartialMessage, TextBasedChannel, TextChannel, VoiceBasedChannel
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
@@ -12,50 +13,58 @@ import textManager from '../util/textManager';
 import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './constant';
 import { EInteractionType } from './types/interactionType';
 import { DBGuild } from './types/dbGuild';
-import { WidgetHandler } from '../handlers/widgetHandler';
 import Database from '../db/database';
+import { SettingsHandler } from '../handlers/settingsHandler';
+import { ECollectorStopReason } from './types/collectorStopReason';
+import { userHasRole } from '../util/permissions';
 
-export const widgetButtonIds = {
-    text: 'text',
-    voice: 'voice',
-    settings: 'settings',
-    info: 'info'
-};
+export enum EWidgetButtonID {
+    TEXT = 'text',
+    VOICE = 'voice',
+    SETTINGS = 'settings',
+    INFO = 'info'
+}
 const resetDurationSeconds = 3;
 const DEFAULT_TITLE = 'Respawn Timer';
 
 export class Widget {
+    private static LIST: Widget[] = []; // in-memory widgets
+
     private _textState = false;
+    private _voiceState = false;
+    private _isResetting = false;
+    private _rateLimitExceeded = false;
+
+    //region - getters
     public get textState(): boolean {
         return this._textState;
     }
-    private set textState(value) {
-        this._textState = value;
-    }
-
-    private _voiceState = false;
     public get voiceState(): boolean {
         return this._voiceState;
+    }
+    public get isResetting(): boolean {
+        return this._isResetting;
+    }
+    public get rateLimitExceeded(): boolean {
+        return this._rateLimitExceeded;
+    }
+    //endregion
+    //region - setters
+    private set textState(value) {
+        this._textState = value;
     }
     private set voiceState(value) {
         this._voiceState = value;
     }
-
-    private _isResetting = false;
-    public get isResetting(): boolean {
-        return this._isResetting;
-    }
     private set isResetting(value) {
         this._isResetting = value;
-    }
-
-    private _rateLimitExceeded = false;
-    public get rateLimitExceeded(): boolean {
-        return this._rateLimitExceeded;
     }
     private set rateLimitExceeded(value) {
         this._rateLimitExceeded = value;
     }
+    //endregion
+
+    private listener: InteractionCollector<ButtonInteraction> | undefined;
 
     private isUpdating = 0;
 
@@ -71,67 +80,33 @@ export class Widget {
         private showButtons: boolean,
         onReady: (widget: Widget) => void
     ) {
-        WidgetHandler.WIDGETS.push(this);
+        Widget.LIST.push(this);
         this.init(onReady).catch(logger.error);
     }
-    public static async get(options: {
-        guild?: Guild;
-        message?: Message<boolean>;
-        messageId?: string;
-        channelId?: string;
-        dbGuild?: DBGuild;
-    }): Promise<Widget | undefined> {
-        return new Promise<Message<boolean> | PartialMessage | undefined>((res) => {
-            if (options.message) {
-                res(options.message);
-            } else {
-                options.channelId ?
-                    res(options.guild?.channels.fetch(options.channelId)
-                        .then((channel) => {
-                            return options.messageId && channel?.isTextBased?.() ?
-                                channel.messages.fetch(options.messageId).catch(() => undefined) :
-                                undefined;
-                        })) :
-                    res(undefined);
-            }
-        }).then(async (message) => {
-            if (!message || message.flags.has('Ephemeral')) return Promise.resolve(undefined);
-            if (!message.guild) return Promise.reject('Unable to find to find required data on the Discord API response. Try again later.');
-            const dbGuild = options.dbGuild ?? await Database.getGuild(message.guild);
-            // if the clicked message doesn't equal the message stored in the db we try to find the message corresponding to the stored data and delete it
-            if (dbGuild.widget.channelId && dbGuild.widget.messageId && (message.channel.id !== dbGuild.widget.channelId || message.id !== dbGuild.widget.messageId)) {
-                // delete old message
-                await message.guild.channels.fetch(dbGuild.widget.channelId)
-                    .then((channel) => {
-                        if (channel?.isTextBased?.()) {
-                            return channel.messages.fetch().then((messages) => messages.find((message_1) => message_1.id === dbGuild.widget.messageId)).then((m) => m?.delete());
-                        }
-                    }).catch(logger.error);
-            }
-            dbGuild.widget = {
-                channelId: message.channel.id,
-                messageId: message.id
-            }
-            await dbGuild.save();
-            const widget = WidgetHandler.WIDGETS.find((widget) => widget.getId() === message!.id);
-            if (!widget) {
-                return new Promise((res) => {
-                    if (!message.guild) return Promise.reject('Unable to find to find required data on the Discord API response. Try again later.');
-                    new Widget(message, message.guild, !dbGuild.hideWidgetButtons, (widget) => res(widget));
+
+    //region - Static Methods
+
+    public static async loadExisting(
+        client: Client
+    ): Promise<void> {
+        // Initialize existing widgets on startup
+        Database.queryGuilds({
+            'widget.messageId': { $exists: true }
+        }).then(async (dbGuilds) => {
+            const clientGuilds = await client.guilds.fetch();
+            for (const dbGuild of dbGuilds) {
+                const clientGuild = await clientGuilds.find((clientGuild) => clientGuild.id === dbGuild.id)?.fetch().catch(() => undefined);
+                const widget = await Widget.find({
+                    guild: clientGuild,
+                    channelId: dbGuild.widget.channelId,
+                    messageId: dbGuild.widget.messageId,
+                    dbGuild
                 });
-            } else {
-                return Promise.resolve(widget);
+                await widget?.update({ force: true });
+                widget?.startListening();
             }
-
-        });
+        }).catch(logger.error);
     }
-    public async setButtonsDisplay(state: boolean): Promise<unknown> {
-        this.showButtons = state;
-        if (!this.textState) {
-            return this.update({ force: true });
-        } else return;
-    }
-
     public static async create(
         interaction: CommandInteraction<CacheType>,
         guild: Guild,
@@ -141,7 +116,7 @@ export class Widget {
         const dbGuild = await Database.getGuild(guild);
 
         if (dbGuild.widget) {
-            await Widget.get({
+            await Widget.find({
                 guild,
                 messageId: dbGuild.widget.messageId,
                 channelId: dbGuild.widget.channelId
@@ -164,18 +139,20 @@ export class Widget {
             .then(async () =>
                 channel.send({
                     embeds: [await Widget.getEmbed(guild)]
-                }).then((message) => {
+                }).then(async (message) => {
                     dbGuild.widget = {
                         channelId: message.channel.id,
                         messageId: message.id
                     }
-                    return dbGuild.save().then(() => new Promise((res) => {
+                    await dbGuild.save();
+
+                    return new Promise((res) => {
                         new Widget(
                             message,
                             guild,
                             !dbGuild.hideWidgetButtons,
                             res);
-                    }));
+                    });
                 }))
             .catch((e) =>
                 interaction.editReply({
@@ -183,6 +160,91 @@ export class Widget {
                 }))
             .catch(logger.error);
     }
+    public static async find(options: {
+        guild?: Guild;
+        message?: Message<boolean>;
+        messageId?: string;
+        channelId?: string;
+        dbGuild?: DBGuild;
+    }): Promise<Widget | undefined> {
+        let widget: Widget | undefined;
+        // first check if widget can be found in memory
+        if (options.messageId || options.message) {
+            widget = Widget.LIST.find((widget) => widget.getId() === (options.message?.id ?? options.messageId))
+            if (widget) return widget;
+        }
+        // if it's not in memory try to find the original message and load it into memory as a widget instance
+        const message = await new Promise<Message<boolean> | PartialMessage | undefined>((res) => {
+            if (options.message) {
+                res(options.message);
+            } else {
+                options.channelId ?
+                    res(options.guild?.channels.fetch(options.channelId)
+                        .then((channel) => options.messageId && channel?.isTextBased?.() ?
+                            channel.messages.fetch(options.messageId) :
+                            undefined
+                        )) :
+                    res(undefined);
+            }
+        }).catch(() => undefined);
+
+        if (!message || message.flags.has('Ephemeral')) return Promise.resolve(undefined);
+        if (!message.guild) return Promise.reject('Unable to find to find required data on the Discord API response. Try again later.');
+        const dbGuild = options.dbGuild ?? await Database.getGuild(message.guild);
+        // if the clicked message doesn't equal the message stored in the db we try to find the message corresponding to the stored data and delete it
+        if (dbGuild.widget.channelId && dbGuild.widget.messageId && (message.channel.id !== dbGuild.widget.channelId || message.id !== dbGuild.widget.messageId)) {
+            // delete old message
+            await message.guild.channels.fetch(dbGuild.widget.channelId)
+                .then((channel) => {
+                    if (channel?.isTextBased?.()) {
+                        return channel.messages.fetch()
+                            .then((messages) => messages.find((message) => message.id === dbGuild.widget.messageId))
+                            .then((m) => m?.delete());
+                    }
+                }).catch(logger.error);
+        }
+        dbGuild.widget = {
+            channelId: message.channel.id,
+            messageId: message.id
+        }
+        await dbGuild.save();
+
+        return new Promise((res) => {
+            if (!message.guild) return Promise.reject('Unable to find to find required data on the Discord API response. Try again later.');
+            new Widget(message, message.guild, !dbGuild.hideWidgetButtons, (widget) => res(widget));
+        });
+    }
+    private static async getEmbed(guild: Guild, description?: string, title?: string): Promise<EmbedBuilder> {
+        const embed = new EmbedBuilder();
+        if (!description) {
+            await Database.getGuild(guild)
+                .then((dbGuild) => {
+                    embed.setAuthor({ name: title ?? DEFAULT_TITLE, iconURL: WARTIMER_ICON_LINK })
+                        .setFooter({
+                            text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKey ? 'Enabled' : 'Disabled'}` +
+                                `\nNotifications » ${dbGuild.notificationChannelId?.match(/^[0-9]+$/) ? 'Enabled' : 'Disabled'}` +
+                                `${dbGuild.assistantRoleIDs.length === 0 ? '\n\nMissing permission setup.\nEveryone can use the widget!' : ''}`
+                        });
+
+                    if (dbGuild.raidHelper.events.length > 0) {
+                        const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
+                            Math.abs(current.startTime * 1000 - Date.now()) < Math.abs(lowest.startTime * 1000 - Date.now()) ? current : lowest);
+                        return `On Standby for **${event.title}**\n*at* <t:${event.startTime}:t> *on* <t:${event.startTime}:d>`;
+                    } else {
+                        return '-'
+                    }
+                }).catch(() => '-').then((description) => embed.setDescription(description));
+        } else {
+            embed.setDescription(description);
+            if (title) {
+                embed.setAuthor({ name: title, iconURL: WARTIMER_ICON_LINK });
+            }
+        }
+        return embed;
+    }
+
+    //endregion
+    //region - Instance methods
     private async init(onReady: (widget: Widget) => void): Promise<void> {
         this.voiceState = this.message.guild ? audioManager.isConnected(this.message.guild.id) : false;
         return this.message.fetch().then((message) =>
@@ -190,47 +252,15 @@ export class Widget {
                 components: this.showButtons ? [this.getButtons()] : [],
                 embeds: [EmbedBuilder.from(this.message.embeds[0])]
             }).then((message) => {
+                this.startListening();
                 this.message = message;
                 onReady(this);
             }));
     }
-
-    private async onTextUnsubscribe(): Promise<unknown> {
-        this.textState = false;
-        return this.update({ force: true });
-    }
-    public async onAudioUnsubscribe(): Promise<unknown> {
-        this.voiceState = false;
-        if (!this.textState) {
-            return this.update({ force: true });
-        }
-    }
-    private getCustomId(buttonId: string): string {
-        return [WARTIMER_INTERACTION_ID, EInteractionType.WIDGET, buttonId].join(WARTIMER_INTERACTION_SPLIT);
-    }
-    private getButtons(disableToggle = false, disableVoice = false): ActionRowBuilder<ButtonBuilder> {
-        return new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(new ButtonBuilder()
-                .setCustomId(this.getCustomId(widgetButtonIds.text))
-                .setLabel(this.textState ? '■' : '▶')
-                .setStyle(this.textState ? ButtonStyle.Danger : ButtonStyle.Success)
-                .setDisabled(disableToggle))
-            .addComponents(new ButtonBuilder()
-                .setCustomId(this.getCustomId(widgetButtonIds.voice))
-                .setLabel(this.voiceState ? '🔇' : '🔊')
-                .setStyle(this.voiceState ? ButtonStyle.Danger : ButtonStyle.Success)
-                .setDisabled(disableVoice))
-            .addComponents(new ButtonBuilder()
-                .setCustomId(this.getCustomId(widgetButtonIds.settings))
-                .setLabel('⚙️')
-                .setStyle(ButtonStyle.Primary))
-            .addComponents(new ButtonBuilder()
-                .setCustomId(this.getCustomId(widgetButtonIds.info))
-                .setLabel('ℹ️')
-                .setStyle(ButtonStyle.Secondary));
-    }
-    public getId(): string {
-        return this.message.id;
+    public async delete(): Promise<void> {
+        return this.message.delete()
+            .then(() => { })
+            .catch(() => { });
     }
     public async update(options?: {
         title?: string;
@@ -268,40 +298,147 @@ export class Widget {
             }
         });
     }
-
-    private static async getEmbed(guild: Guild, description?: string, title?: string): Promise<EmbedBuilder> {
-        const embed = new EmbedBuilder();
-        if (!description) {
-            await Database.getGuild(guild)
-                .then((dbGuild) => {
-                    embed.setAuthor({ name: title ?? DEFAULT_TITLE, iconURL: WARTIMER_ICON_LINK })
-                        .setFooter({
-                            text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKeyValid ? 'Enabled' : 'Disabled'}` +
-                                `\nNotifications » ${dbGuild.notificationChannelId?.match(/^[0-9]+$/) ? 'Enabled' : 'Disabled'}` +
-                                `${dbGuild.assistantRoleIDs.length === 0 ? '\n\nMissing permission setup.\nEveryone can use the widget!' : ''}`
-                        });
-
-                    if (dbGuild.raidHelper.events.length > 0) {
-                        const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
-                            Math.abs(current.startTime * 1000 - Date.now()) < Math.abs(lowest.startTime * 1000 - Date.now()) ? current : lowest);
-                        return `On Standby for **${event.title}**\n*at* <t:${event.startTime}:t> *on* <t:${event.startTime}:d>`;
-                    } else {
-                        return '-'
-                    }
-                }).catch(() => '-').then((description) => embed.setDescription(description));
-        } else {
-            embed.setDescription(description);
-            if (title) {
-                embed.setAuthor({ name: title, iconURL: WARTIMER_ICON_LINK });
-            }
+    public startListening(): void {
+        if (this.listener) {
+            this.listener.stop(ECollectorStopReason.DISPOSE);
         }
-        return embed;
+        this.listener = this.message.createMessageComponentCollector({ componentType: ComponentType.Button })
+            .on('collect', async (interaction) => {
+                try {
+                    const [, , interactionId] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
+                    if (!interaction.guild) {
+                        await interaction.deferUpdate();
+                        return;
+                    }
+                    const dbGuild = await Database.getGuild(interaction.guild);
+                    const hasEditorPermission = await userHasRole(
+                        interaction.guild!,
+                        interaction.user,
+                        dbGuild.editorRoleIDs
+                    );
+                    const hasAssistantPermission = await userHasRole(
+                        interaction.guild!,
+                        interaction.user,
+                        dbGuild.assistantRoleIDs
+                    );
+                    switch (interactionId) {
+                        case EWidgetButtonID.TEXT:
+                            if (hasAssistantPermission || hasEditorPermission || dbGuild.assistantRoleIDs.length === 0) {
+                                await this.toggleText({
+                                    dbGuild
+                                });
+                            } else return Promise.reject('You do not have permission to use this.');
+                            break;
+                        case EWidgetButtonID.VOICE:
+                            if (hasAssistantPermission || hasEditorPermission || dbGuild.assistantRoleIDs.length === 0) {
+                                await this.toggleVoice({
+                                    dbGuild,
+                                    interaction: interaction as ButtonInteraction
+                                });
+                            } else return Promise.reject('You do not have permission to use this.');
+                            break;
+                        case EWidgetButtonID.SETTINGS:
+                            if (hasEditorPermission) {
+                                await SettingsHandler.openSettings(interaction as ButtonInteraction);
+                            } else return Promise.reject(dbGuild.editorRoleIDs.length === 0 ?
+                                'Editor permissions have not been set up yet!\nPlease ask someone with administrator permissions to add editor roles in the settings.' :
+                                'You do not have editor permissions.');
+                            break;
+                        case EWidgetButtonID.INFO:
+                            await interaction.reply({
+                                ephemeral: true,
+                                embeds: [
+                                    new EmbedBuilder()
+                                        .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
+                                        .setThumbnail('https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png')
+                                        .setTitle('Discord')
+                                        .setURL('https://discord.gg/AzHDPVrBfn')
+                                        .setDescription('Join the discord to get assistance, discuss the bot or suggest new features'),
+                                    new EmbedBuilder()
+                                        .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
+                                        .setThumbnail('https://cdn.pixabay.com/photo/2022/01/30/13/33/github-6980894_1280.png')
+                                        .setFooter({
+                                            text: 'If the bot is offline please contact dennisgrees on discord',
+                                            iconURL: EXCLAMATION_ICON_LINK
+                                        })
+                                        .setTitle('Github')
+                                        .setURL('https://github.com/realdegrees/wartimer')
+                                        // eslint-disable-next-line max-len
+                                        .setDescription('If you require assistance with the bot or have suggestions for improvements feel free to open an issue on the github repo linked above.')
+                                ]
+                            });
+                            break;
+                        default: return Promise.reject('Could not complete request');
+                    }
+                    await interaction.deferUpdate().catch(() => { });
+                } catch (e) {
+                    interaction.reply({ ephemeral: true, content: e?.toString?.() || 'Unknown Error' })
+                        .then(() => setTimeout(3000))
+                        .then(() => interaction.deleteReply())
+                        .catch(logger.error);
+                }
+            })
+            .on('end', (interactions, reason) => {
+                // Do nothing when manually stopped
+                if (reason === ECollectorStopReason.DISPOSE) return;
+                // Delete from memory when stopped because message was deleted
+                const widgetIndex = Widget.LIST.findIndex((widget) => widget.getId() === this.getId());
+                if (widgetIndex !== -1) {
+                    const [widget] = Widget.LIST.splice(widgetIndex, 1);
+                    textManager.unsubscribe(widget.getId(), true);
+                }
+            });
     }
-
+    public async setButtonsDisplay(state: boolean): Promise<unknown> {
+        this.showButtons = state;
+        if (!this.textState) {
+            return this.update({ force: true });
+        } else return;
+    }
+    //endregion
+    //region - Callbacks
+    private async onTextUnsubscribe(): Promise<unknown> {
+        this.textState = false;
+        return this.update({ force: true });
+    }
+    public async onAudioUnsubscribe(): Promise<unknown> {
+        this.voiceState = false;
+        if (!this.textState) {
+            return this.update({ force: true });
+        }
+    }
+    // ---------------------- Utility
+    private getCustomId(buttonId: string): string {
+        return [WARTIMER_INTERACTION_ID, EInteractionType.WIDGET, buttonId].join(WARTIMER_INTERACTION_SPLIT);
+    }
+    private getButtons(disableToggle = false, disableVoice = false): ActionRowBuilder<ButtonBuilder> {
+        return new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(new ButtonBuilder()
+                .setCustomId(this.getCustomId(EWidgetButtonID.TEXT))
+                .setLabel(this.textState ? '■' : '▶')
+                .setStyle(this.textState ? ButtonStyle.Danger : ButtonStyle.Success)
+                .setDisabled(disableToggle))
+            .addComponents(new ButtonBuilder()
+                .setCustomId(this.getCustomId(EWidgetButtonID.VOICE))
+                .setLabel(this.voiceState ? '🔇' : '🔊')
+                .setStyle(this.voiceState ? ButtonStyle.Danger : ButtonStyle.Success)
+                .setDisabled(disableVoice))
+            .addComponents(new ButtonBuilder()
+                .setCustomId(this.getCustomId(EWidgetButtonID.SETTINGS))
+                .setLabel('⚙️')
+                .setStyle(ButtonStyle.Primary))
+            .addComponents(new ButtonBuilder()
+                .setCustomId(this.getCustomId(EWidgetButtonID.INFO))
+                .setLabel('ℹ️')
+                .setStyle(ButtonStyle.Secondary));
+    }
+    public getId(): string {
+        return this.message.id;
+    }
     public async recreateMessage(manual = false): Promise<unknown> {
         this.isResetting = true;
-        return this.message.delete().finally(() => {
-            (this.message.channel as TextChannel).send({
+        return this.message.delete()
+            .finally(() => (this.message.channel as TextChannel).send({
                 components: [this.getButtons(true, true)],
                 embeds: [EmbedBuilder.from(this.message.embeds[0])
                     .setTitle(manual ? 'Reloading Widget' : 'Discord API Timeout')
@@ -310,27 +447,39 @@ export class Widget {
                         `Resetting.. (${resetDurationSeconds}s)
                         This only affects the widget.\nAudio announcements still work.`)]
             }).then(async (message) => {
-                await Database.getGuild(message.guild).then((dbGuild) => {
-                    dbGuild.widget = {
-                        channelId: message.channel.id,
-                        messageId: message.id
-                    }
-                    return dbGuild.save();
-                }).catch(logger.error);
+                const dbGuild = await Database.getGuild(message.guild);
+                dbGuild.widget = {
+                    channelId: message.channel.id,
+                    messageId: message.id
+                }
+                await dbGuild.save();
 
-                textManager.updateSubscription(this.message.id, message.id);
+                textManager.subscribe({
+                    guildId: message.guild.id,
+                    msgId: message.id,
+                    customTimings: dbGuild.customTimings
+                },
+                    this.update.bind(this),
+                    () => { },
+                    this.onTextUnsubscribe.bind(this)
+                );
+
                 this.message = message;
+                this.startListening();
 
                 return setTimeout(manual ? 0 : resetDurationSeconds * 1000)
                     .then(() => {
                         this.isUpdating = 0;
-                        this.update()
-                            .then(() => this.isResetting = false)
-                            .catch(logger.error);
-                    });
-            });
-        }).catch(logger.error);
+                        this.isResetting = false
+                        if (!this.textState) {
+                            return this.update({ force: true });
+                        }
+                    }).catch(logger.error);
+            })
+            ).catch(logger.error);
     }
+    //endregion
+    //region - External action
     public toggleText(options: {
         dbGuild: DBGuild;
         forceOn?: boolean;
@@ -391,4 +540,5 @@ export class Widget {
             return audioManager.disconnect(this.guild, options.dbGuild);
         }
     }
+    //endregion
 }

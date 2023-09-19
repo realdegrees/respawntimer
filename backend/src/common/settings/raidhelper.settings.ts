@@ -1,26 +1,27 @@
 import {
     ActionRowBuilder, AnySelectMenuInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle,
     CacheType,
-    ChannelSelectMenuBuilder, ChannelSelectMenuInteraction, ChannelType, Guild, Interaction, MessageComponentInteraction, ModalBuilder, ModalSubmitInteraction, RoleSelectMenuBuilder, TextInputBuilder, TextInputStyle, VoiceBasedChannel
+    ChannelSelectMenuBuilder, ChannelSelectMenuInteraction, ChannelType, Emoji, Guild, Interaction, MessageComponentInteraction, ModalBuilder, ModalSubmitInteraction, RoleSelectMenuBuilder, TextInputBuilder, TextInputStyle, VoiceBasedChannel
 } from 'discord.js';
 import { ESettingsID, BaseSetting } from './base.setting';
-import raidhelperIntegration, { EVENT_REFRESH_INTERVAL } from '../../raidhelperIntegration';
-import { checkChannelPermissions } from '../../util/checkChannelPermissions';
+import { checkChannelPermissions } from '../../util/permissions';
 import { DBGuild } from '../types/dbGuild';
 import Database from '../../db/database';
 import logger from '../../../lib/logger';
 import { Widget } from '../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 import { setTimeout } from 'timers/promises';
+import { RaidhelperIntegration } from '../../raidhelperIntegration';
 
 export enum ERaidhelperSettingsOptions {
     API_KEY = 'apikey',
     DEFAULT_CHANNEL = 'defaultchannel',
     EVENT_CHANNEL = 'eventchannel',
     TOGGLE_AUTO_VOICE = 'toggleautovoice',
-    TOGGLE_AUTO_WIDGET = 'toggleautowidget'
+    TOGGLE_AUTO_WIDGET = 'toggleautowidget',
+    REFRESH_EVENTS = 'refreshevents'
 }
-
+const MANUAL_REFRESH_INTERVAL = 1000 * 60 * 10;
 export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelectMenuBuilder> {
     public constructor() {
         super(ESettingsID.RAIDHELPER,
@@ -34,7 +35,16 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
         const apiKeyButton = new ButtonBuilder({
             custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.API_KEY]),
             label: 'Set API Key',
-            style: dbGuild.raidHelper.apiKeyValid ? ButtonStyle.Secondary : ButtonStyle.Primary
+            style: dbGuild.raidHelper.apiKeyValid ? ButtonStyle.Secondary : ButtonStyle.Primary,
+            disabled: !!dbGuild.raidHelper.apiKeyValid
+        });
+        const timeSinceLastManualRefreshMs = dbGuild.raidHelper.lastManualRefresh ? Date.now() - dbGuild.raidHelper.lastManualRefresh.getTime() : Infinity;
+        const canRefresh = timeSinceLastManualRefreshMs > MANUAL_REFRESH_INTERVAL;
+        const refreshButton = new ButtonBuilder({
+            custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.REFRESH_EVENTS]),
+            label: canRefresh ? 'Refresh Events' : 'Refresh Available in ' + `${Math.floor((MANUAL_REFRESH_INTERVAL - timeSinceLastManualRefreshMs) / 1000 / 60 + 1)}m`,
+            style: dbGuild.raidHelper.apiKeyValid ? ButtonStyle.Secondary : ButtonStyle.Primary,
+            disabled: !canRefresh && !!dbGuild.raidHelper.apiKey
         });
         const autoJoinToggleButton = new ButtonBuilder({
             custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.TOGGLE_AUTO_VOICE]),
@@ -63,7 +73,8 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
             .addComponents(autoJoinToggleButton)
             .addComponents(autoWidgetToggleButton);
         const apiKeyRow = new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(apiKeyButton);
+            .addComponents(apiKeyButton)
+            .addComponents(refreshButton);
         const defaultVoiceChannelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>()
             .addComponents(defaultVoiceChannel);
         const raidhelperEventChannelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>()
@@ -104,12 +115,13 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
         const apiKeyValidText = apiKey ?
             apiKeyValid ?
                 ' » *Valid Key* ✅' :
-                ' » *Invalid Key* ⚠️' :
+                ' » *Last Request Failed* ⚠️' :
             '';
         const apiKeyText = apiKey ?
             '||```fix\n' + apiKey + '```||' :
             `Use \`/apikey show\` to retrieve your Raidhelper API Key  
                 Or \`/apikey refresh\` if you don't have an API Key\n\`\`\`diff\n- Not Set\`\`\``;
+        const apiKeyInvalidInfo = !apiKeyValid ? 'Try the refresh button below.\nIf it does not validate your API Key use `/apikey refresh`\nto get a new API Key and enter it again.\n' : ''
 
         const eventChannel = guildData.raidHelper.eventChannelId ?
             await guild.channels.fetch(guildData.raidHelper.eventChannelId).catch(() => undefined) : undefined;
@@ -119,7 +131,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
             `${'```diff\n- Not Set ```'}*Events from all channels will be scheduled*`;
 
         return `**Raidhelper API Key** ${apiKeyValidText}  
-        ${apiKeyText}
+        ${apiKeyText}${apiKeyInvalidInfo}
         **Events Channel**  
         ${eventChannelText}\n
         **Auto-Join**  
@@ -130,7 +142,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
         ${guildData.raidHelper.widget ? '```diff\n+ Enabled ```' : '```diff\n- Disabled ```'}
         **Default Voice Channel**  
         ${defaultChannelText}\n
-        **Scheduled Events**${(scheduledEvents.includes('⚠️') ? ' ≫ *Missing Some Permissions*' : '') || ` *(Updates every ${EVENT_REFRESH_INTERVAL} minutes)*`}  
+        **Scheduled Events**${(scheduledEvents.includes('⚠️') ? ' ≫ *Missing Some Permissions*' : '')}  
         ${scheduledEvents}`;
     }
     public showModal(interaction: ButtonInteraction) {
@@ -165,20 +177,19 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                         ESettingsID.RAIDHELPER,
                         [ERaidhelperSettingsOptions.API_KEY]
                     ));
-                const keyValid = await raidhelperIntegration.checkApiKey(guild, apiKey);
-                if (keyValid) {
-                    logger.info('[' + interaction.guild?.name + '] Added Raidhelper API Key');
-                    dbGuild.raidHelper.apiKey = apiKey;
-                    dbGuild.raidHelper.apiKeyValid = true;
-                    await modalInteraction.deferUpdate();
-                    return ['saveGuild', 'update', 'updateWidget'];
-                } else {
-                    await modalInteraction.reply({ ephemeral: true, content: 'Invalid API Key.\nTry using `/apikey refresh` to get a new key.' })
-                        .then(() => setTimeout(1000 * 20))
-                        .then(() => interaction.deleteReply())
-                        .catch(logger.error);
-                    return [];
-                }
+                dbGuild.raidHelper.apiKey = apiKey;
+                return await RaidhelperIntegration.updateEventStatus(guild, dbGuild)
+                    .then(async () => {
+                        await modalInteraction.deferUpdate();
+                        return ['saveGuild', 'update'] as SettingsPostInteractAction[];
+                    })
+                    .catch(async () => {
+                        await modalInteraction.reply({ ephemeral: true, content: 'Invalid API Key.\nTry using `/apikey refresh` to get a new key.' })
+                            .then(() => setTimeout(1000 * 20))
+                            .then(() => interaction.deleteReply())
+                            .catch(logger.error);
+                        return [];
+                    })
                 break;
             case ERaidhelperSettingsOptions.DEFAULT_CHANNEL:
                 if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
@@ -208,6 +219,14 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
             case ERaidhelperSettingsOptions.TOGGLE_AUTO_WIDGET:
                 dbGuild.raidHelper.widget = !dbGuild.raidHelper.widget;
                 return ['saveGuild', 'update'];
+            case ERaidhelperSettingsOptions.REFRESH_EVENTS:
+                dbGuild.raidHelper.lastManualRefresh = new Date();
+                await RaidhelperIntegration.updateEventStatus(guild, dbGuild)
+                    .catch(async () => {
+                        dbGuild.raidHelper.apiKeyValid = false;
+                        await dbGuild.save();
+                    }).catch(logger.error);
+                return ['update', 'saveGuild']; // widget gets updated in updateEventStatus
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
         }
     }

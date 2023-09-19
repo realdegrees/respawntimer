@@ -23,9 +23,9 @@ import { MiscSettings } from '../common/settings/misc.settings';
 import { NotificationSettings } from '../common/settings/notifications.settings';
 import logger from '../../lib/logger';
 import { TimingsSettings } from '../common/settings/timings.settings';
-import { InteractionHandler } from '../handlers/interactionHandler';
 import { DBGuild } from '../common/types/dbGuild';
 import { SettingsHandler } from '../handlers/settingsHandler';
+import { userHasRole } from '../util/permissions';
 
 
 export class Settings extends Command {
@@ -41,7 +41,7 @@ export class Settings extends Command {
             .toJSON();
     }
     public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<unknown> {
-        return InteractionHandler.checkPermission(
+        return userHasRole(
             interaction.guild!,
             interaction.user,
             dbGuild.editorRoleIDs
