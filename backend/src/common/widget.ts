@@ -229,7 +229,7 @@ export class Widget {
                     if (dbGuild.raidHelper.events.length > 0) {
                         const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
                             Math.abs(current.startTime * 1000 - Date.now()) < Math.abs(lowest.startTime * 1000 - Date.now()) ? current : lowest);
-                        return `On Standby for **${event.title}**\n*at* <t:${event.startTime}:t> *on* <t:${event.startTime}:d>`;
+                        return `On Standby for\n**${event.title}**\n*at* <t:${event.startTime}:t> *on* <t:${event.startTime}:d>`;
                     } else {
                         return '-'
                     }
@@ -345,8 +345,6 @@ export class Widget {
                                 'You do not have editor permissions.');
                             break;
                         case EWidgetButtonID.INFO:
-                            await this.recreateMessage();
-                            return;
                             await interaction.reply({
                                 ephemeral: true,
                                 embeds: [
