@@ -4,6 +4,7 @@ import audioManager, { Voices } from '../../util/audioManager';
 import { DBGuild } from '../types/dbGuild';
 import logger from '../../../lib/logger';
 import { Widget } from '../widget';
+import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 
 export enum EVoiceSettingsOptions {
     VOICE = 'voice'
@@ -22,7 +23,7 @@ export class VoiceSettings extends BaseSetting<StringSelectMenuBuilder> {
     public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const voice = new StringSelectMenuBuilder()
             .setCustomId(this.getCustomId(this.id, [EVoiceSettingsOptions.VOICE]))
-            .setPlaceholder(dbGuild.voice.split(' ').map((voice) => voice.charAt(0).toUpperCase() + voice.slice(1)).join(' '))
+            .setPlaceholder((dbGuild.voice || 'female').split(' ').map((voice) => voice.charAt(0).toUpperCase() + voice.slice(1)).join(' '))
             .setMinValues(0)
             .setMaxValues(1)
             .addOptions(audioManager.voices.map((s) => new StringSelectMenuOptionBuilder()
@@ -42,13 +43,9 @@ export class VoiceSettings extends BaseSetting<StringSelectMenuBuilder> {
         interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
         widget: Widget | undefined,
         option: string
-    ): Promise<unknown> {
+    ): Promise<SettingsPostInteractAction[]> {
         if (!interaction.isStringSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-
-        dbGuild.voice = interaction.values[0] as Voices;
-        logger.info('[' + dbGuild.name + '] Changed Voice to ' + dbGuild.voice);
-        return dbGuild.save()
-            .then(() => audioManager.setVoice(dbGuild.id, dbGuild.voice))
-            .then(() => interaction.deferUpdate());
+        dbGuild.voice = interaction.values[0] as Voices || 'female';
+        return ['saveGuild', 'update', 'updateWidget'];
     }
 }

@@ -8,6 +8,8 @@ import { EInteractionType } from '../types/interactionType';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
 import { Widget } from '../widget';
+import logger from '../../../lib/logger';
+import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 
 export enum ESettingsID {
     PERMISSIONS = 'permissions',
@@ -17,12 +19,6 @@ export enum ESettingsID {
     NOTIFICATIONS = 'notifications',
     TIMINGS = 'timings'
 }
-
-// TODO: instead of deleting old replies, save and edit the xisting one
-const openSettingsUserMap: {
-    userId: string;
-    deleteCallback: () => Promise<void>
-}[] = [];
 
 export abstract class BaseSetting<
     MenuOptions extends ButtonBuilder | StringSelectMenuBuilder | ChannelSelectMenuBuilder | RoleSelectMenuBuilder =
@@ -36,7 +32,7 @@ export abstract class BaseSetting<
         public buttonStyle: ButtonStyle = ButtonStyle.Primary) { }
 
     public async send(
-        interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
+        interaction: AnySelectMenuInteraction | ButtonInteraction,
         dbGuild: DBGuild,
         options?: {
             removeDescription?: boolean;
@@ -44,7 +40,7 @@ export abstract class BaseSetting<
             customEmbed?: EmbedBuilder;
             update?: boolean;
         }
-    ): Promise<undefined | InteractionResponse<boolean> | Message<boolean>> {
+    ): Promise<Message<boolean>> {
         const settingsEmbed = new EmbedBuilder()
             .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: this.title })
             .setThumbnail('https://cdn.discordapp.com/avatars/993116789284286484/c5d1f8c2507c7f2a56a2a330109e66d2?size=1024')
@@ -73,25 +69,14 @@ export abstract class BaseSetting<
             components: rows
         };
         if (!options?.update) {
-            const currentlyOpenedSettingIndex = openSettingsUserMap.findIndex((openSetting) => openSetting.userId === interaction.user.id);
-            if (currentlyOpenedSettingIndex !== -1) {
-                await openSettingsUserMap.splice(currentlyOpenedSettingIndex, 1)[0].deleteCallback();
-            }
-            openSettingsUserMap.push({
-                userId: interaction.user.id,
-                deleteCallback: () => interaction.deleteReply().catch(() => { })
-            });
+            await interaction.deferReply({ ephemeral: true });
         }
-
-        return options?.update ?
-            interaction.deferUpdate()
-                .then(() => interaction.editReply(content)) :
-            interaction.reply(content);
+        return await interaction.editReply(content);
     }
     public getCustomId(id: string, args: string[]): string {
         return [WARTIMER_INTERACTION_ID, EInteractionType.SETTING, id, ...args].join(WARTIMER_INTERACTION_SPLIT);
     }
-    public abstract getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction): Promise<ActionRowBuilder<MenuOptions>[]>;
+    public abstract getSettingsRows(dbGuild: DBGuild, interaction: AnySelectMenuInteraction | ButtonInteraction): Promise<ActionRowBuilder<MenuOptions>[]>;
     public abstract getCurrentSettings(dbGuild: DBGuild, guild?: Guild): Promise<string>;
-    public abstract onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, widget: Widget | undefined, option: string): Promise<unknown>;
+    public abstract onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, widget: Widget | undefined, option: string): Promise<SettingsPostInteractAction[]>;
 }

@@ -1,8 +1,8 @@
 import { Client } from 'discord.js';
-import { Widget } from './common/widget';
-import textManager from './util/textManager';
-import Database from './db/database';
-import logger from '../lib/logger';
+import { Widget } from '../common/widget';
+import textManager from '../util/textManager';
+import Database from '../db/database';
+import logger from '../../lib/logger';
 
 export class WidgetHandler {
     public static WIDGETS: Widget[] = []; // in-memory widgets

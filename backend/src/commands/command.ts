@@ -33,11 +33,11 @@ export class Command {
                         !member.roles.cache.some((role) => roleIDs.includes(role.id))
                     ) {
                         // eslint-disable-next-line max-len
-                        return Promise.reject('You must have ' + permitType + ' permissions to use this command! Ask an administrator or editor to adjust the bot `/settings`');
+                        return Promise.reject('You must have ' + permitType + ' permissions to use this command!\nAsk an administrator or editor to adjust the bot `/settings`');
                     } else {
                         return true;
                     }
-                }).catch(() => Promise.reject('Unable to fetch server members in order to complete permission check. Try again in a few minutes.'));
+                }).catch((reason) => Promise.reject(reason || 'Unable to fetch server members in order to complete permission check. Try again in a few minutes.'));
         });
     }
 }

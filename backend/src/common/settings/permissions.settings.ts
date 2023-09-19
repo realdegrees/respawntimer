@@ -4,7 +4,8 @@ import { ESettingsID, BaseSetting } from './base.setting';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
 import { Widget } from '../widget';
-import { InteractionHandler } from '../../interactionHandler';
+import { InteractionHandler } from '../../handlers/interactionHandler';
+import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 
 export enum EPermissionSettingsOptions {
     EDITOR = 'Editor',
@@ -12,7 +13,6 @@ export enum EPermissionSettingsOptions {
 }
 
 export class PermissionSettings extends BaseSetting<RoleSelectMenuBuilder> {
-
 
     public constructor() {
         super(ESettingsID.PERMISSIONS,
@@ -63,28 +63,23 @@ export class PermissionSettings extends BaseSetting<RoleSelectMenuBuilder> {
         interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
         widget: Widget | undefined,
         option: string
-    ): Promise<unknown> {
+    ): Promise<SettingsPostInteractAction[]> {
         if (!interaction.isRoleSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
         if (!interaction.guild) return Promise.reject('Unable to retrieve server data, please try again in a few minutes');
         const roleIds = interaction.roles.map((role) => role.id);
         switch (option) {
             case EPermissionSettingsOptions.EDITOR:
-                return InteractionHandler.checkPermission(interaction.guild, interaction.user, roleIds)
-                    .then((perm) => perm ?
-                        dbGuild.editorRoleIDs = roleIds :
-                        Promise.reject('Unable to complete request. This action would remove your editor permissions!'))
-                    .then(() => dbGuild.save())
-                    .then(() => this.send(interaction, dbGuild, { update: true }))
-
+                const perm = await InteractionHandler.checkPermission(interaction.guild, interaction.user, roleIds)
+                perm ?
+                    dbGuild.editorRoleIDs = roleIds :
+                    Promise.reject('Unable to complete request. This action would remove your editor permissions!');
+                return ['saveGuild', 'update'];
+                break;
             case EPermissionSettingsOptions.ASSISTANT:
                 dbGuild.assistantRoleIDs = roleIds;
-                return dbGuild.save()
-                    .then(() => this.send(interaction, dbGuild, { update: true }))
-                    .then(() => {
-                        if (!widget?.textState) {
-                            widget?.update({ force: true });
-                        }
-                    });
+                return ['saveGuild', 'update', 'updateWidget'];
+                break;
+            default: return Promise.reject('ID Mismatch');
         }
 
     }

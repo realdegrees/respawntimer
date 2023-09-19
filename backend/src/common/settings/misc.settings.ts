@@ -4,9 +4,10 @@ import { DBGuild } from '../types/dbGuild';
 import Database from '../../db/database';
 import logger from '../../../lib/logger';
 import { Widget } from '../widget';
-import { WidgetHandler } from '../../widgetHandler';
-import { UPDATE_SOURCE_SERVER_ID } from '../../notificationHandler';
+import { WidgetHandler } from '../../handlers/widgetHandler';
+import { NotificationHandler, UPDATE_SOURCE_SERVER_ID } from '../../handlers/notificationHandler';
 import { debug } from '../constant';
+import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 
 export enum EMiscSettingsOptions {
     CLEAR = 'clear',
@@ -15,6 +16,7 @@ export enum EMiscSettingsOptions {
 }
 const usersWaitingForClearConfirm: string[] = [];
 export class MiscSettings extends BaseSetting<ButtonBuilder> {
+    private showConfirmButton = false;
     public constructor() {
         super(ESettingsID.MISC,
             'Misc Settings',
@@ -35,7 +37,7 @@ export class MiscSettings extends BaseSetting<ButtonBuilder> {
             .setLabel('Clear Saved Data')
             .setStyle(ButtonStyle.Danger);
 
-        if (!!usersWaitingForClearConfirm.find((userId) => userId === interaction.user.id) || !(await Database.hasGuild(dbGuild.id))) {
+        if (this.showConfirmButton || !(await Database.hasGuild(dbGuild.id))) {
             clear.setDisabled(true);
         }
         const confirmClear = new ButtonBuilder()
@@ -52,9 +54,10 @@ export class MiscSettings extends BaseSetting<ButtonBuilder> {
         const delRow = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(clear);
 
-        if (!!usersWaitingForClearConfirm.find((userId) => userId === interaction.user.id)) {
+        if (this.showConfirmButton) {
             delRow.addComponents(confirmClear);
         }
+        this.showConfirmButton = false;
         return Promise.resolve([optionsRow, delRow]);
     }
     // ! dbGuild can be an empty object here 
@@ -66,37 +69,25 @@ export class MiscSettings extends BaseSetting<ButtonBuilder> {
         interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
         widget: Widget | undefined,
         option: string
-    ): Promise<unknown> {
+    ): Promise<SettingsPostInteractAction[]> {
         if (!interaction.isButton()) return Promise.reject('Internal Error');
         if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
         switch (option) {
             case EMiscSettingsOptions.CLEAR:
-                usersWaitingForClearConfirm.push(interaction.user.id);
-                return this.send(interaction, dbGuild, { update: true });
+                this.showConfirmButton = true;
+                return ['update'];
+                break;
             case EMiscSettingsOptions.CLEAR_CONFIRM:
                 if (interaction.guild.id === UPDATE_SOURCE_SERVER_ID && !debug) return Promise.reject('Data cannot be deleted on this server.');
-                return Database.deleteGuild(interaction.guild.id)
-                    .then(() => logger.info('[' + interaction.guild!.name + '] Data Deleted'))
-                    .then(async () => {
-                        const userWaitingForClearIndex = usersWaitingForClearConfirm.findIndex((userId) => userId === interaction.user.id);
-                        if (userWaitingForClearIndex !== -1) {
-                            usersWaitingForClearConfirm.splice(userWaitingForClearIndex, 1);
-                        }
-
-                        return this.send(interaction, {} as DBGuild, { update: true }).then(() => {
-                            if (widget && !widget.textState) {
-                                WidgetHandler.removeWidgetFromMemory(widget.getId());
-                                return widget.update({ force: true });
-                            }
-                        });
-                    });
+                await NotificationHandler.sendNotification(interaction.guild, 'Data Deletion', `${interaction.user} just deleted all data for this server.\nIf this was not intentional you will have to redo your settings!`)
+                return ['update', 'deleteGuild'];
+                break;
             case EMiscSettingsOptions.TOGGLE_WIDGET_BUTTONS:
                 if (interaction.guild.id === UPDATE_SOURCE_SERVER_ID && !debug) return Promise.reject('This setting cannot be changed on this server.');
                 dbGuild.hideWidgetButtons = !dbGuild.hideWidgetButtons;
-                return dbGuild.save().then(() => this.send(interaction, dbGuild, { update: true }))
-                    .then(async () => {
-                        return widget ? widget.setButtonsDisplay(!dbGuild.hideWidgetButtons) : Promise.resolve();
-                    });
+                widget ? await widget.setButtonsDisplay(!dbGuild.hideWidgetButtons) : await Promise.resolve();
+                return ['saveGuild', 'update'];
+                break;
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
         }
     }

@@ -10,6 +10,8 @@ import { DBGuild } from '../types/dbGuild';
 import Database from '../../db/database';
 import logger from '../../../lib/logger';
 import { Widget } from '../widget';
+import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
+import { setTimeout } from 'timers/promises';
 
 export enum ERaidhelperSettingsOptions {
     API_KEY = 'apikey',
@@ -150,71 +152,62 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
         interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
         widget: Widget | undefined,
         option: string
-    ): Promise<unknown> {
+    ): Promise<SettingsPostInteractAction[]> {
         if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
+        const guild = interaction.guild;
         switch (option) {
             case ERaidhelperSettingsOptions.API_KEY:
-                if (interaction.isButton()) {
-                    return this.showModal(interaction);
-                } else if (interaction.isModalSubmit()) {
-                    const apiKey = interaction.fields
-                        .getTextInputValue(
-                            this.getCustomId(
-                                ESettingsID.RAIDHELPER,
-                                [ERaidhelperSettingsOptions.API_KEY]
-                            ));
-                    return raidhelperIntegration.checkApiKey(interaction.guild, apiKey)
-                        .then((valid) => {
-                            if (valid) {
-                                logger.info('[' + interaction.guild?.name + '] Added Raidhelper API Key');
-                                dbGuild.raidHelper.apiKey = apiKey;
-                                dbGuild.raidHelper.apiKeyValid = true;
-                            } else {
-                                return Promise.reject('Invalid API Key');
-                            }
-                        })
-                        .then(() => dbGuild.save())
-                        .then(() => {
-                            if (!widget?.textState) {
-                                widget?.update({ force: true });
-                            }
-                        })
-                        .then(() => this.send(interaction, dbGuild, { update: true }));
+                if (!interaction.isButton()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+                await this.showModal(interaction);
+                const modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 2 })
+                const apiKey = modalInteraction.fields
+                    .getTextInputValue(this.getCustomId(
+                        ESettingsID.RAIDHELPER,
+                        [ERaidhelperSettingsOptions.API_KEY]
+                    ));
+                const keyValid = await raidhelperIntegration.checkApiKey(guild, apiKey);
+                if (keyValid) {
+                    logger.info('[' + interaction.guild?.name + '] Added Raidhelper API Key');
+                    dbGuild.raidHelper.apiKey = apiKey;
+                    dbGuild.raidHelper.apiKeyValid = true;
+                    await modalInteraction.deferUpdate();
+                    return ['saveGuild', 'update', 'updateWidget'];
                 } else {
-                    return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+                    await modalInteraction.reply({ ephemeral: true, content: 'Invalid API Key.\nTry using `/apikey refresh` to get a new key.' })
+                        .then(() => setTimeout(1000 * 20))
+                        .then(() => interaction.deleteReply())
+                        .catch(logger.error);
+                    return [];
                 }
+                break;
             case ERaidhelperSettingsOptions.DEFAULT_CHANNEL:
                 if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                return interaction.guild.channels.fetch(interaction.values[0])
-                    .then(async (channel) => {
-                        if (!channel?.isVoiceBased()) {
-                            return Promise.reject('Invalid Channel');
-                        } else {
-                            await checkChannelPermissions(channel, ['ViewChannel', 'Connect', 'Speak']);
-                            dbGuild.raidHelper.defaultVoiceChannelId = interaction.values[0];
-                            await dbGuild.save();
-                            return await this.send(interaction, dbGuild, { update: true });
-                        }
-                    });
+                const defaultVoiceChannel = await interaction.guild.channels.fetch(interaction.values[0])
+                if (!defaultVoiceChannel?.isVoiceBased()) {
+                    return Promise.reject('Invalid Channel');
+                } else {
+                    await checkChannelPermissions(defaultVoiceChannel, ['ViewChannel', 'Connect', 'Speak']);
+                    dbGuild.raidHelper.defaultVoiceChannelId = interaction.values[0];
+                    return ['saveGuild', 'update'];
+                }
+                break;
             case ERaidhelperSettingsOptions.EVENT_CHANNEL:
                 if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                return interaction.guild.channels.fetch(interaction.values[0])
-                    .then(async (channel) => {
-                        if (!channel?.isTextBased()) {
-                            return Promise.reject('Invalid Channel');
-                        } else {
-                            await checkChannelPermissions(channel, ['ViewChannel']);
-                            dbGuild.raidHelper.eventChannelId = interaction.values[0];
-                            await dbGuild.save();
-                            return await this.send(interaction, dbGuild, { update: true });
-                        }
-                    });
+                const defaultEventChannel = await interaction.guild.channels.fetch(interaction.values[0])
+                if (!defaultEventChannel?.isTextBased()) {
+                    return Promise.reject('Invalid Channel');
+                } else {
+                    await checkChannelPermissions(defaultEventChannel, ['ViewChannel']);
+                    dbGuild.raidHelper.eventChannelId = interaction.values[0];
+                    return ['saveGuild', 'update'];
+                }
+                break;
             case ERaidhelperSettingsOptions.TOGGLE_AUTO_VOICE:
                 dbGuild.raidHelper.enabled = !dbGuild.raidHelper.enabled;
-                return dbGuild.save().then(() => this.send(interaction, dbGuild, { update: true }));
+                return ['saveGuild', 'update'];
             case ERaidhelperSettingsOptions.TOGGLE_AUTO_WIDGET:
                 dbGuild.raidHelper.widget = !dbGuild.raidHelper.widget;
-                return dbGuild.save().then(() => this.send(interaction, dbGuild, { update: true }));
+                return ['saveGuild', 'update'];
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
         }
     }
