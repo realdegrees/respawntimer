@@ -22,7 +22,8 @@ export class RaidhelperIntegration {
                 await setTimeout(7000); // Give raidhelper API time to update
                 const dbGuild = await Database.getGuild(message.guild).catch(() => undefined);
                 // if the message is from raidhelper but not posted in the specified event channel return
-                if (!dbGuild || dbGuild.raidHelper.eventChannelId && dbGuild?.raidHelper.eventChannelId !== message.channel.id) return;
+                if (!dbGuild || !dbGuild.raidHelper.apiKey || dbGuild.raidHelper.eventChannelId && dbGuild?.raidHelper.eventChannelId !== message.channel.id) return;
+                logger.info(`[${message.guild?.name}] raidhelper created`);
                 RaidhelperIntegration.updateEventStatus(message.guild, dbGuild)
                     .catch(() => {
                         if (message.guild) {
@@ -36,7 +37,7 @@ export class RaidhelperIntegration {
                 if (!message.guild || message.type !== MessageType.Default || message.member?.user.id !== RAIDHELPER_USER_ID) return;
                 await setTimeout(7000); // Give raidhelper API time to update
                 const dbGuild = await Database.getGuild(message.guild).catch(() => undefined);
-                if (!dbGuild) return;
+                if (!dbGuild || !dbGuild.raidHelper.apiKey) return;
                 RaidhelperIntegration.updateEventStatus(message.guild, dbGuild)
                     .catch(() => {
                         if (message.guild) {
