@@ -115,15 +115,7 @@ export class Widget {
         // checks if guild exists in db, creates document if not
         const dbGuild = await Database.getGuild(guild);
 
-        if (dbGuild.widget) {
-            await Widget.find({
-                guild,
-                messageId: dbGuild.widget.messageId,
-                channelId: dbGuild.widget.channelId
-            }).then((widget) =>
-                widget?.message.delete()
-            ).catch(logger.error);
-        }
+
 
         return guild.members.fetch(interaction.user)
             .then((member) => {
@@ -134,6 +126,17 @@ export class Widget {
                 ) {
                     // eslint-disable-next-line max-len
                     return Promise.reject('You must have editor permissions to use this command! Ask an administrator or editor to adjust the bot `/settings`');
+                }
+            })
+            .then(() => {
+                if (dbGuild.widget.channelId && dbGuild.widget.messageId) {
+                    return Widget.find({
+                        guild,
+                        messageId: dbGuild.widget.messageId,
+                        channelId: dbGuild.widget.channelId
+                    }).then((widget) =>
+                        widget?.message.delete()
+                    ).catch(logger.error);
                 }
             })
             .then(async () =>
@@ -345,6 +348,8 @@ export class Widget {
                                 'You do not have editor permissions.');
                             break;
                         case EWidgetButtonID.INFO:
+                            await this.recreateMessage();
+                            return;
                             await interaction.reply({
                                 ephemeral: true,
                                 embeds: [
