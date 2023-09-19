@@ -113,6 +113,7 @@ export class RaidhelperIntegration {
         const date = new Date();
         const [minutes, seconds] = [date.getMinutes(), date.getSeconds(), date.getHours()];
 
+        // TODO: add logic for 10 minutes before each war that checks if any upcoming events have problematic channel permissions and sends a notification if that's the case
         // Only run within the first RETRY_ATTEMPT_DUR after war begin and every RETRY_INTERVAL_SECONDS seconds
         if (minutes >= 0 && minutes < RETRY_ATTEMPT_DUR ||
             minutes >= 30 && minutes < 30 + RETRY_ATTEMPT_DUR &&
