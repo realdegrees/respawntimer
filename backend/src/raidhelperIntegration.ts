@@ -38,6 +38,7 @@ export class RaidhelperIntegration {
                 await setTimeout(7000); // Give raidhelper API time to update
                 const dbGuild = await Database.getGuild(message.guild).catch(() => undefined);
                 if (!dbGuild || !dbGuild.raidHelper.apiKey) return;
+                logger.info(`[${message.guild?.name}] raidhelper deleted`);
                 RaidhelperIntegration.updateEventStatus(message.guild, dbGuild)
                     .catch(() => {
                         if (message.guild) {
@@ -49,6 +50,7 @@ export class RaidhelperIntegration {
             })
     }
     public static async updateEventStatus(guild: Guild, dbGuild: DBGuild): Promise<void> {
+        logger.info(`[${guild.name}] requesting raidhelper events`);
         await RaidhelperIntegration.getEvents(dbGuild)
             .then(async (events) => {
                 if (!dbGuild) return Promise.reject();
@@ -70,6 +72,7 @@ export class RaidhelperIntegration {
                 return [events, oldEvents];
             })
             .then(async ([events, oldEvents]) => {
+                logger.info(`[${guild.name}] raidhelper events request success`);
                 if (oldEvents.every((oldEvent) => events.find((event) => event.id === oldEvent.id)) && 
                     events.every((event) => oldEvents.find((oldEvent) => event.id === oldEvent.id))) return;
                 // Check for old events that have been descheduled and notify

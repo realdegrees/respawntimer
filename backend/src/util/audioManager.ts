@@ -252,7 +252,6 @@ class AudioManager {
                 adapterCreator: channel.guild.voiceAdapterCreator
             }))
             .then((connection) => {
-                logger.info('[' + channel.guild.name + '] Connected to VoiceChannel');
                 return connection;
             });
     }
