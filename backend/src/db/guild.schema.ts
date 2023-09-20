@@ -1,6 +1,6 @@
 import { Schema, model } from 'mongoose';
 import { RaidhelperSettingData } from '../common/types';
-import { Voices } from '../util/audioManager';
+import { Voices } from '../handlers/audioManager';
 import { number } from 'yargs';
 
 export interface GuildData {

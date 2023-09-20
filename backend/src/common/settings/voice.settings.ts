@@ -1,6 +1,6 @@
 import { ActionRowBuilder, AnySelectMenuInteraction, ButtonInteraction, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from 'discord.js';
 import { ESettingsID, BaseSetting } from './base.setting';
-import audioManager, { Voices } from '../../util/audioManager';
+import audioManager, { Voices } from '../../handlers/audioManager';
 import { DBGuild } from '../types/dbGuild';
 import logger from '../../../lib/logger';
 import { Widget } from '../../widget';

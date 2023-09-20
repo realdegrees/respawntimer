@@ -8,7 +8,7 @@ import path from 'path';
 import logger from '../../lib/logger';
 import { Guild, VoiceBasedChannel } from 'discord.js';
 import { Widget } from '../widget';
-import { checkChannelPermissions } from './permissions';
+import { checkChannelPermissions } from '../util/permissions';
 import { TimingsSettings } from '../common/settings/timings.settings';
 import { DBGuild } from '../common/types/dbGuild';
 import { WarInfo } from '../common/types';
@@ -139,7 +139,6 @@ class AudioManager {
             this.playRespawnCount(data.respawn.remainingRespawns, voice, audioPlayer);
         }
         if (data.respawn.remainingRespawns === 0 && data.respawn.previousTimestamp && data.respawn.previousTimestamp - data.war.timeLeftSeconds === 5) {
-            // Plays no more respawns sound
             this.playRespawnCount(0, voice, audioPlayer);
         }
     }
