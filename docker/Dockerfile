@@ -4,6 +4,7 @@ FROM python:3-alpine as builder
 
 # Add node
 RUN apk add --update npm
+RUN apk add libtool autoconf automake g++ make
 
 # change working directory
 WORKDIR /usr/src/app
