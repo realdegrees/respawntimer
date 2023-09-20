@@ -173,7 +173,6 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                         [ERaidhelperSettingsOptions.API_KEY]
                     ));
                 dbGuild.raidHelper.apiKey = apiKey;
-
                 try {
                     events = await RaidhelperIntegration.getEvents(dbGuild);
                 }catch(e) {
@@ -183,6 +182,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                         .catch(logger.error);
                     return [];
                 }
+                dbGuild.raidHelper.apiKeyValid = true;
                 await RaidhelperIntegration.sendEventNotifications(guild, dbGuild, events, [...dbGuild.raidHelper.events]);
                 await modalInteraction.deferUpdate();
                 return ['saveGuild', 'update'] as SettingsPostInteractAction[];
@@ -223,6 +223,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                     dbGuild.raidHelper.apiKeyValid = false;
                     return ['saveGuild'];
                 }
+                dbGuild.raidHelper.apiKeyValid = true;
                 await RaidhelperIntegration.sendEventNotifications(guild, dbGuild, events, [...dbGuild.raidHelper.events]);
                 return ['saveGuild', 'update', 'updateWidget'] as SettingsPostInteractAction[];
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
