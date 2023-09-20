@@ -335,7 +335,6 @@ export class Widget {
             } else {
                 // Handle other errors or log them as needed
                 logger.error('Update error: ' + e?.toString?.() || 'Unknown');
-                return Promise.reject(e);
             }
         }
     }
