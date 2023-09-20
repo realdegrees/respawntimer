@@ -8,6 +8,7 @@ import { Command } from './commands/command';
 import { NotificationHandler } from './handlers/notificationHandler';
 import { Invite } from './commands/invite';
 import Database from './db/database';
+import { setTimeout } from 'timers/promises';
 
 
 /**
@@ -25,9 +26,19 @@ class Bot {
         this.client.user?.setActivity({ name: 'New World', type: ActivityType.Playing });
         this.client.on('interactionCreate', (interaction) => {
             if (!interaction.isCommand() || !interaction.guild) return;
-            Database.getGuild(interaction.guild).then((dbGuild) => {
-                return commands.find((command) => command.name === interaction.commandName)?.execute(interaction, dbGuild);
-            }).catch(logger.error)
+            Database.getGuild(interaction.guild).then((dbGuild) =>
+                commands.find((command) => command.name === interaction.commandName)?.execute(interaction, dbGuild)
+            ).catch(async (error) => {
+                // Handle errors or log them as needed
+                await (interaction.deferred ? interaction.editReply : interaction.reply)({
+                    ephemeral: !interaction.deferred,
+                    content: (error instanceof Error ? error.message : error?.toString?.()) || 'An error occurred',
+                }).catch(logger.error);
+                await setTimeout(700);
+                await interaction.deleteReply()
+                    .catch(logger.error);
+                logger.error(error?.toString?.() || 'Error during command execution');
+            });
         });
     }
 

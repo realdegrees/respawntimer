@@ -3,7 +3,7 @@ import { ESettingsID, BaseSetting } from './base.setting';
 import { DBGuild } from '../types/dbGuild';
 import Database from '../../db/database';
 import logger from '../../../lib/logger';
-import { Widget } from '../widget';
+import { Widget } from '../../widget';
 import { NotificationHandler, UPDATE_SOURCE_SERVER_ID } from '../../handlers/notificationHandler';
 import { debug } from '../constant';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';

@@ -3,7 +3,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
 import { CacheType, ChannelType, Client, CommandInteraction } from 'discord.js';
 import { Command } from './command';
-import { Widget } from '../common/widget';
+import { Widget } from '../widget';
 import logger from '../../lib/logger';
 import { setTimeout } from 'timers/promises';
 import { DBGuild } from '../common/types/dbGuild';
@@ -23,24 +23,26 @@ export class Create extends Command {
             .setDMPermission(false)
             .toJSON();
     }
-    public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<unknown> {
-        return this.checkPermission(interaction, 'editor')
-            .then(async () => {
-                const channel = interaction.channel;
-                if (!channel || channel.type !== ChannelType.GuildText) {
-                    return interaction.reply({ ephemeral: true, content: 'Invalid Channel! This must be used on a server.' });
-                }
-                return Widget.create(interaction, channel);
-            })
-            .then(() => interaction.reply({ content: 'Widget Created ✅' }))
-            .then(() => setTimeout(800))
-            .then(() => interaction.deleteReply())
-            .catch(async (msg) => interaction.reply({
-                ephemeral: true,
-                content: msg?.toString()
-            }))
-            .catch(logger.error);
-
+    public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<void> {
+        await interaction.deferReply({ ephemeral: true });
+        const hasPermission = await this.checkPermission(interaction, 'editor');
+        if (hasPermission) {
+            const channel = interaction.channel;
+            if (!channel || channel.type !== ChannelType.GuildText) {
+                throw new Error('Invalid Channel! This must be used on a server.');
+            }
+            await Widget.create(interaction, channel);
+            // Respond to the interaction
+            await interaction.editReply({
+                content: 'Widget Created ✅',
+            }).catch(logger.error);
+            await setTimeout(700);
+            await interaction.deleteReply()
+                .catch(logger.error);
+        } else {
+            throw new Error('You must have editor permissions to use this command!\n' +
+                'Ask an administrator or editor to adjust the bot `/settings`');
+        }
 
     }
 }

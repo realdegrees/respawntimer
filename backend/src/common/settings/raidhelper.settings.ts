@@ -8,7 +8,7 @@ import { checkChannelPermissions } from '../../util/permissions';
 import { DBGuild } from '../types/dbGuild';
 import Database from '../../db/database';
 import logger from '../../../lib/logger';
-import { Widget } from '../widget';
+import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 import { setTimeout } from 'timers/promises';
 import { RaidhelperIntegration } from '../../raidhelperIntegration';

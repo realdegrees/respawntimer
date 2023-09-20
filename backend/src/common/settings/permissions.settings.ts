@@ -3,7 +3,7 @@ import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, BaseSetting } from './base.setting';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
-import { Widget } from '../widget';
+import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 import { userHasRole } from '../../util/permissions';
 

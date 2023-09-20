@@ -2,7 +2,7 @@ import { setTimeout } from 'timers/promises';
 import { RaidhelperAPIEvent, ScheduledEvent } from './common/types/raidhelperEvent';
 import { Client, Colors, Guild, Message, MessageType, PartialMessage } from 'discord.js';
 import logger from '../lib/logger';
-import { Widget } from './common/widget';
+import { Widget } from './widget';
 import audioManager from './util/audioManager';
 import { NotificationHandler } from './handlers/notificationHandler';
 import { DBGuild } from './common/types/dbGuild';

@@ -1,7 +1,7 @@
 import { Client } from 'discord.js';
-import audioManager from '../util/audioManager';
-import raidhelperIntegration, { RaidhelperIntegration } from '../raidhelperIntegration';
-import textManager from '../util/textManager';
+import audioManager from './util/audioManager';
+import raidhelperIntegration, { RaidhelperIntegration } from './raidhelperIntegration';
+import textManager from './util/textManager';
 
 
 

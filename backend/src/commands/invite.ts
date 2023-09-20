@@ -3,7 +3,7 @@ import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
 import { CacheType, ChannelType, Client, CommandInteraction, OAuth2Scopes, PermissionFlagsBits, PermissionsBitField } from 'discord.js';
 import { Command } from './command';
-import { Widget } from '../common/widget';
+import { Widget } from '../widget';
 import logger from '../../lib/logger';
 import { setTimeout } from 'timers/promises';
 import { DBGuild } from '../common/types/dbGuild';
@@ -29,12 +29,10 @@ export class Invite extends Command {
             .setDescription(this.description)
             .toJSON();
     }
-    public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<unknown> {
-        return interaction.reply({
+    public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<void> {
+        await interaction.reply({
             ephemeral: true,
             content: interaction.client.generateInvite(INVITE_SETTINGS)
-        }).catch(logger.error);
-
-
+        });
     }
 }

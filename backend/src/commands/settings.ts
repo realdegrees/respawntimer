@@ -40,21 +40,18 @@ export class Settings extends Command {
             .setDMPermission(false)
             .toJSON();
     }
-    public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<unknown> {
-        return userHasRole(
+    public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<void> {
+        const hasPermission = await userHasRole(
             interaction.guild!,
             interaction.user,
-            dbGuild.editorRoleIDs
-        ).then(async (perm) => {
-            if (!perm) {
-                return dbGuild.editorRoleIDs.length === 0 ?
-                    Promise.reject('Editor permissions have not been set up yet!\nPlease ask someone with administrator permissions to add editor roles in the settings.') :
-                    Promise.reject('You do not have editor permissions.');
-            } else {
-                return SettingsHandler.openSettings(interaction);
-            }
-        }).catch((reason) => {
-            return interaction.reply({ ephemeral: true, content: reason?.toString?.() || 'Unkown Error' })
-        }).catch(logger.error);
+            dbGuild.editorRoleIDs);
+
+        if (!hasPermission) {
+            return dbGuild.editorRoleIDs.length === 0 ?
+                Promise.reject('Editor permissions have not been set up yet!\nPlease ask someone with administrator permissions to add editor roles in the settings.') :
+                Promise.reject('You do not have editor permissions.');
+        } else {
+            await SettingsHandler.openSettings(interaction);
+        }
     }
 }
