@@ -27,17 +27,12 @@ export class Create extends Command {
         return this.checkPermission(interaction, 'editor')
             .then(async () => {
                 const channel = interaction.channel;
-                const guild = interaction.guild;
-                if (!guild) {
-                    return interaction.reply('This cannot be used in DMs');
-                }
                 if (!channel || channel.type !== ChannelType.GuildText) {
-                    return interaction.reply({ ephemeral: true, content: 'Invalid Channel' });
+                    return interaction.reply({ ephemeral: true, content: 'Invalid Channel! This must be used on a server.' });
                 }
-                return interaction.deferReply({ ephemeral: true })
-                    .then(() => Widget.create(interaction, guild, channel));
+                return Widget.create(interaction, channel);
             })
-            .then(() => interaction.editReply({ content: 'Widget Created ✅' }))
+            .then(() => interaction.reply({ content: 'Widget Created ✅' }))
             .then(() => setTimeout(800))
             .then(() => interaction.deleteReply())
             .catch(async (msg) => interaction.reply({

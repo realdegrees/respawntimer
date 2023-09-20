@@ -100,11 +100,11 @@ export class SettingsHandler {
                                 logger.info(`[${guild.name}] ${interactionOption} interaction`);
 
                                 const dbGuild = await Database.getGuild(interaction.guild);
-                                const widget = await Widget.find({
-                                    channelId: dbGuild.widget.channelId,
-                                    messageId: dbGuild.widget.messageId,
-                                    guild: interaction.guild
-                                });
+                                const widget = await Widget.find(
+                                    interaction.guild,
+                                    dbGuild.widget.messageId,
+                                    dbGuild.widget.channelId
+                                );
                                 const setting: BaseSetting | undefined = this.getSettingById(interactionId, settings);
                                 const postInteractActions = await setting?.onInteract(dbGuild, interaction, widget, interactionOption);
 
