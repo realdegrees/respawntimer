@@ -12,7 +12,7 @@ import { setTimeout } from 'timers/promises';
 import logger from '../lib/logger';
 import audioManager from './handlers/audioManager';
 import textManager from './handlers/textManager';
-import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './common/constant';
+import { EPHEMERAL_REPLY_DURATION_SHORT, EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './common/constant';
 import { EInteractionType } from './common/types/interactionType';
 import { DBGuild } from './common/types/dbGuild';
 import Database from './db/database';
@@ -257,9 +257,9 @@ export class Widget {
 
                 if (dbGuild.raidHelper.events.length > 0) {
                     const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
-                        Math.abs(current.startTime * 1000 - Date.now()) < Math.abs(lowest.startTime * 1000 - Date.now()) ? current : lowest);
+                        Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
 
-                    const eventDescription = `On Standby for\n**${event.title}**\n*at* <t:${event.startTime}:t> *on* <t:${event.startTime}:d>`;
+                    const eventDescription = `On Standby for\n**${event.title}**\n*at* <t:${event.startTimeUnix}:t> *on* <t:${event.startTimeUnix}:d>`;
                     embed.setDescription(eventDescription);
                 } else {
                     embed.setDescription('-');
@@ -418,7 +418,7 @@ export class Widget {
                     await interaction.deferUpdate().catch(() => { });
                 } catch (error) {
                     interaction.reply({ ephemeral: true, content: (error instanceof Error ? error.message : error?.toString?.()) || 'An error occurred' })
-                        .then(() => setTimeout(3000))
+                        .then(() => setTimeout(EPHEMERAL_REPLY_DURATION_SHORT))
                         .then(() => interaction.deleteReply())
                         .catch(logger.error);
                 }
@@ -600,19 +600,19 @@ export class Widget {
             if (this.voiceState) {
                 await audioManager.disconnect(this.guild, options.dbGuild);
             } else {
-                const channel = (await options.interaction.guild?.members.fetch(options.interaction.user).catch(() => undefined))?.voice.channel;
+                const channel = options.channel ?? (await options.interaction.guild?.members.fetch(options.interaction.user).catch(() => undefined))?.voice.channel;
                 if (!channel) {
                     throw new Error('You are not in a voice channel!');
                 }
-                await audioManager.connect(channel, options.dbGuild);
                 this.voiceState = true;
+                await audioManager.connect(channel, options.dbGuild);
                 if (!this.textState) {
                     await this.update({ force: true });
                 }
             }
         } else if (options.channel) {
-            await audioManager.connect(options.channel, options.dbGuild);
             this.voiceState = true;
+            await audioManager.connect(options.channel, options.dbGuild);
             if (!this.textState) {
                 await this.update();
             }

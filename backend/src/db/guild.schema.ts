@@ -41,7 +41,7 @@ export const GuildModel = model<GuildData>('Guild', new Schema<GuildData>({
         events: [{
             id: String,
             title: String,
-            startTime: Number,
+            startTimeUnix: Number,
             voiceChannelId: String
         }]
     },

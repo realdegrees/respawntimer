@@ -9,6 +9,7 @@ import { NotificationHandler } from './handlers/notificationHandler';
 import { Invite } from './commands/invite';
 import Database from './db/database';
 import { setTimeout } from 'timers/promises';
+import { EPHEMERAL_REPLY_DURATION_SHORT } from './common/constant';
 
 
 /**
@@ -34,7 +35,7 @@ class Bot {
                     ephemeral: !interaction.deferred,
                     content: (error instanceof Error ? error.message : error?.toString?.()) || 'An error occurred',
                 }).catch(logger.error);
-                await setTimeout(700);
+                await setTimeout(EPHEMERAL_REPLY_DURATION_SHORT);
                 await interaction.deleteReply()
                     .catch(logger.error);
                 logger.error(error?.toString?.() || 'Error during command execution');

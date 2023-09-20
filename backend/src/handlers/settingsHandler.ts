@@ -1,5 +1,5 @@
 import { ButtonInteraction, CacheType, CommandInteraction, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ComponentType, AnySelectMenuInteraction, InteractionCollector, ModalSubmitInteraction, ChannelSelectMenuInteraction, MentionableSelectMenuInteraction, RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction, Guild } from "discord.js";
-import { WARTIMER_ICON_LINK, EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from "../common/constant";
+import { WARTIMER_ICON_LINK, EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT, EPHEMERAL_REPLY_DURATION_LONG } from "../common/constant";
 import { MiscSettings } from "../common/settings/misc.settings";
 import { NotificationSettings } from "../common/settings/notifications.settings";
 import { PermissionSettings } from "../common/settings/permissions.settings";
@@ -122,7 +122,7 @@ export class SettingsHandler {
                                     ephemeral: true,
                                     content: e?.toString?.() ?? 'Unknown Error'
                                 })
-                                    .then(() => setTimeout(1000 * 20))
+                                    .then(() => setTimeout(EPHEMERAL_REPLY_DURATION_LONG))
                                     .then(() => interaction.deleteReply())
                                     .catch((err) => logger.error(`${err?.toString?.()} | Tried logging original error: ${e?.toString?.() || 'Unknown'}`));
                             }
@@ -140,7 +140,7 @@ export class SettingsHandler {
                         ephemeral: true,
                         content: e?.toString?.() ?? 'Unkown Error'
                     })
-                        .then(() => setTimeout(1000 * 20))
+                        .then(() => setTimeout(EPHEMERAL_REPLY_DURATION_LONG))
                         .then(() => interaction.deleteReply())
                         .catch((err) => logger.error(`${err?.toString?.()} | Tried logging original error: ${e?.toString?.() || 'Unknown'}`));
                 }

@@ -12,6 +12,10 @@ import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 import { setTimeout } from 'timers/promises';
 import { RaidhelperIntegration } from '../../raidhelperIntegration';
+import { EPHEMERAL_REPLY_DURATION_SHORT, REFRESH_COOLDOWN_MS } from '../constant';
+import { formatTime } from '../../util/formatTime';
+import { formatEvents } from '../../util/formatEvents';
+import { ScheduledEvent } from '../types/raidhelperEvent';
 
 export enum ERaidhelperSettingsOptions {
     API_KEY = 'apikey',
@@ -21,7 +25,6 @@ export enum ERaidhelperSettingsOptions {
     TOGGLE_AUTO_WIDGET = 'toggleautowidget',
     REFRESH_EVENTS = 'refreshevents'
 }
-const MANUAL_REFRESH_INTERVAL = 1000 * 60 * 10;
 export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelectMenuBuilder> {
     public constructor() {
         super(ESettingsID.RAIDHELPER,
@@ -39,10 +42,10 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
             disabled: !!dbGuild.raidHelper.apiKeyValid
         });
         const timeSinceLastManualRefreshMs = dbGuild.raidHelper.lastManualRefresh ? Date.now() - dbGuild.raidHelper.lastManualRefresh.getTime() : Infinity;
-        const canRefresh = timeSinceLastManualRefreshMs > MANUAL_REFRESH_INTERVAL;
+        const canRefresh = timeSinceLastManualRefreshMs > REFRESH_COOLDOWN_MS;
         const refreshButton = new ButtonBuilder({
             custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.REFRESH_EVENTS]),
-            label: canRefresh ? 'Refresh Events' : 'Refresh Available in ' + `${Math.floor((MANUAL_REFRESH_INTERVAL - timeSinceLastManualRefreshMs) / 1000 / 60 + 1)}m`,
+            label: canRefresh ? 'Refresh Events' : 'Refresh Available in ' + `${Math.floor((REFRESH_COOLDOWN_MS - timeSinceLastManualRefreshMs) / 1000 / 60 + 1)}m`,
             style: dbGuild.raidHelper.apiKeyValid ? ButtonStyle.Secondary : ButtonStyle.Primary,
             disabled: !canRefresh && !!dbGuild.raidHelper.apiKey
         });
@@ -101,16 +104,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
             .catch((reason) => `${defaultChannel} ⚠️ ${reason}`) :
             `*None*`;
 
-        const scheduledEvents = events.length > 0 ?
-            (await Promise.all(events.map(async (event) => {
-                const voiceChannel = event.voiceChannelId ?
-                    await guild.channels.fetch(event.voiceChannelId).catch(() => undefined) as VoiceBasedChannel | undefined : undefined;
-                const time = '🗓️ ' + `<t:${event.startTime}:d>` + ' 🕑 ' + `<t:${event.startTime}:t>`;
-                const voiceChannelPermissions = voiceChannel && voiceChannel.isVoiceBased() ? await checkChannelPermissions(voiceChannel, ['ViewChannel', 'Connect', 'Speak'])
-                    .then(() => '')
-                    .catch(() => `⚠️`) : '';
-                return `- 📝  ${event.title.length > 20 ? `${event.title.slice(0, 19)}..` : event.title}  ${time}${voiceChannel ? `  🔗 ${voiceChannel} ${voiceChannelPermissions}` : ''}`;
-            }))).join('\n') : '*None*';
+        const scheduledEvents = events.length > 0 ? await formatEvents(guild, ...events) : ['*None*'];
 
         const apiKeyValidText = apiKey ?
             apiKeyValid ?
@@ -143,7 +137,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
         **Default Voice Channel**  
         ${defaultChannelText}\n
         **Scheduled Events**${(scheduledEvents.includes('⚠️') ? ' ≫ *Missing Some Permissions*' : '')}  
-        ${scheduledEvents}`;
+        ${scheduledEvents.map((event) => `- ${event}`).join('\n')}`;
     }
     public showModal(interaction: ButtonInteraction) {
         const modal = new ModalBuilder()
@@ -167,29 +161,31 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
     ): Promise<SettingsPostInteractAction[]> {
         if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
         const guild = interaction.guild;
+        let events: ScheduledEvent[];
         switch (option) {
             case ERaidhelperSettingsOptions.API_KEY:
                 if (!interaction.isButton()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
                 await this.showModal(interaction);
-                const modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 2 })
+                const modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 60 })
                 const apiKey = modalInteraction.fields
                     .getTextInputValue(this.getCustomId(
                         ESettingsID.RAIDHELPER,
                         [ERaidhelperSettingsOptions.API_KEY]
                     ));
                 dbGuild.raidHelper.apiKey = apiKey;
-                return await RaidhelperIntegration.updateEventStatus(guild, dbGuild)
-                    .then(async () => {
-                        await modalInteraction.deferUpdate();
-                        return ['saveGuild', 'update'] as SettingsPostInteractAction[];
-                    })
-                    .catch(async () => {
-                        await modalInteraction.reply({ ephemeral: true, content: 'Invalid API Key.\nTry using `/apikey refresh` to get a new key.' })
-                            .then(() => setTimeout(1000 * 20))
-                            .then(() => interaction.deleteReply())
-                            .catch(logger.error);
-                        return [];
-                    })
+
+                try {
+                    events = await RaidhelperIntegration.getEvents(dbGuild);
+                }catch(e) {
+                    await modalInteraction.reply({ ephemeral: true, content: 'Invalid API Key.\nTry using `/apikey refresh` to get a new key.' })
+                        .then(() => setTimeout(EPHEMERAL_REPLY_DURATION_SHORT))
+                        .then(() => interaction.deleteReply())
+                        .catch(logger.error);
+                    return [];
+                }
+                await RaidhelperIntegration.sendEventNotifications(guild, dbGuild, events, [...dbGuild.raidHelper.events]);
+                await modalInteraction.deferUpdate();
+                return ['saveGuild', 'update'] as SettingsPostInteractAction[];
                 break;
             case ERaidhelperSettingsOptions.DEFAULT_CHANNEL:
                 if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
@@ -221,12 +217,14 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                 return ['saveGuild', 'update'];
             case ERaidhelperSettingsOptions.REFRESH_EVENTS:
                 dbGuild.raidHelper.lastManualRefresh = new Date();
-                await RaidhelperIntegration.updateEventStatus(guild, dbGuild)
-                    .catch(async () => {
-                        dbGuild.raidHelper.apiKeyValid = false;
-                        await dbGuild.save();
-                    }).catch(logger.error);
-                return ['update', 'saveGuild']; // widget gets updated in updateEventStatus
+                try {
+                    events = await RaidhelperIntegration.getEvents(dbGuild);
+                } catch (e) {
+                    dbGuild.raidHelper.apiKeyValid = false;
+                    return ['saveGuild'];
+                }
+                await RaidhelperIntegration.sendEventNotifications(guild, dbGuild, events, [...dbGuild.raidHelper.events]);
+                return ['saveGuild', 'update', 'updateWidget'] as SettingsPostInteractAction[];
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
         }
     }

@@ -110,6 +110,7 @@ class AudioManager {
             const minutesSubscribed = new Date(date.getTime() - subscriber.timeStamp).getTime() / 1000 / 60;
 
             if ((minutes === 59 || minutes === 29) && seconds === 59 && minutesSubscribed >= 15) {
+                logger.debug(`[${subscriber.guild.name}] auto-disconnect`)
                 Database.getGuild(subscriber.guild).then((dbGuild) =>
                     this.disconnect(subscriber.guild, dbGuild)
                 ).catch(logger.error);

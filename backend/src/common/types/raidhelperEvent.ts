@@ -1,7 +1,7 @@
 export interface ScheduledEvent {
     id: string;
     title: string;
-    startTime: number;
+    startTimeUnix: number;
     voiceChannelId: string;
 }
 export interface RaidhelperAPIEvent {

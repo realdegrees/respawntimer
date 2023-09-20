@@ -8,10 +8,12 @@ import { NotificationHandler } from './handlers/notificationHandler';
 import { DBGuild } from './common/types/dbGuild';
 import { checkChannelPermissions } from './util/permissions';
 import Database from './db/database';
+import { formatEvents } from './util/formatEvents';
 
 const RETRY_ATTEMPT_DUR = 3;
 const RETRY_INTERVAL_SECONDS = 5;
-const RAIDHELPER_USER_ID = "579155972115660803"
+const RAIDHELPER_USER_ID = "579155972115660803";
+const GRACE_PERIOD_MINUTES = 20; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
 
 export class RaidhelperIntegration {
     // TODO: save messageId and channelId of created raidhelper events (can be retrieved from api response) into the db as well
@@ -21,99 +23,155 @@ export class RaidhelperIntegration {
         client
             .on('messageCreate', async (message) => {
                 if (!message.guild || message.type !== MessageType.Default || message.member?.user.id !== RAIDHELPER_USER_ID) return;
-                await setTimeout(7000); // Give raidhelper API time to update
+                await setTimeout(5000); // Give raidhelper API time to update
                 const dbGuild = await Database.getGuild(message.guild).catch(() => undefined);
                 // if the message is from raidhelper but not posted in the specified event channel return
                 if (!dbGuild || !dbGuild.raidHelper.apiKey || dbGuild.raidHelper.eventChannelId && dbGuild?.raidHelper.eventChannelId !== message.channel.id) return;
                 logger.info(`[${message.guild?.name}] raidhelper created`);
-                RaidhelperIntegration.updateEventStatus(message.guild, dbGuild)
-                    .catch(() => {
-                        if (message.guild) {
-                            NotificationHandler.sendNotification(message.guild, dbGuild, 'Raidhelper Integration Error', 'Error while trying to schedule a Raidhelper event.\nCheck your Raidhelper Integration settings in `/settings`')
-                        }
-                        dbGuild.raidHelper.apiKeyValid = false;
-                        return dbGuild.save();
-                    }).catch(logger.error);
+
+                let events: ScheduledEvent[];
+                try {
+                    events = await RaidhelperIntegration.getEvents(dbGuild);
+                } catch (e) {
+                    await RaidhelperIntegration.handleUpdateEventError(
+                        message.guild,
+                        dbGuild,
+                        'Error while trying to schedule a Raidhelper event.\nCheck your Raidhelper Integration settings in `/settings`'
+                    );
+                    return;
+                }
+                await RaidhelperIntegration.sendEventNotifications(message.guild, dbGuild, events, [...dbGuild.raidHelper.events])
+                    .then(() => dbGuild.raidHelper.events = events)
+                    .then(() => dbGuild.save())
+                    .catch(logger.error);
+
+                const widget = await Widget.find(
+                    message.guild,
+                    dbGuild.widget.messageId,
+                    dbGuild.widget.channelId
+                )
+                if (!widget?.textState) {
+                    await widget?.update({ force: true });
+                }
             })
             .on('messageDelete', async (message) => {
                 if (!message.guild || message.type !== MessageType.Default || message.member?.user.id !== RAIDHELPER_USER_ID) return;
-                await setTimeout(7000); // Give raidhelper API time to update
+                await setTimeout(5000); // Give raidhelper API time to update
                 const dbGuild = await Database.getGuild(message.guild).catch(() => undefined);
                 if (!dbGuild || !dbGuild.raidHelper.apiKey) return;
                 logger.info(`[${message.guild?.name}] raidhelper deleted`);
-                RaidhelperIntegration.updateEventStatus(message.guild, dbGuild)
-                    .catch(() => {
-                        if (message.guild) {
-                            NotificationHandler.sendNotification(message.guild, dbGuild, 'Raidhelper Integration Error', 'Error while trying to schedule a Raidhelper event.\nCheck your Raidhelper Integration settings in `/settings`')
-                        }
-                        dbGuild.raidHelper.apiKeyValid = false;
-                        return dbGuild.save();
-                    }).catch(logger.error);
-            })
-    }
-    public static async updateEventStatus(guild: Guild, dbGuild: DBGuild): Promise<void> {
-        logger.info(`[${guild.name}] requesting raidhelper events`);
-        await RaidhelperIntegration.getEvents(dbGuild)
-            .then(async (events) => {
-                if (!dbGuild) return Promise.reject();
-                const oldEvents = [...dbGuild.raidHelper.events];
-                dbGuild.raidHelper.events = events;
-                dbGuild.raidHelper.apiKeyValid = true;
-                await dbGuild.save();
-                if (guild) {
-                    await Widget.find(
-                        guild,
-                        dbGuild.widget.messageId,
-                        dbGuild.widget.channelId
-                    ).then((widget) => {
-                        if (!widget?.textState) {
-                            widget?.update({ force: true });
-                        }
-                    }).catch(logger.error);
-                }
-                return [events, oldEvents];
-            })
-            .then(async ([events, oldEvents]) => {
-                logger.info(`[${guild.name}] raidhelper events request success`);
-                if (oldEvents.every((oldEvent) => events.find((event) => event.id === oldEvent.id)) &&
-                    events.every((event) => oldEvents.find((oldEvent) => event.id === oldEvent.id))) return;
-                // Check for old events that have been descheduled and notify
-                const descheduledEvents = oldEvents.filter((event) => !events.find((newEvent) => newEvent.id === event.id));
-                if (descheduledEvents.length !== 0 && guild) {
-                    const descheduledEventStrings = descheduledEvents.map((event) => {
-                        const time = '🗓️ ' + `<t:${event.startTime}:d>` + ' 🕑 ' + `<t:${event.startTime}:t>`;
-                        return `- 📝  ${event.title}  ${time}`;
-                    });
-                    await NotificationHandler.sendNotification(guild, dbGuild,
-                        `**Event${descheduledEvents.length > 1 ? 's' : ''} Descheduled**`,
-                        `${descheduledEventStrings.join('\n')}`,
-                        { color: Colors.Orange, byPassDuplicateCheck: true });
-                }
 
-                // Check for new events and notify
-                const newEvents = events.filter((event) => !oldEvents.find((oldEvent) => oldEvent.id === event.id));
-                if (newEvents.length !== 0) {
-                    await Promise.all(newEvents.map(async (event) => {
-                        const voiceChannel = event.voiceChannelId ?
-                            await guild.channels
-                                .fetch(event.voiceChannelId)
-                                .catch(() => undefined) : undefined;
-                        const time = '🗓️ ' + `<t:${event.startTime}:d>` + ' 🕑 ' + `<t:${event.startTime}:t>`;
-                        const voiceChannelPermissions = voiceChannel?.isVoiceBased() ? await checkChannelPermissions(voiceChannel, ['ViewChannel', 'Connect', 'Speak'])
-                            .then(() => '')
-                            .catch(() => `⚠️`) : '';
-                        return `- 📝  ${event.title}  ${time}${voiceChannel ? `  🔗 ${voiceChannel} ${voiceChannelPermissions}` : ''}`;
-                    }))
-                        .then((scheduledEvents) => {
-                            const info = `${scheduledEvents.some((ev) => ev.includes('⚠️')) ? ' ≫ *Missing Some Permissions*' : ''}`;
-                            return NotificationHandler.sendNotification(
-                                guild, dbGuild,
-                                `** New Event${newEvents.length > 1 ? 's' : ''} Scheduled**`,
-                                `${info}\n${scheduledEvents.join('\n')}`,
-                                { color: Colors.Green, byPassDuplicateCheck: true });
-                        });
+                let events: ScheduledEvent[];
+                try {
+                    events = await RaidhelperIntegration.getEvents(dbGuild);
+                } catch (e) {
+                    await RaidhelperIntegration.handleUpdateEventError(
+                        message.guild,
+                        dbGuild,
+                        'Error while trying to deschedule a Raidhelper event.\nCheck your Raidhelper Integration settings in `/settings`'
+                    );
+                    return;
                 }
-            })
+                await RaidhelperIntegration.sendEventNotifications(message.guild, dbGuild, events, [...dbGuild.raidHelper.events])
+                    .then(() => dbGuild.raidHelper.events = events)
+                    .then(() => dbGuild.save())
+                    .catch(logger.error);
+
+                const widget = await Widget.find(
+                    message.guild,
+                    dbGuild.widget.messageId,
+                    dbGuild.widget.channelId
+                )
+                if (!widget?.textState) {
+                    await widget?.update({ force: true });
+                }
+            });
+    }
+    private static async handleUpdateEventError(guild: Guild | null, dbGuild: DBGuild, message: string): Promise<void> {
+        try {
+            dbGuild.raidHelper.apiKeyValid = false;
+            await dbGuild.save();
+            if (guild) {
+                // Send notification
+                await NotificationHandler.sendNotification(
+                    guild,
+                    dbGuild,
+                    'Raidhelper Integration Error',
+                    message,
+                    { color: Colors.Red }
+                );
+
+                // Update widget to reflect that API key is not valid
+                const widget = await Widget.find(
+                    guild,
+                    dbGuild.widget.messageId,
+                    dbGuild.widget.channelId
+                )
+                if (!widget?.textState) {
+                    await widget?.update({ force: true });
+                }
+            }
+        } catch (e) {
+            logger.error('Error while handling updateEventStatus error: ' + (e instanceof Error ? e.message : e?.toString?.()) || 'Unknown');
+        }
+    }
+    /**
+     * @param guild 
+     * @param dbGuild 
+     * @param events event list returned from the raidhelper api
+     * @returns 
+     */
+    public static async sendEventNotifications(guild: Guild, dbGuild: DBGuild, events: ScheduledEvent[], oldEvents: ScheduledEvent[]): Promise<void> {
+        // request events 
+        if (!dbGuild) return Promise.reject();
+
+        // return if there is no change in events
+        if (oldEvents.every((oldEvent) => events.find((event) => event.id === oldEvent.id)) &&
+            events.every((event) => oldEvents.find((oldEvent) => event.id === oldEvent.id))) return;
+
+        // Check for old events that have been descheduled and notify
+        const descheduledEvents = oldEvents.filter((event) => !events.find((newEvent) => newEvent.id === event.id));
+        if (descheduledEvents.length !== 0 && guild) {
+            await this.notifyDescheduledEvents(descheduledEvents, dbGuild, guild);
+        }
+
+        // Check for new events and notify
+        const newEvents = events.filter((event) => !oldEvents.find((oldEvent) => oldEvent.id === event.id));
+        if (newEvents.length !== 0) {
+            await this.notifyScheduledEvents(newEvents, dbGuild, guild);
+        }
+    }
+    /**
+     * Notify guild in notification channel about newly scheduled events
+     * @param events 
+     * @param dbGuild 
+     * @param guild 
+     */
+    private static async notifyScheduledEvents(events: ScheduledEvent[], dbGuild: DBGuild, guild: Guild): Promise<void> {
+        const scheduledEvents = await formatEvents(guild, ...events);
+        const info = `${scheduledEvents.some((ev) => ev.includes('⚠️')) ? ' ≫ *Missing Some Permissions*' : ''}`;
+        await NotificationHandler.sendNotification(
+            guild, dbGuild,
+            `** New Event${scheduledEvents.length > 1 ? 's' : ''} Scheduled**`,
+            `${info}\n${scheduledEvents.map((event) => `- ${event}`).join('\n')}`,
+            { color: Colors.Green, byPassDuplicateCheck: true }
+        ).catch(logger.error);
+    }
+    /**
+     * Notify guild in notification channel about descheduled events
+     * @param events 
+     * @param dbGuild 
+     * @param guild 
+     */
+    private static async notifyDescheduledEvents(events: ScheduledEvent[], dbGuild: DBGuild, guild: Guild): Promise<void> {
+        const descheduledEventStrings = events.map((event) => {
+            const time = '🗓️ ' + `<t:${event.startTimeUnix}:d>` + ' 🕑 ' + `<t:${event.startTimeUnix}:t>`;
+            return `- 📝  ${event.title}  ${time}`;
+        });
+        await NotificationHandler.sendNotification(guild, dbGuild,
+            `**Event${events.length > 1 ? 's' : ''} Descheduled**`,
+            `${descheduledEventStrings.map((event) => `- ${event}`).join('\n')}`,
+            { color: Colors.Orange, byPassDuplicateCheck: true });
     }
     public static async interval(client: Client): Promise<void> {
         const date = new Date();
@@ -124,21 +182,29 @@ export class RaidhelperIntegration {
         if (minutes >= 0 && minutes < RETRY_ATTEMPT_DUR ||
             minutes >= 30 && minutes < 30 + RETRY_ATTEMPT_DUR &&
             seconds % RETRY_INTERVAL_SECONDS === 0) {
+
             try {
+                const dbGuilds = await Database.getAllGuilds();
                 // Get guilds with an API Key from DB and filter out those with events starting soon
-                const guilds = (await Database.queryGuilds({
-                    'raidHelper.apiKey': { $exists: true }
-                }))
-                    .filter((guild) =>
-                        guild.raidHelper.events.find((event) => {
-                            const diff = event.startTime * 1000 - Date.now();
-                            const diffSeconds = diff / 1000;
-                            const diffMinutes = diffSeconds / 60;
-                            return event.startTime && diffSeconds < 30 && diffMinutes > -20;
-                        }))
+                let guilds = dbGuilds
                     .map((dbGuild) => ({
                         db: dbGuild,
                         client: client.guilds.cache.find((clientGuild) => clientGuild.id === dbGuild.id)
+                    }));
+                await RaidhelperIntegration.descheduledOldEvents(guilds)
+                    .catch(logger.error);
+                // Get guilds with an API Key from DB and filter out those with events starting soon
+                guilds = guilds.filter((guild) =>
+                    guild.db.raidHelper.events.find((event) => {
+                        // Past events = negative diff, Future events = positive diff
+                        const diff = event.startTimeUnix * 1000 - Date.now();
+                        const diffSeconds = diff / 1000;
+                        const diffMinutes = diffSeconds / 60;
+
+                        const isWithinFutureThreshold = diffSeconds < 5;
+                        const isWithinPastThreshold = diffMinutes > GRACE_PERIOD_MINUTES * -1;
+
+                        return isWithinFutureThreshold && isWithinPastThreshold;
                     }));
 
                 // for each guild find the closest event and attempt to start the widget and voice
@@ -146,7 +212,7 @@ export class RaidhelperIntegration {
                     if (!guild.client) return;
                     if (!guild.db.raidHelper.enabled && !guild.db.raidHelper.widget) return;
                     const event = guild.db.raidHelper.events.reduce((lowest, current) =>
-                        Math.abs(current.startTime * 1000 - Date.now()) < Math.abs(lowest.startTime * 1000 - Date.now()) ? current : lowest);
+                        Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
 
                     // Try to find a widget
                     const widget = await Widget.find(
@@ -216,13 +282,35 @@ export class RaidhelperIntegration {
             }
         }
     }
+    private static async descheduledOldEvents(guilds: {
+        db: DBGuild;
+        client: Guild | undefined;
+    }[],): Promise<void> {
+        // Filter out past events and potentially notify about unlisting
+        for (const guild of guilds) {
+            const oldEvents = [...guild.db.raidHelper.events];
+            guild.db.raidHelper.events = guild.db.raidHelper.events.filter((event) => {
+                // Past events = negative diff, Future events = positive diff
+                const diff = event.startTimeUnix * 1000 - Date.now();
+                const diffMinutes = diff / 1000 / 60;
+
+                const isWithinPastThreshold = diffMinutes > (RETRY_ATTEMPT_DUR + GRACE_PERIOD_MINUTES) * -1;
+                return isWithinPastThreshold;
+            });
+            if (guild.client) {
+                await RaidhelperIntegration.sendEventNotifications(guild.client, guild.db, guild.db.raidHelper.events, oldEvents)
+                    .catch(logger.error);
+            }
+            await guild.db.save().catch(() => logger.error(`[${guild.db.name}] Unable to clear old events`));
+        }
+    }
     /**
      * Retrieves current events, saves them to the guild object in db
      * and returns the events
      * @param guild 
      * @returns 
      */
-    private static async getEvents(dbGuild: DBGuild): Promise<ScheduledEvent[]> {
+    public static async getEvents(dbGuild: DBGuild): Promise<ScheduledEvent[]> {
         if (!dbGuild.raidHelper.apiKey) {
             return Promise.reject('Raidhelper API Key not set.');
         }
@@ -230,7 +318,7 @@ export class RaidhelperIntegration {
         const header = new Headers();
         header.set('Authorization', dbGuild.raidHelper.apiKey);
         header.set('IncludeSignups', 'false');
-        header.set('StartTimeFilter', Math.round(Date.now() / 1000 - 60 * 20).toString());
+        header.set('StartTimeFilter', Math.round(Date.now() / 1000 - 60 * GRACE_PERIOD_MINUTES).toString());
         if (dbGuild.raidHelper.eventChannelId) {
             header.set('ChannelFilter', dbGuild.raidHelper.eventChannelId);
         }
@@ -248,7 +336,7 @@ export class RaidhelperIntegration {
                     .then((res) => res.json())
                     .then((event: RaidhelperAPIEvent) => ({ // Need to map to new object so the entire event object doesn't get saved to databse
                         id: event.id,
-                        startTime: event.startTime,
+                        startTimeUnix: event.startTime,
                         title: event.title,
                         voiceChannelId: event.advancedSettings.voice_channel.match(/^[0-9]+$/) ? event.advancedSettings.voice_channel : undefined,
                     } as ScheduledEvent))) ?? []));
