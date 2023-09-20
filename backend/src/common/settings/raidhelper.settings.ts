@@ -185,7 +185,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                 dbGuild.raidHelper.apiKeyValid = true;
                 await RaidhelperIntegration.sendEventNotifications(guild, dbGuild, events, [...dbGuild.raidHelper.events]);
                 await modalInteraction.deferUpdate();
-                return ['saveGuild', 'update'] as SettingsPostInteractAction[];
+                return ['saveGuild', 'update', 'updateWidget'] as SettingsPostInteractAction[];
                 break;
             case ERaidhelperSettingsOptions.DEFAULT_CHANNEL:
                 if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
