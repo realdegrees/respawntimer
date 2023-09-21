@@ -365,6 +365,9 @@ export class Widget {
                     let hasPermission;
                     switch (interactionId) {
                         case EWidgetButtonID.TEXT:
+                            if(this.isResetting){
+                                return Promise.reject('Widget is currently resetting! Please wait.');
+                            }
                             hasPermission = hasAssistantPermission || hasEditorPermission || dbGuild.assistantRoleIDs.length === 0;
                             if (hasPermission) {
                                 await this.toggleText({
