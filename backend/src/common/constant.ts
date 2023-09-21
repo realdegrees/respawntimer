@@ -12,5 +12,5 @@ export const EXCLAMATION_ICON_LINK = 'https://upload.wikimedia.org/wikipedia/com
 export const MAX_INACTIVE_DAYS = 31;
 export const REFRESH_COOLDOWN_MS = (debug ? 0.1 : 10) * 1000 * 60;
 export const MODAL_TIMEOUT = 1000 * 60 * 60; // 60 minutes
-export const EPHEMERAL_REPLY_DURATION_SHORT = 1000 * 3;
+export const EPHEMERAL_REPLY_DURATION_SHORT = 1000 * 2.5;
 export const EPHEMERAL_REPLY_DURATION_LONG = 1000 * 25;
