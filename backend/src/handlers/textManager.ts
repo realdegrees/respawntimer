@@ -2,6 +2,7 @@ import logger from '../../lib/logger';
 import { TimingsSettings } from '../common/settings/timings.settings';
 import { WarInfo } from '../common/types';
 import { clamp } from '../util/util.generic';
+import { Widget } from '../widget';
 
 const settings = {
     barWidth: 25,
@@ -12,16 +13,13 @@ const settings = {
 // TODO: make textmanager static along with voicemanager
 type Subscriber = {
     timeStamp: number;
-    msgId: string;
-    guildId: string;
+    widget: Widget;
     timings?: number[];
     update: (options?: {
         title?: string;
         description?: string;
         force?: boolean;
     }) => Promise<unknown>;
-    onInitialize?: () => void;
-    onUnsubscribe: () => void;
 };
 class TextManager {
     private subscribers: Subscriber[] = [];
@@ -34,8 +32,10 @@ class TextManager {
 
             // Toggle widget off at war end if it's been on for more than 15 minutes
             // Toggle widget off if it's been subscribed for over 45 minutes
-            if ((minutes === 59 || minutes === 29) && seconds === 59 && minutesSubscribed >= 15 || minutesSubscribed >= 45) {
-                this.unsubscribe(subscriber.msgId);
+            const widgetHasTextEnabled = subscriber.widget.getTextState();
+            const isEndOfwar = (minutes === 59 || minutes === 29) && seconds === 59 && minutesSubscribed >= 15 || minutesSubscribed >= 45;
+            if (widgetHasTextEnabled && isEndOfwar) {
+                subscriber.widget.toggleText();
             }
         });
 
@@ -53,16 +53,12 @@ class TextManager {
         }
     }
     private async handleSubscriber(subscriber: Subscriber, respawnData: WarInfo): Promise<void> {
+        if (!subscriber.widget.getTextState()) {
+            return;
+        }
         const description = this.getDescription(respawnData);
-
-        if (!subscriber.onInitialize && respawnData.respawn.timeUntilRespawn % 1 !== 0) return Promise.resolve();
-        return subscriber.update({ description })
-            .then(() => {
-                if (subscriber.onInitialize) {
-                    subscriber.onInitialize();
-                    subscriber.onInitialize = undefined;
-                }
-            }).catch(logger.error);
+        await subscriber.update({ description })
+            .catch(logger.error);
     }
     private getDescription(info: WarInfo): string {
         const timeLeftMinutes = Math.floor(info.war.timeLeftSeconds / 60);
@@ -88,59 +84,50 @@ class TextManager {
         return `${timeLeft === 0 ? '🔶' : '🔸'} ` + respawn;
     }
     public setTimings(guildId: string, timings: string): void {
-        const subscriber = this.subscribers.find((s) => s.guildId === guildId);
+        const subscriber = this.subscribers.find((s) => s.widget.guild.id === guildId);
         if (!subscriber) return;
         const timingsList = TimingsSettings.convertToSeconds(timings);
         subscriber.timings = timingsList;
     }
     public resetTimings(guildId: string): void {
-        const subscriber = this.subscribers.find((s) => s.guildId === guildId);
+        const subscriber = this.subscribers.find((s) => s.widget.guild.id === guildId);
         if (!subscriber?.timings) return;
         subscriber.timings = undefined;
     }
 
     public subscribe(options: {
-        msgId: string;
-        guildId: string;
+        widget: Widget;
         customTimings?: string;
     }, update: (options?: {
         title?: string;
         description?: string;
         force?: boolean;
-    }) => Promise<unknown>,
-        onInitialize: () => void,
-        onUnsubscribe: () => void
+    }) => Promise<unknown>
     ): void {
-        if (this.subscribers.find((s) => s.msgId === options.msgId)) {
+        if (this.subscribers.find((s) => s.widget.getId() === options.widget.getId())) {
             return;
         }
-        const existingGuildSubscriber = this.subscribers.find((s) => s.guildId === options.guildId);
+        const existingGuildSubscriber = this.subscribers.find((s) => s.widget.getId() === options.widget.guild.id);
         if (existingGuildSubscriber) {
-            this.unsubscribe(existingGuildSubscriber.msgId);
-        }
+            this.unsubscribe(existingGuildSubscriber.widget.getId());
+        };
 
         const timings = TimingsSettings.convertToSeconds(options.customTimings ?? '');
 
         const timeStamp = Date.now();
         this.subscribers.push({
             timeStamp,
-            msgId: options.msgId,
-            guildId: options.guildId,
+            widget: options.widget,
             timings,
-            update,
-            onInitialize,
-            onUnsubscribe
+            update
         });
     }
     public unsubscribe(msgId: string, skipCallback = false): boolean {
-        const subscriber = this.subscribers.find((subscriber) => subscriber.msgId === msgId);
+        const subscriber = this.subscribers.find((subscriber) => subscriber.widget.getId() === msgId);
         if (!subscriber) {
             return false;
         }
-        this.subscribers = this.subscribers.filter((subscriber) => subscriber.msgId !== msgId);
-        if (!skipCallback) {
-            subscriber.onUnsubscribe();
-        }
+        this.subscribers = this.subscribers.filter((subscriber) => subscriber.widget.getId() !== msgId);
         return true;
     }
 }

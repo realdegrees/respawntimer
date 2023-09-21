@@ -171,7 +171,7 @@ export class SettingsHandler {
             await dbGuild.save();
         }
         if (postInteractActions?.includes('updateWidget')) {
-            if (!widget?.textState) {
+            if (!widget?.getTextState()) {
                 await widget?.update({ force: true });
             }
         }
