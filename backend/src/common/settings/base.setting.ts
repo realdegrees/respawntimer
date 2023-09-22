@@ -18,7 +18,8 @@ export enum ESettingsID {
     WIDGET = 'Widget',
     NOTIFICATIONS = 'Notifications',
     TIMINGS = 'Respawn Timers',
-    HELP = 'Help'
+    HELP = 'Help',
+    DEV = 'Dev'
 }
 
 export abstract class BaseSetting<

@@ -35,7 +35,6 @@ export class Widget {
     private textState = false;
     private voiceState = false;
     private isResetting = false;
-    private rateLimitExceeded = false;
 
     public getTextState() { return this.textState; }
     public getResettingState() { return this.isResetting; }
@@ -52,7 +51,7 @@ export class Widget {
      * @param managerRole The role that was specified in the command
      */
     public constructor(
-        private message: Message | PartialMessage,
+        public message: Message | PartialMessage,
         public readonly guild: Guild,
         private dbGuild: DBGuild,
         onReady: (widget: Widget) => void
@@ -310,11 +309,11 @@ export class Widget {
         description?: string;
         force?: boolean;
     }): Promise<void> {
-        if (this.isResetting || this.rateLimitExceeded) {
+        if (this.isResetting) {
             return Promise.resolve();
         }
         if (!options?.force && this.isUpdating > 0) {
-            if (this.isUpdating >= 4) {
+            if (this.isUpdating >= 5) {
                 return this.recreateMessage();
             } else {
                 this.isUpdating++;
@@ -336,14 +335,11 @@ export class Widget {
             this.isUpdating = 0;
             return Promise.resolve();
         } catch (e) {
-            if (e instanceof RateLimitError) {
-                logger.debug('Hit rate limit while updating: ' + e.timeToReset);
-                this.rateLimitExceeded = true;
-                await setTimeout(e.timeToReset);
-                this.rateLimitExceeded = false;
-            } else if (!(e instanceof DiscordAPIError)) {
+            if (!(e instanceof DiscordAPIError)) {
                 // Handle other errors or log them as needed
                 logger.error('Update error: ' + e?.toString?.() || 'Unknown');
+            }else {
+                logger.debug('Update error: ' + e?.toString?.() || 'Unknown');
             }
         }
     }
@@ -412,8 +408,8 @@ export class Widget {
                 }
             })
             .on('end', (interactions, reason) => {
-                // Do nothing when manually stopped
-                if (reason === ECollectorStopReason.DISPOSE) return;
+                // Do nothing when manually stopped or widget is resetting
+                if (reason === ECollectorStopReason.DISPOSE || this.isResetting) return;
                 // Delete from memory when stopped because message was deleted
                 const widgetIndex = Widget.LIST.findIndex((widget) => widget.getId() === this.getId());
                 if (widgetIndex !== -1) {
@@ -486,21 +482,16 @@ export class Widget {
         // Try to create a new message
         let newMessage;
         while (!newMessage) {
-            try {
-                // Create a new message with components and an embed
-                newMessage = await (this.message.channel as TextChannel).send({
-                    components: [this.getButtons(true, false)],
-                    embeds: [
-                        EmbedBuilder.from(this.message.embeds[0])
-                            .setTitle('Discord API Timeout')
-                            .setFooter({ text: 'Wartimer' })
-                            .setDescription(`Resetting.. (${resetDurationSeconds}s) This only affects the widget.\nAudio announcements still work.`),
-                    ],
-                });
-            } catch (e) {
-                this.rateLimitExceeded = e instanceof RateLimitError;
-                await setTimeout(e instanceof RateLimitError ? e.timeToReset : 500);
-            }
+            // Create a new message with components and an embed
+            newMessage = await (this.message.channel as TextChannel).send({
+                components: [this.getButtons(true, false)],
+                embeds: [
+                    EmbedBuilder.from(this.message.embeds[0])
+                        .setTitle('Discord API Timeout')
+                        .setFooter({ text: 'Wartimer' })
+                        .setDescription(`Resetting.. (${resetDurationSeconds}s) This only affects the widget.\nAudio announcements still work.`),
+                ],
+            });
         }
         // Update the database with new message information
         const dbGuild = await Database.getGuild(newMessage.guild);
@@ -517,7 +508,6 @@ export class Widget {
         // Reset flags and perform additional actions if needed
         this.isUpdating = 0;
         this.isResetting = false;
-        this.rateLimitExceeded = false;
 
         if (!this.textState) {
             await this.update({ force: true })
