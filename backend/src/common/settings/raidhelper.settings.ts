@@ -178,7 +178,12 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
             case ERaidhelperSettingsOptions.API_KEY:
                 if (!interaction.isButton()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
                 await this.showModal(interaction);
-                const modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 60 })
+                let modalInteraction;
+                try {
+                    modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 60 })
+                } catch (e) {
+                    return [];
+                }
                 const apiKey = modalInteraction.fields
                     .getTextInputValue(this.getCustomId(
                         ESettingsID.RAIDHELPER,
