@@ -26,6 +26,8 @@ export enum ERaidhelperSettingsOptions {
     TOGGLE_AUTO_WIDGET = 'toggleautowidget'
 }
 export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelectMenuBuilder> {
+    private waitingForApiKeyModal = false;
+
     public constructor() {
         super(ESettingsID.RAIDHELPER,
             ButtonStyle.Primary,
@@ -178,12 +180,18 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
             case ERaidhelperSettingsOptions.API_KEY:
                 if (!interaction.isButton()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
                 await this.showModal(interaction);
-                let modalInteraction;
-                try {
-                    modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 5 })
-                } catch (e) {
+                if (this.waitingForApiKeyModal) {
                     return [];
                 }
+                let modalInteraction;
+                try {
+                    this.waitingForApiKeyModal = true;
+                    modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 5 })
+                } catch (e) {
+                    this.waitingForApiKeyModal = false;
+                    return [];
+                }
+                this.waitingForApiKeyModal = false;
                 const apiKey = modalInteraction.fields
                     .getTextInputValue(this.getCustomId(
                         ESettingsID.RAIDHELPER,
