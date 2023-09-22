@@ -35,6 +35,7 @@ export class Widget {
     private textState = false;
     private voiceState = false;
     private isResetting = false;
+    private isUpdating = false;
 
     public getTextState() { return this.textState; }
     public getResettingState() { return this.isResetting; }
@@ -42,7 +43,6 @@ export class Widget {
     private listener: InteractionCollector<ButtonInteraction> | undefined;
     private showButtons: boolean;
     private onUpdateOnce: (() => void) | undefined;
-    private isUpdating = 0;
 
     /**
      * @param interaction The interaction that created this widget
@@ -309,19 +309,10 @@ export class Widget {
         description?: string;
         force?: boolean;
     }): Promise<void> {
-        if (this.isResetting) {
+        if (this.isResetting || this.isUpdating) {
             return Promise.resolve();
-        }
-        if (!options?.force && this.isUpdating > 0) {
-            if (this.isUpdating >= 5) {
-                return this.recreateMessage();
-            } else {
-                this.isUpdating++;
-                return Promise.resolve();
-            }
-        }
-        this.isUpdating++;
-
+        }        
+        this.isUpdating = true;
         try {
             const embed = await Widget.getEmbed(this.guild, options?.description, options?.title);
             await this.message.edit({
@@ -332,9 +323,10 @@ export class Widget {
             this.onUpdateOnce?.();
             this.onUpdateOnce = undefined;
 
-            this.isUpdating = 0;
+            this.isUpdating = false;
             return Promise.resolve();
         } catch (e) {
+            this.isUpdating = false;
             if (!(e instanceof DiscordAPIError)) {
                 // Handle other errors or log them as needed
                 logger.error('Update error: ' + e?.toString?.() || 'Unknown');
@@ -506,7 +498,7 @@ export class Widget {
         await setTimeout(resetDurationSeconds * 1000);
 
         // Reset flags and perform additional actions if needed
-        this.isUpdating = 0;
+        this.isUpdating = false;
         this.isResetting = false;
 
         if (!this.textState) {
