@@ -341,7 +341,7 @@ export class Widget {
                 this.rateLimitExceeded = true;
                 await setTimeout(e.timeToReset);
                 this.rateLimitExceeded = false;
-            } else {
+            } else if (!(e instanceof DiscordAPIError)) {
                 // Handle other errors or log them as needed
                 logger.error('Update error: ' + e?.toString?.() || 'Unknown');
             }
@@ -475,7 +475,7 @@ export class Widget {
     }
     public async recreateMessage(): Promise<void> {
         this.isResetting = true;
-
+        logger.info(`[${this.guild.name}] Recreating widget`);
         // Delete the existing message, unsubscribe the listener even inc ase the message couldn't be deleted
         await this.message.delete()
             .catch(() => {
@@ -499,7 +499,7 @@ export class Widget {
                 });
             } catch (e) {
                 this.rateLimitExceeded = true;
-                await setTimeout(e instanceof RateLimitError ? e.timeToReset : 200);
+                await setTimeout(e instanceof RateLimitError ? e.timeToReset : 500);
                 this.rateLimitExceeded = false;
             }
         }
