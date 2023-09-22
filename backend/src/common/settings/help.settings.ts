@@ -46,8 +46,14 @@ export class HelpSettings extends BaseSetting<ButtonBuilder> {
                     value: 'If the bot is does not join a voice channel check the settings. If there are any **missing permissions** they will be displayed there. ' +
                         'Make sure the bot has `View`, `Connect` and `Speak` permissions in **every voice channel** you want it to be able to join.'
                 }, emptyField, {
+                    name: '<a:loading:393852367751086090> Widget Unresponsive',
+                    value: 'If the widget stops updating even though the text button is on then the bot hit some form of rate-limit.\n' +
+                        '**Server specific rate-limits** can happen from time to time but will be resolved after a few seconds and the widget continues.\n'+
+                        'If the rate-limit is imposed on the **IP of the bot** then all widgets will stop updating *globally*. There should not be enough users yet to hit this limit.\n' + 
+                        'If this limit ever gets reached the bot will have to draw back on some features like updating the text widget in 1s intervals.'
+                }, emptyField, {
                     name: '❓ Errors',
-                    value: 'If you are receiving **internal errors** as responses from the bot try **resetting** your data with the button below. ' +
+                    value: 'If you are receiving **internal errors** as responses from the bot try **resetting** your data with the button below.\n' +
                         'You will have to re-do all your settings but it might fix the issue.\n**If the issues persist please seek help in the support discord.**'
                 }])]
         );
