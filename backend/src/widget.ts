@@ -378,12 +378,12 @@ export class Widget {
                     switch (interactionId) {
                         case EWidgetButtonID.TEXT:
                             if (this.isResetting) {
-                                return Promise.reject('Widget is currently resetting! Please wait.');
+                                throw new Error('Widget is currently resetting! Please wait.');
                             }
                             hasPermission = hasAssistantPermission || hasEditorPermission || dbGuild.assistantRoleIDs.length === 0;
                             if (hasPermission) {
                                 await this.toggleText();
-                            } else return Promise.reject('You do not have permission to use this.');
+                            } else throw new Error('You do not have permission to use this.');
                             break;
                         case EWidgetButtonID.VOICE:
                             hasPermission = hasAssistantPermission || hasEditorPermission || dbGuild.assistantRoleIDs.length === 0;
@@ -392,16 +392,16 @@ export class Widget {
                                     dbGuild,
                                     interaction: interaction as ButtonInteraction
                                 });
-                            } else return Promise.reject('You do not have permission to use this.');
+                            } else throw new Error('You do not have permission to use this.');
                             break;
                         case EWidgetButtonID.SETTINGS:
                             if (hasEditorPermission) {
                                 await SettingsHandler.openSettings(interaction as ButtonInteraction);
-                            } else return Promise.reject(dbGuild.editorRoleIDs.length === 0 ?
+                            } else throw new Error(dbGuild.editorRoleIDs.length === 0 ?
                                 'Editor permissions have not been set up yet!\nPlease ask someone with administrator permissions to add editor roles in the settings.' :
                                 'You do not have editor permissions.');
                             break;
-                        default: return Promise.reject('Could not complete request');
+                        default: throw new Error('Could not complete request');
                     }
                     await interaction.deferUpdate().catch(() => { });
                 } catch (error) {
