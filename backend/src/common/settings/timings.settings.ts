@@ -1,5 +1,5 @@
 import {
-    ActionRowBuilder, AnySelectMenuInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, Guild, Interaction, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, TextInputBuilder, TextInputStyle
+    ActionRowBuilder, AnySelectMenuInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, EmbedField, Guild, Interaction, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, TextInputBuilder, TextInputStyle
 } from 'discord.js';
 import { ESettingsID, BaseSetting } from './base.setting';
 import { DBGuild } from '../types/dbGuild';
@@ -35,9 +35,11 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
 
     public constructor() {
         super(ESettingsID.TIMINGS,
+            ButtonStyle.Primary,
             'Respawn Timers',
             `Wartimer uses a field-tested set of respawn timers.\nIf you feel like some are off and want to customize them you can do so below.`,
-            'Use the reset button to go back the default timers');
+            'Use the reset button to go back the default timers'
+        );
     }
     public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const customTimingsButton = new ButtonBuilder({

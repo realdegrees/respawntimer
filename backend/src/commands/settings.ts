@@ -19,7 +19,7 @@ import { VoiceSettings } from '../common/settings/voice.settings';
 import { RaidhelperSettings } from '../common/settings/raidhelper.settings';
 import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../common/constant';
 import { EInteractionType } from '../common/types/interactionType';
-import { MiscSettings } from '../common/settings/misc.settings';
+import { WidgetSettings } from '../common/settings/widget.settings';
 import { NotificationSettings } from '../common/settings/notifications.settings';
 import logger from '../../lib/logger';
 import { TimingsSettings } from '../common/settings/timings.settings';

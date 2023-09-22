@@ -11,6 +11,7 @@ import { Widget } from './widget';
 import { RaidhelperIntegration } from './raidhelperIntegration';
 import { NotificationHandler } from './handlers/notificationHandler';
 import { MAX_INACTIVE_DAYS } from './common/constant';
+import { setTimeout } from 'timers/promises';
 install();
 config();
 
@@ -31,14 +32,24 @@ Promise.resolve()
     })
     .then(async (bot) => {
         // Remove discord servers from DB taht have been inactive or where bot is not a member anymore
-        const dbGuilds = await Database.getAllGuilds();
+        let dbGuilds = await Database.getAllGuilds();
         logStats(dbGuilds);
         const guildsCleaned = await cleanGuilds(bot.client, dbGuilds, MAX_INACTIVE_DAYS);
         guildsCleaned.forEach((clean) => logger.info(`[${clean.name}] ${clean.reason}`))
-        
+
+        // Start polling interval for all guilds
+        dbGuilds = await Database.getAllGuilds();
+        for (const dbGuild of dbGuilds) {
+            const guild = await bot.client.guilds.fetch(dbGuild.id);
+            RaidhelperIntegration.startPollingInterval(guild, dbGuild);
+            await setTimeout(100);
+        }
+
+        // Start respawn interval
         RespawnInterval.startInterval(bot.client);
-        RaidhelperIntegration.startListening(bot.client);
         await NotificationHandler.startListening(bot.client);
+
+        // Load existing widgets
         await Widget.loadExisting(bot.client);
     }).catch((error) => {
         logger.error('Unable to start!');
