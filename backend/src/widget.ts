@@ -36,6 +36,7 @@ export class Widget {
     private voiceState = false;
     private isResetting = false;
     private isUpdating = false;
+    private failedUpdateCount = 0;
 
     public getTextState() { return this.textState; }
     public getResettingState() { return this.isResetting; }
@@ -220,7 +221,6 @@ export class Widget {
                 const apiKeyStatus = dbGuild.raidHelper.apiKeyValid ?
                     'Enabled' :
                     dbGuild.raidHelper.apiKey ? 'Invalid Key' : 'Disabled';
-                const notificationsStatus = dbGuild.notificationChannelId?.match(/^[0-9]+$/) ? 'Enabled' : 'Disabled';
 
                 embed.setFooter({
                     text: `Raidhelper Integration » ${apiKeyStatus}` +
@@ -309,9 +309,18 @@ export class Widget {
         description?: string;
         force?: boolean;
     }): Promise<void> {
-        if (this.isResetting || this.isUpdating) {
+        if (this.isResetting) {
             return Promise.resolve();
-        }        
+        }
+        if (this.isUpdating) {
+            this.failedUpdateCount++;
+            if (!options?.force) {
+                if (this.failedUpdateCount >= 4) {
+                    await this.recreateMessage();
+                }
+                return Promise.resolve();
+            }
+        }
         this.isUpdating = true;
         try {
             const embed = await Widget.getEmbed(this.guild, options?.description, options?.title);
@@ -324,14 +333,13 @@ export class Widget {
             this.onUpdateOnce = undefined;
 
             this.isUpdating = false;
+            this.failedUpdateCount = 0;
             return Promise.resolve();
         } catch (e) {
             this.isUpdating = false;
             if (!(e instanceof DiscordAPIError)) {
                 // Handle other errors or log them as needed
                 logger.error('Update error: ' + e?.toString?.() || 'Unknown');
-            }else {
-                logger.debug('Update error: ' + e?.toString?.() || 'Unknown');
             }
         }
     }
@@ -472,7 +480,7 @@ export class Widget {
             });
 
         // Try to create a new message
-        let newMessage;
+        let newMessage: Message<true> | undefined;
         while (!newMessage) {
             // Create a new message with components and an embed
             newMessage = await (this.message.channel as TextChannel).send({
@@ -483,7 +491,7 @@ export class Widget {
                         .setFooter({ text: 'Wartimer' })
                         .setDescription(`Resetting.. (${resetDurationSeconds}s) This only affects the widget.\nAudio announcements still work.`),
                 ],
-            });
+            }).catch(() => setTimeout(100).then(() => undefined));
         }
         // Update the database with new message information
         const dbGuild = await Database.getGuild(newMessage.guild);
@@ -500,6 +508,7 @@ export class Widget {
         // Reset flags and perform additional actions if needed
         this.isUpdating = false;
         this.isResetting = false;
+        this.failedUpdateCount = 0;
 
         if (!this.textState) {
             await this.update({ force: true })
