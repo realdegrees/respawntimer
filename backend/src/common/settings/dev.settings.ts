@@ -56,6 +56,7 @@ export class DevSettings extends BaseSetting<ButtonBuilder> {
         if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
         switch (option) {
             case EDevSettingsOptions.RELOAD_WIDGET:
+                await interaction.deferUpdate();
                 await widget?.recreateMessage();
                 return [];
                 break;
