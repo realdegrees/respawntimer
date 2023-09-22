@@ -489,7 +489,7 @@ export class Widget {
             try {
                 // Create a new message with components and an embed
                 newMessage = await (this.message.channel as TextChannel).send({
-                    components: [this.getButtons(true, true)],
+                    components: [this.getButtons(true, false)],
                     embeds: [
                         EmbedBuilder.from(this.message.embeds[0])
                             .setTitle('Discord API Timeout')
@@ -498,12 +498,10 @@ export class Widget {
                     ],
                 });
             } catch (e) {
-                this.rateLimitExceeded = true;
+                this.rateLimitExceeded = e instanceof RateLimitError;
                 await setTimeout(e instanceof RateLimitError ? e.timeToReset : 500);
-                this.rateLimitExceeded = false;
             }
         }
-
         // Update the database with new message information
         const dbGuild = await Database.getGuild(newMessage.guild);
         dbGuild.widget.channelId = newMessage.channel.id;
@@ -519,6 +517,7 @@ export class Widget {
         // Reset flags and perform additional actions if needed
         this.isUpdating = 0;
         this.isResetting = false;
+        this.rateLimitExceeded = false;
 
         if (!this.textState) {
             await this.update({ force: true })
