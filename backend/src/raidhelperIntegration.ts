@@ -12,15 +12,19 @@ import { formatEvents } from './util/formatEvents';
 import { RAIDHELPER_API_RATE_LIMIT_DAY, RAIDHELPER_INTEGRATION_NUM_EVENTS_PER_QUERY, RAIDHELPER_INTEGRATION_QUERY_INTERVAL_MS } from './common/constant';
 import { getEventPollingInterval } from './util/getEventPollingInterval';
 
+const MAX_POLL_RETRIES = 20;
 const RETRY_ATTEMPT_DUR = 3;
 const RETRY_INTERVAL_SECONDS = 5;
 const GRACE_PERIOD_MINUTES = 20; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
 // let pollingInterval: NodeJS.Timeout | undefined;
-let pollingIntervals: {
+const pollingIntervals: {
     [guildId: string]: NodeJS.Timeout
 } = {};
-
+const pollingRetries: {
+    [guildId: string]: number
+} = {};
 export class RaidhelperIntegration {
+    // TODO add retry mechanisim that remove the api key after e.g. 10 retries
     // Polls the raidhelper api every RAIDHELPER_INTEGRATION_QUERY_INTERVAL_MS milliseconds to retrieve new events
     public static async startPollingInterval(guild: Guild, dbGuild: DBGuild): Promise<void> {
         try {
@@ -34,13 +38,9 @@ export class RaidhelperIntegration {
             if (guild) {
                 await RaidhelperIntegration.onFetchEventError(
                     guild,
-                    dbGuild,
-                    'Error while trying to schedule a Raidhelper event.\n' +
-                    'Check your Raidhelper Integration settings in `/settings`\n' +
-                    'If this issue persists try resetting your data in `Misc Settings`'
+                    dbGuild
                 );
             }
-            logger.error(`[${dbGuild.name}] Polling failed | ${JSON.stringify(e ?? 'Unknown')}`);
         } finally {
             const timeout = getEventPollingInterval(dbGuild.raidHelper.events.length);
             await new Promise((res) => {
@@ -54,6 +54,10 @@ export class RaidhelperIntegration {
     }
 
     public static async onFetchEventSuccess(guild: Guild | undefined, dbGuild: DBGuild, events: ScheduledEvent[]): Promise<void> {
+        // Reset retries
+        pollingRetries[dbGuild.id] = 0;
+
+        // Send notification if apiKey vas previously not valid
         if (guild && dbGuild.raidHelper.apiKey && !dbGuild.raidHelper.apiKeyValid) {
             await NotificationHandler.sendNotification(
                 guild,
@@ -82,11 +86,31 @@ export class RaidhelperIntegration {
             }
         }
     }
-    private static async onFetchEventError(guild: Guild | null, dbGuild: DBGuild, message: string): Promise<void> {
+    private static async onFetchEventError(guild: Guild | null, dbGuild: DBGuild): Promise<void> {
         try {
+            logger.error(`[${dbGuild.name}] Polling failed`);
+
+            // Set retries
+            pollingRetries[dbGuild.id] = (pollingRetries[dbGuild.id] ?? 0) + 1;
+            // If too many retries, reset api key and stop polling
+            if (pollingRetries[dbGuild.id] > MAX_POLL_RETRIES) {
+                if (dbGuild.id in pollingIntervals) {
+                    clearTimeout(pollingIntervals[dbGuild.id]);
+                }
+                dbGuild.raidHelper.apiKey = undefined;
+                logger.error(`[${dbGuild.name}] Polling failed >20 times, removing API key`);
+            }
             dbGuild.raidHelper.apiKeyValid = false;
             await dbGuild.save();
+
             if (guild) {
+                const message = pollingRetries[dbGuild.id] <= MAX_POLL_RETRIES ?
+                    'Error while trying to schedule a Raidhelper event.\n' +
+                    'Check your Raidhelper Integration settings in `/settings`\n' +
+                    'If this issue persists try resetting your data in `Misc Settings`'
+                    : `Failed to fetch events ${MAX_POLL_RETRIES} times in a row.\n` +
+                    'Your Raidhelper API key has been reset. Check your Raidhelper Integration settings.';
+
                 // Send notification
                 await NotificationHandler.sendNotification(
                     guild,
