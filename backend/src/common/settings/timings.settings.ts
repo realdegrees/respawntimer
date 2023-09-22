@@ -118,9 +118,9 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
             case ETimingsSettingsOptions.TIMINGS:
                 if (!interaction.isButton()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
                 await this.showModal(interaction, dbGuild.customTimings);
-                let modalInteraction
+                let modalInteraction;
                 try {
-                    modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 60 })
+                    modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 5 })
                 }catch(e){
                     return [];
                 }
