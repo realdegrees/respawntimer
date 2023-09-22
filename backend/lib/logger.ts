@@ -30,7 +30,7 @@ const warnEmptyStackTracesThreshold = 3;
 let emptyStackTraces = 0;
 
 let projectRoot = process.cwd() + '/';
-let stackTraceDepth = 3;
+let stackTraceDepth = 1;
 class Logger {
     /*public constructor() {
         log(Level.DEBUG,
