@@ -87,7 +87,6 @@ export class SettingsHandler {
                         // Delete reply, catch into nothing because it doesn't matter
                         await settingInteraction?.deleteReply().catch(() => { });
                         settingInteraction = undefined;
-                        await setTimeout(600); // artificial timeout to make switching options look less janky
                     }
                     const message = await setting.send(
                         interaction,
