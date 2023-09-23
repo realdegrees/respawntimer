@@ -30,6 +30,7 @@ class Bot {
             Database.getGuild(interaction.guild).then((dbGuild) =>
                 commands.find((command) => command.name === interaction.commandName)?.execute(interaction, dbGuild)
             ).catch(async (error) => {
+                if(!interaction) return;
                 // Handle errors or log them as needed
                 await (interaction.deferred ? interaction.editReply : interaction.reply)({
                     ephemeral: !interaction.deferred,
@@ -39,7 +40,7 @@ class Bot {
                 await interaction.deleteReply()
                     .catch(logger.error);
                 logger.error(error?.toString?.() || 'Error during command execution');
-            });
+            }).catch(logger.error);
         });
     }
 
