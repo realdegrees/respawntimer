@@ -38,7 +38,7 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
         super(ESettingsID.TIMINGS,
             ButtonStyle.Primary,
             'Respawn Timers',
-            `Wartimer uses a field-tested set of respawn timers.\nIf you feel like some are off and want to customize them you can do so below.`,
+            `**Respawn Timer** uses a field-tested set of respawn timers.\nIf you feel like some are off and want to customize them you can do so below.`,
             'Use the reset button to go back the default timers'
         );
     }

@@ -70,7 +70,7 @@ export class NotificationHandler {
                         return channel.send({
                             embeds: [
                                 new EmbedBuilder()
-                                    .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer Notification' })
+                                    .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Respawn Timer Notification' })
                                     .setTitle(title)
                                     .setDescription(text)
                                     .setColor(options?.color ?? Colors.Red)

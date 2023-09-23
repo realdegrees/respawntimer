@@ -16,7 +16,7 @@ export class VoiceSettings extends BaseSetting<StringSelectMenuBuilder> {
         super(ESettingsID.VOICE,
             ButtonStyle.Primary,
             'Voice Settings',
-            `Wartimer supports several voices and sound effects.\nThey can be changed even while the bot is in your channel.`,
+            `**Respawn Timer** supports several voices and sound effects.\nThey can be changed even while the bot is in your channel.`,
             '');
     }
     public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {

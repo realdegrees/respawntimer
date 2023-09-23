@@ -14,7 +14,7 @@ import { EPHEMERAL_REPLY_DURATION_SHORT } from '../common/constant';
 
 export class Create extends Command {
     public constructor(protected client: Client) {
-        super('create', 'Creates a wartimer widget in the current channel', client);
+        super('create', 'Creates a respawn timer widget in the current channel', client);
     }
 
     public build(): RESTPostAPIApplicationCommandsJSONBody {
