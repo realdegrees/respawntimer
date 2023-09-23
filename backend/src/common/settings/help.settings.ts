@@ -1,11 +1,11 @@
-import { ActionRowBuilder, AnySelectMenuInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, EmbedBuilder, Interaction, ModalSubmitInteraction } from 'discord.js';
+import { ActionRowBuilder, AnySelectMenuInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle, EmbedBuilder, ModalSubmitInteraction } from 'discord.js';
 import { ESettingsID, BaseSetting } from './base.setting';
 import { DBGuild } from '../types/dbGuild';
 import Database from '../../db/database';
 import logger from '../../../lib/logger';
 import { Widget } from '../../widget';
 import { NotificationHandler, UPDATE_SOURCE_SERVER_ID } from '../../handlers/notificationHandler';
-import { EPHEMERAL_REPLY_DURATION_LONG, EPHEMERAL_REPLY_DURATION_SHORT, EXCLAMATION_ICON_LINK, WARN_ICON_LINK, WARTIMER_ICON_LINK, debug } from '../constant';
+import { EPHEMERAL_REPLY_DURATION_SHORT, WARN_ICON_LINK, WARTIMER_ICON_LINK, debug } from '../constant';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 import { setTimeout } from 'timers/promises';
 
@@ -34,25 +34,23 @@ export class HelpSettings extends BaseSetting<ButtonBuilder> {
                     value: `https://github.com/realdegrees/respawntimer\n*Check out the README for an in-depth guide on all features*`
                 }]),
             new EmbedBuilder()
-                .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Respawn Timer' })
-                .setThumbnail(WARN_ICON_LINK)
-                .setTitle('Troubleshooting')
+                .setAuthor({ iconURL: WARN_ICON_LINK, name: 'Troubleshooting' })
                 .setFields([{
-                    name: '<:RaidHelper:1044417248196055080> Raidhelper Integration',
+                    name: '⦧⸻⸻ <:RaidHelper:1044417248196055080> Raidhelper Integration',
                     value: 'If your API key is showing as invalid then it may have been **rate-limited**. ' +
                         'Try using the **Raidhelper** command `/apikey refresh` to get a new API key and set it in the **Raidhelper Integration** settings.'
                 }, emptyField, {
-                    name: '🔒 Permission Issues',
+                    name: '⦧⸻⸻ 🔒 Permission Issues',
                     value: 'If the bot is does not join a voice channel check the settings. If there are any **missing permissions** they will be displayed there. ' +
                         'Make sure the bot has `View`, `Connect` and `Speak` permissions in **every voice channel** you want it to be able to join.'
-                }, emptyField, {
-                    name: '<a:loading:393852367751086090> Widget Unresponsive',
+                    }, emptyField, {
+                    name: '⦧⸻⸻ <a:loading:393852367751086090> Widget Unresponsive',
                     value: 'If the widget stops updating even though the text button is on then the bot hit some form of rate-limit.\n' +
                         '**Server specific rate-limits** can happen from time to time but will be resolved after a few seconds and the widget continues.\n'+
                         'If the rate-limit is imposed on the **IP of the bot** then all widgets will stop updating *globally*. There should not be enough users yet to hit this limit.\n' + 
                         'If this limit ever gets reached the bot will have to draw back on some features like updating the text widget in 1s intervals.'
-                }, emptyField, {
-                    name: '❓ Errors',
+                    }, emptyField, {
+                    name: '⦧⸻⸻ ❓ Errors',
                     value: 'If you are receiving **internal errors** as responses from the bot try **resetting** your data with the button below.\n' +
                         'You will have to re-do all your settings but it might fix the issue.\n**If the issues persist please seek help in the support discord.**'
                 }])]

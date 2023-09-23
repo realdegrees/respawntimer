@@ -4,8 +4,7 @@ import {
     ButtonBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder,
     ModalSubmitInteraction, ButtonInteraction, AnySelectMenuInteraction, EmbedField
 } from 'discord.js';
-import { GuildData } from '../../db/guild.schema';
-import { EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../constant';
+import { BULB_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../constant';
 import { EInteractionType } from '../types/interactionType';
 import { DBGuild } from '../types/dbGuild';
 import { Widget } from '../../widget';
@@ -74,7 +73,7 @@ export abstract class BaseSetting<
         if (!this.customEmbeds && this.footer) {
             embeds[0].setFooter({
                 text: this.footer,
-                iconURL: EXCLAMATION_ICON_LINK
+                iconURL: BULB_ICON_LINK
             });
         }
 

@@ -3,16 +3,16 @@ import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonComponentData,
-    ButtonInteraction, ButtonStyle, CacheType, Client, CommandInteraction, ComponentType, DiscordAPIError, DiscordjsErrorCodes, Embed, EmbedBuilder, EmbedField, Guild,
+    ButtonInteraction, ButtonStyle, CacheType, Client, CommandInteraction, ComponentType, DiscordAPIError, EmbedBuilder, EmbedField, Guild,
     GuildTextBasedChannel,
     InteractionCollector,
-    Message, PartialMessage, RateLimitError, TextBasedChannel, TextChannel, VoiceBasedChannel
+    Message, PartialMessage, TextChannel, VoiceBasedChannel
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
 import logger from '../lib/logger';
 import audioManager from './handlers/audioManager';
 import textManager from './handlers/textManager';
-import { EPHEMERAL_REPLY_DURATION_SHORT, EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './common/constant';
+import { EPHEMERAL_REPLY_DURATION_SHORT, WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './common/constant';
 import { EInteractionType } from './common/types/interactionType';
 import { DBGuild } from './common/types/dbGuild';
 import Database from './db/database';
