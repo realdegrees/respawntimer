@@ -95,7 +95,7 @@ export class AdvancedChannelSelectMenuBuilder {
 
         const seperator = maxPages > 1 && this.placeholder ? ' » ' : '';
         const pageText = (maxPages > 1 ? 'Page ' + this.page : '') || 'Select ';
-        const placeholderText = `📖 ${pageText}${seperator}${this.placeholder}`
+        const placeholderText = `📜 ${pageText}${seperator}${this.placeholder}`
 
         return new AdvancedChannelSelectMenu(
             menuBuilder
