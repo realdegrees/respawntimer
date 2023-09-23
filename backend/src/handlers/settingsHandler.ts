@@ -45,7 +45,7 @@ export class SettingsHandler {
             new WidgetSettings(),
             new HelpSettings()
         ]]
-        if(debug){
+        if (debug) {
             settings.push([new DevSettings()])
         }
         const res = await interaction.reply({
@@ -139,7 +139,7 @@ export class SettingsHandler {
                             await settingInteraction?.deleteReply().catch(() => { });
                             settingInteraction = undefined;
                         });
-                    if (settingInteraction) await interaction.deferUpdate();
+                    if (settingInteraction) await interaction.deferUpdate().catch(() => {});
                     settingInteraction = settingInteraction ?? interaction;
                 } catch (e) {
                     await interaction.reply({

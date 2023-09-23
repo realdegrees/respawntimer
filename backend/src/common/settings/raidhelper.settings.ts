@@ -1,7 +1,7 @@
 import {
     ActionRowBuilder, AnySelectMenuInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle,
     CacheType,
-    ChannelSelectMenuBuilder, ChannelType, Colors, EmbedField, Guild, ModalBuilder, ModalSubmitInteraction, TextInputBuilder, TextInputStyle
+    ChannelSelectMenuBuilder, ChannelType, Colors, EmbedField, Guild, GuildChannel, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle
 } from 'discord.js';
 import { ESettingsID, BaseSetting } from './base.setting';
 import { checkChannelPermissions } from '../../util/permissions';
@@ -17,6 +17,7 @@ import { formatEvents } from '../../util/formatEvents';
 import { ScheduledEvent } from '../types/raidhelperEvent';
 import { getEventPollingInterval } from '../../util/getEventPollingInterval';
 import { NotificationHandler } from '../../handlers/notificationHandler';
+import { AdvancedChannelSelectMenuBuilder, EAdvancedChannelSelectReturnValue } from '../../util/advancedChannelSelectMenuBuilder';
 
 export enum ERaidhelperSettingsOptions {
     API_KEY = 'apikey',
@@ -25,8 +26,14 @@ export enum ERaidhelperSettingsOptions {
     TOGGLE_AUTO_VOICE = 'toggleautovoice',
     TOGGLE_AUTO_WIDGET = 'toggleautowidget'
 }
-export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelectMenuBuilder> {
+export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelectMenuBuilder> {
     private waitingForApiKeyModal = false;
+
+    private voiceChannelSelectPage = 1;
+    private voiceChannelSelectCache: GuildChannel[] | undefined;
+
+    private textChannelSelectPage = 1;
+    private textChannelSelectCache: GuildChannel[] | undefined;
 
     public constructor() {
         super(ESettingsID.RAIDHELPER,
@@ -38,7 +45,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
         );
     }
 
-    public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
+    public async getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const apiKeyButton = new ButtonBuilder({
             custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.API_KEY]),
             label: 'Set API Key',
@@ -55,28 +62,35 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
             label: `${dbGuild.raidHelper.widget ? 'Disable' : 'Enable'} Auto-Widget`,
             style: dbGuild.raidHelper.widget ? ButtonStyle.Danger : ButtonStyle.Success
         });
-        const defaultVoiceChannel = new ChannelSelectMenuBuilder()
-            .setCustomId(this.getCustomId(this.id, [ERaidhelperSettingsOptions.DEFAULT_CHANNEL]))
-            .setChannelTypes(ChannelType.GuildVoice)
-            .setMinValues(0)
-            .setMaxValues(1)
-            .setPlaceholder('Select a default voice channel');
-        const raidhelperEventChannel = new ChannelSelectMenuBuilder()
+
+        const textChannelSelectMenu = await new AdvancedChannelSelectMenuBuilder(interaction.guild!, interaction.user)
             .setCustomId(this.getCustomId(this.id, [ERaidhelperSettingsOptions.EVENT_CHANNEL]))
-            .setChannelTypes(ChannelType.GuildText)
-            .setMinValues(0)
-            .setMaxValues(1)
-            .setPlaceholder('Select an event channel');
+            .setChannelType(ChannelType.GuildText)
+            .setChannelCache(this.textChannelSelectCache)
+            .setPage(this.textChannelSelectPage)
+            .setPlaceholder('Event Channel')
+            .build();
+
+        const voiceChannelSelectMenu = await new AdvancedChannelSelectMenuBuilder(interaction.guild!, interaction.user)
+            .setCustomId(this.getCustomId(this.id, [ERaidhelperSettingsOptions.DEFAULT_CHANNEL]))
+            .setChannelType(ChannelType.GuildVoice)
+            .setChannelCache(this.voiceChannelSelectCache)
+            .setPage(this.voiceChannelSelectPage)
+            .setPlaceholder('Default Voice Channel')
+            .build();
+
+        this.textChannelSelectCache = textChannelSelectMenu.getChannelCache();
+        this.voiceChannelSelectCache = voiceChannelSelectMenu.getChannelCache();
 
         const autoRow = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(autoJoinToggleButton)
             .addComponents(autoWidgetToggleButton);
         const apiKeyRow = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(apiKeyButton);
-        const defaultVoiceChannelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>()
-            .addComponents(defaultVoiceChannel);
-        const raidhelperEventChannelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>()
-            .addComponents(raidhelperEventChannel);
+        const defaultVoiceChannelRow = new ActionRowBuilder<StringSelectMenuBuilder>()
+            .addComponents(voiceChannelSelectMenu.getMenu());
+        const raidhelperEventChannelRow = new ActionRowBuilder<StringSelectMenuBuilder>()
+            .addComponents(textChannelSelectMenu.getMenu());
 
         return Promise.resolve([
             raidhelperEventChannelRow,
@@ -176,6 +190,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
         if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
         const guild = interaction.guild;
         let events: ScheduledEvent[];
+        let value;
         switch (option) {
             case ERaidhelperSettingsOptions.API_KEY:
                 if (!interaction.isButton()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
@@ -213,26 +228,48 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                 return ['update', 'startEventPolling'] as SettingsPostInteractAction[];
                 break;
             case ERaidhelperSettingsOptions.DEFAULT_CHANNEL:
-                if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                const defaultVoiceChannel = await interaction.guild.channels.fetch(interaction.values[0])
-                if (!defaultVoiceChannel?.isVoiceBased()) {
-                    return Promise.reject('Invalid Channel');
-                } else {
-                    await checkChannelPermissions(defaultVoiceChannel, ['ViewChannel', 'Connect', 'Speak']);
-                    dbGuild.raidHelper.defaultVoiceChannelId = interaction.values[0];
-                    return ['saveGuild', 'update', 'updateWidget'];
+                if (!interaction.isStringSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+
+                value = interaction.values[0];
+
+                if (value === EAdvancedChannelSelectReturnValue.NEXT_PAGE) {
+                    this.voiceChannelSelectPage += 1;
+                    return ['update'];
+                } else if (value === EAdvancedChannelSelectReturnValue.PREV_PAGE) {
+                    this.voiceChannelSelectPage -= 1;
+                    return ['update'];
                 }
+
+                const defaultVoiceChannel = await interaction.guild.channels.fetch(value)
+                if (!defaultVoiceChannel) {
+                    return Promise.reject('Unable to find selected channel!');
+                }
+                await checkChannelPermissions(defaultVoiceChannel, ['ViewChannel', 'Connect', 'Speak']);
+                dbGuild.raidHelper.defaultVoiceChannelId = value;
+                return ['saveGuild', 'update', 'updateWidget'];
+
                 break;
             case ERaidhelperSettingsOptions.EVENT_CHANNEL:
-                if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                const defaultEventChannel = await interaction.guild.channels.fetch(interaction.values[0])
-                if (!defaultEventChannel?.isTextBased()) {
-                    return Promise.reject('Invalid Channel');
-                } else {
-                    await checkChannelPermissions(defaultEventChannel, ['ViewChannel']);
-                    dbGuild.raidHelper.eventChannelId = interaction.values[0];
-                    return ['saveGuild', 'update'];
+                if (!interaction.isStringSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+
+                value = interaction.values[0];
+
+                if (value === EAdvancedChannelSelectReturnValue.NEXT_PAGE) {
+                    this.textChannelSelectPage += 1;
+                    return ['update'];
+                } else if (value === EAdvancedChannelSelectReturnValue.PREV_PAGE) {
+                    this.textChannelSelectPage -= 1;
+                    return ['update'];
                 }
+
+                const defaultEventChannel = await interaction.guild.channels.fetch(value)
+                if(!defaultEventChannel){
+                    return Promise.reject('Unable to find selected channel!');
+                }
+                await checkChannelPermissions(defaultEventChannel, ['ViewChannel']);
+                dbGuild.raidHelper.eventChannelId = interaction.values[0];
+                return ['saveGuild', 'update'];
+
                 break;
             case ERaidhelperSettingsOptions.TOGGLE_AUTO_VOICE:
                 dbGuild.raidHelper.enabled = !dbGuild.raidHelper.enabled;

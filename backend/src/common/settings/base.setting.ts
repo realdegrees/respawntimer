@@ -28,6 +28,7 @@ export abstract class BaseSetting<
     public description: string | undefined;
     public footer: string | undefined;
     public customEmbeds: EmbedBuilder[] | undefined;
+    
     protected constructor(
         id: string,
         buttonStyle: ButtonStyle,
@@ -64,6 +65,10 @@ export abstract class BaseSetting<
             update?: boolean;
         }
     ): Promise<Message<boolean>> {
+        if (!options?.update) {
+            await interaction.deferReply({ ephemeral: true });
+        }
+
         // Init Description Embed(s)
         let embeds = this.customEmbeds ?? [new EmbedBuilder()
             .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: this.title || 'Missing Title' })
@@ -98,9 +103,7 @@ export abstract class BaseSetting<
             embeds: embeds,
             components: rows
         };
-        if (!options?.update) {
-            await interaction.deferReply({ ephemeral: true });
-        }
+        
         return await interaction.editReply(content);
     }
     public getCustomId(id: string, args: string[]): string {
