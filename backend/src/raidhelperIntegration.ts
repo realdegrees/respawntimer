@@ -75,34 +75,39 @@ export class RaidhelperIntegration {
     public static async onFetchEventSuccess(guild: Guild | undefined, dbGuild: DBGuild, events: ScheduledEvent[]): Promise<void> {
         // Reset retries
         pollingRetries[dbGuild.id] = 0;
-
-        // Send notification if apiKey vas previously not valid
-        if (guild && dbGuild.raidHelper.apiKey && !dbGuild.raidHelper.apiKeyValid) {
-            await NotificationHandler.sendNotification(
-                guild,
-                dbGuild,
-                'Raidhelper Integration',
-                'Raidhelper API key validated ✅\nThis channel will now receive updates about scheduled events!',
-                { color: Colors.Green, byPassDuplicateCheck: true }
-            )
-        }
         const oldEvents = [...dbGuild.raidHelper.events];
         dbGuild.raidHelper.apiKeyValid = true;
         dbGuild.raidHelper.events = events;
         await dbGuild.save();
 
-        if (guild) {
-            await RaidhelperIntegration.sendEventNotifications(guild, dbGuild, events, oldEvents)
-                .catch(logger.error);
-
-            const widget = await Widget.find(
-                guild,
-                dbGuild.widget.messageId,
-                dbGuild.widget.channelId
-            )
-            if (!widget?.getTextState()) {
-                await widget?.update({ force: true });
+        try {
+            // Send notification if apiKey vas previously not valid
+            if (guild && dbGuild.raidHelper.apiKey && !dbGuild.raidHelper.apiKeyValid) {
+                await NotificationHandler.sendNotification(
+                    guild,
+                    dbGuild,
+                    'Raidhelper Integration',
+                    'Raidhelper API key validated ✅\nThis channel will now receive updates about scheduled events!',
+                    { color: Colors.Green, byPassDuplicateCheck: true }
+                )
             }
+
+
+            if (guild) {
+                await RaidhelperIntegration.sendEventNotifications(guild, dbGuild, events, oldEvents)
+                    .catch(logger.error);
+
+                const widget = await Widget.find(
+                    guild,
+                    dbGuild.widget.messageId,
+                    dbGuild.widget.channelId
+                )
+                if (!widget?.getTextState()) {
+                    await widget?.update({ force: true });
+                }
+            }
+        } catch (e) {
+            logger.error(`[${dbGuild.name}] Failed to send onFetchEventSucess notifications!`);
         }
     }
     private static async onFetchEventError(guild: Guild | null, dbGuild: DBGuild): Promise<void> {
@@ -156,12 +161,14 @@ export class RaidhelperIntegration {
         const descheduledEvents = oldEvents.filter((event) => !events.find((newEvent) => newEvent.id === event.id));
         if (descheduledEvents.length !== 0 && guild) {
             await this.notifyDescheduledEvents(descheduledEvents, dbGuild, guild);
+            logger.info(`[${dbGuild.name}] Sent descheduled events notification`)
         }
 
         // Check for new events and notify
         const newEvents = events.filter((event) => !oldEvents.find((oldEvent) => oldEvent.id === event.id));
         if (newEvents.length !== 0) {
             await this.notifyScheduledEvents(newEvents, dbGuild, guild);
+            logger.info(`[${dbGuild.name}] Sent scheduled events notification`)
         }
     }
     /**
