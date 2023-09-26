@@ -13,6 +13,7 @@ import { RAIDHELPER_API_RATE_LIMIT_DAY, RAIDHELPER_INTEGRATION_NUM_EVENTS_PER_QU
 import { getEventPollingInterval } from './util/getEventPollingInterval';
 
 const MAX_POLL_RETRIES = 20;
+const POLL_RETRY_NOTIFICATION_THRESHOLD = 2;
 const RETRY_ATTEMPT_DUR = 3;
 const RETRY_INTERVAL_SECONDS = 5;
 const GRACE_PERIOD_MINUTES = 20; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
@@ -113,21 +114,24 @@ export class RaidhelperIntegration {
     private static async onFetchEventError(guild: Guild | null, dbGuild: DBGuild): Promise<void> {
         try {
             if (guild) {
-                const message = pollingRetries[dbGuild.id] < MAX_POLL_RETRIES ?
-                    'Error while trying to schedule a Raidhelper event.\n' +
-                    'Check your Raidhelper Integration settings in `/settings`\n' +
-                    'If this issue persists try resetting your data in `Misc Settings`'
-                    : `Failed to fetch events ${MAX_POLL_RETRIES} times in a row.\n` +
-                    'Your Raidhelper API key has been reset. Check your Raidhelper Integration settings.';
+                if (pollingRetries[dbGuild.id] >= POLL_RETRY_NOTIFICATION_THRESHOLD){
+                    const message = pollingRetries[dbGuild.id] < MAX_POLL_RETRIES ?
+                        'Failed to fetch new Raidhelper events ' + MAX_POLL_RETRIES + ' times.\n' +
+                        'Check your Raidhelper Integration settings in `/settings`\n' +
+                        'If this issue persists try resetting your data in `Misc Settings`'
+                        : `Failed to fetch events ${MAX_POLL_RETRIES} times in a row.\n` +
+                        'Your Raidhelper API key has been reset. Check your Raidhelper Integration settings.';
 
-                // Send notification
-                await NotificationHandler.sendNotification(
-                    guild,
-                    dbGuild,
-                    'Raidhelper Integration Error',
-                    message,
-                    { color: Colors.Red }
-                );
+
+                    // Send notification
+                    await NotificationHandler.sendNotification(
+                        guild,
+                        dbGuild,
+                        'Raidhelper Integration Error',
+                        message,
+                        { color: Colors.Red }
+                    );
+                }
 
                 // Update widget to reflect that API key is not valid
                 const widget = await Widget.find(
