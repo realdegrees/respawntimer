@@ -36,7 +36,7 @@ class TextManager {
             const isEndOfwar = (minutes === 59 || minutes === 29) && seconds === 30 && (minutesSubscribed >= 15 || minutesSubscribed >= 45);
             if (widgetHasTextEnabled && isEndOfwar) {
                 subscriber.widget.toggleText().catch(logger.error);
-                logger.debug('Auto-stop widget');
+                logger.info('auto-stop widget');
             }
         });
 

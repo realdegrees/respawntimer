@@ -270,7 +270,7 @@ export class RaidhelperIntegration {
                                     dbGuild: guild.db,
                                     channel
                                 }) : audioManager.connect(channel, guild.db));
-                            logger.debug('Joined voice via raidhelper integration');
+                            logger.info(`[${guild.db.name}] Joined voice via raidhelper integration`);
                         }
                     } catch (e) {
                         await NotificationHandler.sendNotification(
@@ -288,7 +288,8 @@ export class RaidhelperIntegration {
                             if (widget) {
                                 if (widget.getTextState() || widget.getResettingState()) return; // It's already on or currently resetting
                                 await widget.toggleText(true);
-                                logger.debug('Started widget via raidhelper integration');
+                                logger.info(`[${guild.db.name}] Started widget via raidhelper integration`);
+
                             } else {
                                 await NotificationHandler.sendNotification(
                                     guild.client,
