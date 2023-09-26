@@ -23,8 +23,12 @@ export class NotificationHandler {
             .catch(() => undefined);
         if(!sourceChannel) return Promise.reject('Unable to find update source channel at ' + `Server ID: ${UPDATE_SOURCE_SERVER_ID} Channel ID: ${UPDATE_SOURCE_CHANNEL_ID}`);
         if(!sourceChannel.isTextBased()) return Promise.reject('Update source channel is not a text channel!');
-        sourceChannel.createMessageCollector({filter: (msg) => msg.embeds.length > 0}).on('collect', (message) => {
+        sourceChannel.createMessageCollector().on('collect', (message) => {
             message.fetch().then(async (message) => {
+                if(message.embeds.length === 0){
+                    logger.info('Collected message from update channel with no embeds!');
+                    return;
+                }
                 const dbGuilds = await Database.queryGuilds({
                     'notificationChannelId': { $regex: /\d+/ }
                 });
