@@ -1,7 +1,7 @@
 import {
     AudioPlayer,
     createAudioPlayer,
-    createAudioResource, getVoiceConnection, joinVoiceChannel, VoiceConnection, VoiceConnectionStatus
+    createAudioResource, getVoiceConnection, joinVoiceChannel, NoSubscriberBehavior, VoiceConnection, VoiceConnectionStatus
 } from '@discordjs/voice';
 import fs from 'fs';
 import path from 'path';
@@ -54,8 +54,12 @@ const loadFiles = (voice: Voices): {
     }
     return sounds;
 };
-
-export type Voices = 'male' | 'female' | 'material' | 'rocket league';
+const defaultAudioPlayerBehaviour = {
+    behaviors: {
+        noSubscriber: NoSubscriberBehavior.Stop
+    }
+};
+export type Voices = 'male' | 'female' | 'female legacy' | 'material' | 'rocket league';
 type Subscriber = {
     timeStamp: number;
     guild: Guild;
@@ -79,24 +83,29 @@ class AudioManager {
                 voiceType: 'male',
                 voiceDescription: 'A generic male voice',
                 files: loadFiles('male'),
-                player: createAudioPlayer()
+                player: createAudioPlayer(defaultAudioPlayerBehaviour)
             }, {
                 voiceType: 'female',
                 voiceDescription: 'A generic female voice',
                 files: loadFiles('female'),
-                player: createAudioPlayer()
+                player: createAudioPlayer(defaultAudioPlayerBehaviour)
+            }, {
+                voiceType: 'female legacy',
+                voiceDescription: 'The original female voice',
+                files: loadFiles('female legacy'),
+                player: createAudioPlayer(defaultAudioPlayerBehaviour)
             },
             {
                 voiceType: 'material',
                 voiceDescription: 'Sound effects from the material library',
                 files: loadFiles('material'),
-                player: createAudioPlayer()
+                player: createAudioPlayer(defaultAudioPlayerBehaviour)
             },
             {
                 voiceType: 'rocket league',
                 voiceDescription: 'Rocket League sound effects',
                 files: loadFiles('rocket league'),
-                player: createAudioPlayer()
+                player: createAudioPlayer(defaultAudioPlayerBehaviour)
             }
         ];
 
@@ -109,7 +118,7 @@ class AudioManager {
             const minutesSubscribed = new Date(date.getTime() - subscriber.timeStamp).getTime() / 1000 / 60;
 
             if ((minutes === 59 || minutes === 29) && seconds === 59 && minutesSubscribed >= 15) {
-                logger.debug(`auto-disconnect voice`);
+                logger.info(`auto-disconnect voice`);
                 Database.getGuild(subscriber.guild).then((dbGuild) =>
                     this.disconnect(subscriber.guild, dbGuild)
                 ).catch(logger.error);
@@ -191,7 +200,7 @@ class AudioManager {
         customTimings?: string;
     }): void {
         const timings = TimingsSettings.convertToSeconds(options.customTimings ?? '');
-        const audioPlayer = timings ? createAudioPlayer() : this.voices.find((sounds) => sounds.voiceType === options.voice)!.player;
+        const audioPlayer = timings ? createAudioPlayer(defaultAudioPlayerBehaviour) : this.voices.find((sounds) => sounds.voiceType === options.voice)!.player;
         options.connection.subscribe(audioPlayer);
         this.subscribers.push({
             timeStamp: Date.now(),
@@ -240,22 +249,24 @@ class AudioManager {
                                 ))
                                 .then((widget) => widget?.toggleVoice({ dbGuild }))
                                 .catch(() => { });
+                            logger.info(`[${dbGuild.name}] disconnected from voice channel`);
                         })
-                        .on(VoiceConnectionStatus.Ready, () => res())
+                        .on(VoiceConnectionStatus.Ready, () => {
+                            logger.info(`[${dbGuild.name}] connected to voice channel`);
+                            res();
+                        })
                 )
             })
     }
 
-    private getConnection(channel: VoiceBasedChannel): Promise<VoiceConnection> {
-        return checkChannelPermissions(channel, ['ViewChannel', 'Connect', 'Speak'])
-            .then(() => joinVoiceChannel({
-                guildId: channel.guild.id,
-                channelId: channel.id,
-                adapterCreator: channel.guild.voiceAdapterCreator
-            }))
-            .then((connection) => {
-                return connection;
-            });
+    private async getConnection(channel: VoiceBasedChannel): Promise<VoiceConnection> {
+        await checkChannelPermissions(channel, ['ViewChannel', 'Connect', 'Speak']);
+        const connection = joinVoiceChannel({
+            guildId: channel.guild.id,
+            channelId: channel.id,
+            adapterCreator: channel.guild.voiceAdapterCreator
+        });
+        return connection;
     }
 }
 export default new AudioManager();
