@@ -101,11 +101,10 @@ export class Widget {
      */
     public static async create(
         interaction: CommandInteraction<CacheType>,
-        channel: GuildTextBasedChannel
+        channel: GuildTextBasedChannel,
+        dbGuild: DBGuild
     ): Promise<void> {
         const guild = channel.guild;
-        // Check if guild exists in the database, create document if not
-        const dbGuild = await Database.getGuild(guild);
 
         // Check permissions of the user
         const member = await guild.members.fetch(interaction.user);
@@ -209,7 +208,7 @@ export class Widget {
             logger.debug('Unable to delete old widget message ' + error?.toString?.());
         }
     }
-    private static async getEmbed(guild: Guild, description?: string, title?: string): Promise<EmbedBuilder> {
+    private static async getEmbed(guild: Guild, widget?: Widget, description?: string, title?: string): Promise<EmbedBuilder> {
         const embed = new EmbedBuilder()
             .setAuthor({ name: title ?? DEFAULT_TITLE, iconURL: WARTIMER_ICON_LINK });
 
@@ -231,7 +230,17 @@ export class Widget {
                     const fields = await this.getEventDisplayFields(guild, dbGuild);
                     embed.setFields(fields);
                 } else {
-                    embed.setDescription('-');
+                    if (widget?.voiceState) {
+                        try {
+                            const channel = (await guild.members.fetch(guild.client.user)).voice.channel;
+                            embed.setDescription(`in ${channel}`);
+                        }catch(e){
+                            embed.setDescription('-');
+                        }
+                    }else {
+                        embed.setDescription('-');
+
+                    }
                 }
             } catch (error) {
                 // Handle the error or log it as needed
@@ -323,7 +332,7 @@ export class Widget {
         }
         this.isUpdating = true;
         try {
-            const embed = await Widget.getEmbed(this.guild, options?.description, options?.title);
+            const embed = await Widget.getEmbed(this.guild, this, options?.description, options?.title);
             await this.message.edit({
                 components: this.showButtons ? [this.getButtons()] : [],
                 embeds: [embed]

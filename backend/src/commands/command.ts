@@ -14,7 +14,7 @@ export class Command {
         throw new Error('Not implemented');
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<void> {
+    public execute(interaction: CommandInteraction<CacheType>): Promise<void> {
         throw new Error('Not implemented');
     }
     /**

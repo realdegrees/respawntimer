@@ -8,6 +8,7 @@ import logger from '../../lib/logger';
 import { setTimeout } from 'timers/promises';
 import { DBGuild } from '../common/types/dbGuild';
 import { EPHEMERAL_REPLY_DURATION_SHORT } from '../common/constant';
+import Database from '../db/database';
 
 
 
@@ -24,7 +25,11 @@ export class Create extends Command {
             .setDMPermission(false)
             .toJSON();
     }
-    public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<void> {
+    public async execute(interaction: CommandInteraction<CacheType>): Promise<void> {
+        if (!interaction.guild) {
+            throw new Error('This command can only be run on a server.');
+        }
+        const dbGuild = await Database.getGuild(interaction.guild);
         await interaction.deferReply({ ephemeral: true });
         const hasPermission = await this.checkPermission(interaction, 'editor');
         if (hasPermission) {
@@ -32,7 +37,7 @@ export class Create extends Command {
             if (!channel || channel.type !== ChannelType.GuildText) {
                 throw new Error('Invalid Channel! This must be used on a server.');
             }
-            await Widget.create(interaction, channel);
+            await Widget.create(interaction, channel, dbGuild);
             // Respond to the interaction
             await interaction.editReply({
                 content: 'Widget Created ✅',

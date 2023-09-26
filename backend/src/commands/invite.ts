@@ -27,7 +27,7 @@ export class Invite extends Command {
             .setDescription(this.description)
             .toJSON();
     }
-    public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<void> {
+    public async execute(interaction: CommandInteraction<CacheType>): Promise<void> {
         await interaction.reply({
             ephemeral: true,
             embeds: [new EmbedBuilder()
