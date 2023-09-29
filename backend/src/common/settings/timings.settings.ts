@@ -122,7 +122,7 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
                 if(this.waitingForTimingsModal){
                     return [];
                 }
-                let modalInteraction;
+                let modalInteraction: ModalSubmitInteraction;
                 try {
                     this.waitingForTimingsModal = true;
                     modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 5 })
@@ -141,7 +141,7 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
                 if (!validSyntax) {
                     await modalInteraction.reply({ ephemeral: true, content: reason })
                         .then(() => setTimeout(EPHEMERAL_REPLY_DURATION_LONG))
-                        .then(() => interaction.deleteReply())
+                        .then(() => modalInteraction.deleteReply())
                         .catch(logger.error);
                     return [];
                 };
