@@ -13,14 +13,10 @@ import { RAIDHELPER_API_RATE_LIMIT_DAY, RAIDHELPER_INTEGRATION_NUM_EVENTS_PER_QU
 import { getEventPollingInterval } from './util/getEventPollingInterval';
 
 const MAX_POLL_RETRIES = 20;
-const POLL_RETRY_NOTIFICATION_THRESHOLD = 2;
+const POLL_RETRY_NOTIFICATION_THRESHOLD = 3;
 const RETRY_ATTEMPT_DUR = 3;
 const RETRY_INTERVAL_SECONDS = 5;
 const GRACE_PERIOD_MINUTES = 20; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
-// let pollingInterval: NodeJS.Timeout | undefined;
-const pollingIntervals: {
-    [guildId: string]: NodeJS.Timeout
-} = {};
 const pollingRetries: {
     [guildId: string]: number
 } = {};
@@ -29,28 +25,30 @@ export class RaidhelperIntegration {
     // Polls the raidhelper api every RAIDHELPER_INTEGRATION_QUERY_INTERVAL_MS milliseconds to retrieve new events
     public static async startPollingInterval(guild: Guild, dbGuild: DBGuild): Promise<void> {
         try {
-            if (dbGuild.id in pollingIntervals) {
-                clearTimeout(pollingIntervals[dbGuild.id]);
-            }
             let events;
             events = await this.getEvents(dbGuild);
             await this.onFetchEventSuccess(guild, dbGuild, events);
-        } catch (e) {
-            // Set retries
-            pollingRetries[dbGuild.id] = (pollingRetries[dbGuild.id] ?? 0) + 1;
-            logger.error(`[${dbGuild.name}] Polling failed (Attempt #${pollingRetries[dbGuild.id]})`);
+        } catch (response) {
+            if (response instanceof Response && response.status === 429) {
+                dbGuild.raidHelper.apiKeyValid = false;
+                await dbGuild.save();
 
-            dbGuild.raidHelper.apiKeyValid = false;
-            await dbGuild.save();
+                pollingRetries[dbGuild.id] = (pollingRetries[dbGuild.id] ?? 0) + 1;
+                logger.error(`[${dbGuild.name}] Polling failed (Attempt #${pollingRetries[dbGuild.id]})`);
 
-            if (guild) {
-                await RaidhelperIntegration.onFetchEventError(
-                    guild,
-                    dbGuild
-                );
+                const retry = Number.parseInt(response.headers.get('retry-after') || '0');
+
+                if (guild) {
+                    await RaidhelperIntegration.onFetchEventError(
+                        guild,
+                        dbGuild
+                    );
+                }
+
+                await promiseTimeout(retry);
             }
         } finally {
-            const timeout = getEventPollingInterval(dbGuild.raidHelper.events.length);
+            const timeout = 1000 * 10; // Poll every 10 s
 
             // If too many retries, reset api key and stop polling else schedule a new poll
             const tooManyTries = dbGuild.id in pollingRetries && pollingRetries[dbGuild.id] >= MAX_POLL_RETRIES;
@@ -61,9 +59,7 @@ export class RaidhelperIntegration {
 
             } else if (guild) {
                 // Set Timeout for new poll
-                await new Promise((res) => {
-                    pollingIntervals[dbGuild.id] = setTimeout(res, timeout)
-                });
+                await promiseTimeout(timeout);
                 // Refresh dbGuild data and start next poll
                 Database.getGuild(guild).then((dbGuild) =>
                     this.startPollingInterval(guild, dbGuild)
@@ -104,7 +100,16 @@ export class RaidhelperIntegration {
                     dbGuild.widget.channelId
                 )
                 if (!widget?.getTextState()) {
-                    await widget?.update({ force: true });
+                    const currentlyScheduledEvent = dbGuild.raidHelper.events.reduce((lowest, current) =>
+                        Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
+                    const previouslyScheduledEvent = oldEvents.reduce((lowest, current) =>
+                        Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
+                    const isSameEvent = currentlyScheduledEvent.id === previouslyScheduledEvent.id;
+                    const hasChangedProperties = currentlyScheduledEvent.lastUpdatedUnix !== previouslyScheduledEvent.lastUpdatedUnix;
+
+                    if (isSameEvent && hasChangedProperties) {
+                        await widget?.update({ force: true });
+                    }
                 }
             }
         } catch (e) {
@@ -114,8 +119,8 @@ export class RaidhelperIntegration {
     private static async onFetchEventError(guild: Guild | null, dbGuild: DBGuild): Promise<void> {
         try {
             if (guild) {
-                if (pollingRetries[dbGuild.id] >= POLL_RETRY_NOTIFICATION_THRESHOLD){
-                    const message = pollingRetries[dbGuild.id] < MAX_POLL_RETRIES ?
+                if (pollingRetries[dbGuild.id] >= POLL_RETRY_NOTIFICATION_THRESHOLD) {
+                    const message = pollingRetries[dbGuild.id] === MAX_POLL_RETRIES ?
                         'Failed to fetch new Raidhelper events ' + MAX_POLL_RETRIES + ' times.\n' +
                         'Check your Raidhelper Integration settings in `/settings`\n' +
                         'If this issue persists try resetting your data in `Misc Settings`'
@@ -320,10 +325,10 @@ export class RaidhelperIntegration {
     }
 
     /**
-     * Retrieves new events, saves them to the guild object in db
-     * and returns the events
+     * Retrieves new events and returns them
      * @param guild 
      * @returns 
+     * @throws {Response}
      */
     public static async getEvents(dbGuild: DBGuild): Promise<ScheduledEvent[]> {
         if (!dbGuild.raidHelper.apiKey) {
@@ -348,29 +353,20 @@ export class RaidhelperIntegration {
             .then(async (data: {
                 postedEvents?: Omit<RaidhelperAPIEvent, 'advancedSettings'>[];
             }) => {
-                // Get only the next RAIDHELPER_INTEGRATION_NUM_EVENTS_PER_QUERY events
-                const closestEvents = data.postedEvents?.reduce<Omit<RaidhelperAPIEvent, 'advancedSettings'>[]>((acc, obj) => {
-                    if (acc.length < RAIDHELPER_INTEGRATION_NUM_EVENTS_PER_QUERY || obj.startTime < acc[3].startTime) {
-                        // Add the current object to the result array while maintaining sorted order
-                        const indexToInsert = acc.findIndex(item => obj.startTime < item.startTime);
-                        if (indexToInsert === -1) {
-                            acc.push(obj);
-                        } else {
-                            acc.splice(indexToInsert, 0, obj);
-                        }
-                        if (acc.length > RAIDHELPER_INTEGRATION_NUM_EVENTS_PER_QUERY) {
-                            acc.pop();
-                        }
-                    }
-
-                    return acc;
-                }, []);
-                return Promise.all(closestEvents?.map((fetchedEvent) => {
-                    return new Promise<ScheduledEvent | undefined>(async (res) => {
+                if (!data.postedEvents) {
+                    return [];
+                }
+                const newEvents: ScheduledEvent[] = [];
+                for (const postedEvent of data.postedEvents) {
+                    const scheduledEvent = dbGuild.raidHelper.events.find((scheduledEvent) => scheduledEvent.id === postedEvent.id);
+                    if (scheduledEvent && scheduledEvent.lastUpdatedUnix === postedEvent.lastUpdated) {
+                        // use the scheduled event
+                        newEvents.push(scheduledEvent);
+                    } else {
                         while (true) {
                             try {
                                 // If there was already a saved event reuse that instead of fetching it again (This doesn't update the voicechannel but that's the cost for not hitting the rate-limit)
-                                const event = await fetch(`https://raid-helper.dev/api/v2/events/${fetchedEvent.id}`, { headers: header })
+                                const event = await fetch(`https://raid-helper.dev/api/v2/events/${postedEvent.id}`, { headers: header })
                                     .then((res) => res.ok ? res : Promise.reject(res))
                                     .then((res) => res.json())
                                     .then((event: RaidhelperAPIEvent) => ({ // Need to map to new object so the entire event object doesn't get saved to databse
@@ -378,21 +374,27 @@ export class RaidhelperIntegration {
                                         startTimeUnix: event.startTime,
                                         title: event.title,
                                         voiceChannelId: event.advancedSettings.voice_channel.match(/^[0-9]+$/) ? event.advancedSettings.voice_channel : undefined,
+                                        lastUpdatedUnix: event.lastUpdated
                                     } as ScheduledEvent));
 
                                 if (event) {
-                                    return res(event);
+                                    newEvents.push(event);
+                                    break;
                                 }
-                            } catch (e) {
-                                if (e instanceof Object && e.hasOwnProperty('code') && (e as { code: number }).code === 429) {
-                                    logger.error(e.toString() || 'Unknown');
-                                    await promiseTimeout(1000);
+                            } catch (response) {
+                                if (response instanceof Response && response.status === 429) {
+                                    const retry = Number.parseInt(response.headers.get('retry-after') || '0');
+                                    await promiseTimeout(retry);
+                                } else {
+                                    //! If there is an unkown error print it and skip event
+                                    logger.error(`[${dbGuild.name}] ` + response?.toString?.() || 'Unknown');
+                                    break;
                                 }
-                                else return res(undefined);
                             }
                         }
-                    });
-                }) ?? []).then((events) => events.filter((event) => !!event) as ScheduledEvent[])
+                    }
+                }
+                return newEvents;
             });
     }
 }
