@@ -1,33 +1,76 @@
 import { setTimeout as promiseTimeout } from 'timers/promises';
 import { RaidhelperAPIEvent, ScheduledEvent } from './common/types/raidhelperEvent';
-import { Client, Colors, Guild, Message, MessageType, PartialMessage } from 'discord.js';
+import { Client, Colors, Guild } from 'discord.js';
 import logger from '../lib/logger';
 import { Widget } from './widget';
 import audioManager from './handlers/audioManager';
 import { NotificationHandler } from './handlers/notificationHandler';
 import { DBGuild } from './common/types/dbGuild';
-import { checkChannelPermissions } from './util/permissions';
 import Database from './db/database';
 import { formatEvents } from './util/formatEvents';
-import { RAIDHELPER_API_RATE_LIMIT_DAY, RAIDHELPER_INTEGRATION_NUM_EVENTS_PER_QUERY, RAIDHELPER_INTEGRATION_QUERY_INTERVAL_MS } from './common/constant';
-import { getEventPollingInterval } from './util/getEventPollingInterval';
+import { RAIDHELPER_USER_ID } from './common/constant';
 
 const MAX_POLL_RETRIES = 20;
 const POLL_RETRY_NOTIFICATION_THRESHOLD = 3;
-const RETRY_ATTEMPT_DUR = 3;
+const RETRY_ATTEMPT_DUR = 1;
 const RETRY_INTERVAL_SECONDS = 5;
 const GRACE_PERIOD_MINUTES = 20; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
 const pollingRetries: {
     [guildId: string]: number
 } = {};
 export class RaidhelperIntegration {
-    // TODO add retry mechanisim that remove the api key after e.g. 10 retries
+    public static startRaidhelperMessageCollector(guild: Guild): void {
+        const messageCreateEvent = guild.client.on('messageCreate', async (message) => {
+            try {
+                const dbGuild = await Database.getGuild(guild);
+                if (!dbGuild.raidHelper.apiKey) {
+                    await messageCreateEvent.destroy();
+                    return;
+                }
+                if (message.author.id === RAIDHELPER_USER_ID && message.type === 20) {
+                    await promiseTimeout(1000);
+                    await this.poll(guild, dbGuild, false);
+                }
+            } catch (err) {
+                logger.error(`[${guild.name}] Autopoll on messageCreate failed`);
+            }
+        });
+        const messageDeleteEvent = guild.client.on('messageDelete', async (message) => {
+            try {
+                const dbGuild = await Database.getGuild(guild);
+                if (!dbGuild.raidHelper.apiKey) {
+                    await messageDeleteEvent.destroy();
+                    return;
+                }
+                if (message.author?.id === RAIDHELPER_USER_ID && message.type === 0) {
+                    await promiseTimeout(10000);
+                    await this.poll(guild, dbGuild, false);
+                }
+            } catch (err) {
+                logger.error(`[${guild.name}] Autopoll on messageDelete failed`);
+            }
+        });
+    }
+    public static start(guild: Guild, dbGuild: DBGuild): void {
+        this.poll(guild, dbGuild);
+        this.startRaidhelperMessageCollector(guild);
+    }
     // Polls the raidhelper api every RAIDHELPER_INTEGRATION_QUERY_INTERVAL_MS milliseconds to retrieve new events
-    public static async startPollingInterval(guild: Guild, dbGuild: DBGuild): Promise<void> {
+    public static async poll(guild: Guild, dbGuild: DBGuild, interval = true): Promise<void> {
+        if (!dbGuild.raidHelper.apiKey) {
+            return;
+        }
+
+        let pollFailed = false;
         try {
-            let events;
-            events = await this.getEvents(dbGuild);
+            // poll
+            const events = await this.getEvents(dbGuild);
             await this.onFetchEventSuccess(guild, dbGuild, events);
+            logger.debug('Event Poll Success');
+
+            // Poll every 10 minutes on top of autopolling when a raidhelper message is created
+            const timeout = 1000 * 60 * 10;
+            await promiseTimeout(timeout);
         } catch (response) {
             if (response instanceof Response && response.status === 429) {
                 dbGuild.raidHelper.apiKeyValid = false;
@@ -44,28 +87,22 @@ export class RaidhelperIntegration {
                         dbGuild
                     );
                 }
-
                 await promiseTimeout(retry);
+                pollFailed = true;
             }
         } finally {
-            const timeout = 1000 * 10; // Poll every 10 s
-
             // If too many retries, reset api key and stop polling else schedule a new poll
             const tooManyTries = dbGuild.id in pollingRetries && pollingRetries[dbGuild.id] >= MAX_POLL_RETRIES;
             if (tooManyTries) {
                 dbGuild.raidHelper.apiKey = undefined;
                 await dbGuild.save();
                 logger.error(`[${dbGuild.name}] Polling failed >20 times, removing API key`);
-
-            } else if (guild) {
-                // Set Timeout for new poll
-                await promiseTimeout(timeout);
+            } else if (guild && (interval || pollFailed)) {
                 // Refresh dbGuild data and start next poll
-                Database.getGuild(guild).then((dbGuild) =>
-                    this.startPollingInterval(guild, dbGuild)
+                await Database.getGuild(guild).then((dbGuild) =>
+                    this.poll(guild, dbGuild)
                 ).catch(logger.error);
             }
-
         }
     }
 
@@ -100,14 +137,16 @@ export class RaidhelperIntegration {
                     dbGuild.widget.channelId
                 )
                 if (!widget?.getTextState()) {
-                    const currentlyScheduledEvent = dbGuild.raidHelper.events.reduce((lowest, current) =>
-                        Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
-                    const previouslyScheduledEvent = oldEvents.reduce((lowest, current) =>
-                        Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
-                    const isSameEvent = currentlyScheduledEvent.id === previouslyScheduledEvent.id;
-                    const hasChangedProperties = currentlyScheduledEvent.lastUpdatedUnix !== previouslyScheduledEvent.lastUpdatedUnix;
+                    const currentlyScheduledEvent = dbGuild.raidHelper.events.length > 0 ? dbGuild.raidHelper.events.reduce((lowest, current) =>
+                        Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest) : undefined;
+                    const previouslyScheduledEvent = oldEvents.length > 0 ? oldEvents.reduce((lowest, current) =>
+                        Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest) : undefined;
+                    const isNewEvent = currentlyScheduledEvent && !previouslyScheduledEvent;
+                    const isNoEvent = events.length === 0;
+                    const isSameEvent = currentlyScheduledEvent && previouslyScheduledEvent && currentlyScheduledEvent.id === previouslyScheduledEvent.id;
+                    const hasChangedProperties = isSameEvent && currentlyScheduledEvent.lastUpdatedUnix !== previouslyScheduledEvent.lastUpdatedUnix;
 
-                    if (isSameEvent && hasChangedProperties) {
+                    if (isNewEvent || isNoEvent || (isSameEvent && hasChangedProperties)) {
                         await widget?.update({ force: true });
                     }
                 }

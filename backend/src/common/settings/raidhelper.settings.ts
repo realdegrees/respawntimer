@@ -12,11 +12,9 @@ import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 import { setTimeout } from 'timers/promises';
 import { RaidhelperIntegration } from '../../raidhelperIntegration';
-import { EPHEMERAL_REPLY_DURATION_SHORT, RAIDHELPER_INTEGRATION_NUM_EVENTS_PER_QUERY } from '../constant';
+import { EPHEMERAL_REPLY_DURATION_SHORT } from '../constant';
 import { formatEvents } from '../../util/formatEvents';
 import { ScheduledEvent } from '../types/raidhelperEvent';
-import { getEventPollingInterval } from '../../util/getEventPollingInterval';
-import { NotificationHandler } from '../../handlers/notificationHandler';
 import { AdvancedChannelSelectMenuBuilder, EAdvancedChannelSelectReturnValue } from '../../util/advancedChannelSelectMenuBuilder';
 
 export enum ERaidhelperSettingsOptions {
@@ -136,8 +134,6 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
         const eventChannelText = eventChannel && eventChannel.isTextBased() ?
             `Only events posted in ${eventChannel} will be scheduled\n` :
             `\`\`\`diff\n- Not Set\`\`\`*Events from all channels will be scheduled*`;
-        const refreshDurationInfo = `Refresh every **${(getEventPollingInterval(scheduledEvents.length) / 1000 / 60).toFixed(0)}** minutes`;
-        const maxEventsInfo = `Max **${RAIDHELPER_INTEGRATION_NUM_EVENTS_PER_QUERY}** Events`;
 
         return [{
             name: `Raidhelper API Key${apiKeyValidText} `,
@@ -163,7 +159,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
             name: `Default Voice Channel`,
             value: defaultVoiceChannelText
         }, {
-            name: `Scheduled Events${eventChannelPermissionInfo || ` ≫ *${maxEventsInfo}* ≫ *${refreshDurationInfo}*`}`,
+            name: `Scheduled Events${eventChannelPermissionInfo}`,
             value: `${scheduledEvents.map((event) => `- ${event}`).join('\n')}`
         }] as EmbedField[];
     }
