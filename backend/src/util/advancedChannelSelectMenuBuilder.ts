@@ -62,6 +62,8 @@ export class AdvancedChannelSelectMenuBuilder {
         if (!this.customId) {
             throw new Error('No Custom ID set on AdvancedChannelSelectMenuBuilder!');
         }
+
+        const menuBuilder = new StringSelectMenuBuilder();
         const allChannels = this.guild.channels.cache.sort();
         // Filter only channels that are of this.channelType ChannelType and the given user AND bot have view permission
         this.channels = this.channels ?? (await Promise.all(allChannels.filter((channel) => {
@@ -73,7 +75,16 @@ export class AdvancedChannelSelectMenuBuilder {
             .then((channels) => channels.filter((channel) => !!channel))
             .catch(() => [] as GuildChannel[])) as GuildChannel[];
 
-        const menuBuilder = new StringSelectMenuBuilder();
+
+        if (this.channels.length === 0) {
+            return new AdvancedChannelSelectMenu(
+                menuBuilder
+                    .setDisabled(true)
+                    .setCustomId(this.customId)
+                    .setPlaceholder(`No ${this.channelType === ChannelType.GuildVoice ? 'voice' : 'text'} channels available.`),
+                []);
+        }
+
         const maxPages = this.calculatePagesForChannelAmount(this.channels.length);
         const startIndex = this.calculatePageStartIndex(this.page, maxPages);
         const amountOnPage = this.calculateItemAmountForPage(this.page, maxPages);
