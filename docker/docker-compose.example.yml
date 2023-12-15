@@ -2,7 +2,7 @@ version: "3.2"
 services:
   wartimer:
     container_name: wartimer
-    image: wartimer:latest
+    image: realdegrees/wartimer:latest
     restart: unless-stopped
     environment:
       - DISCORD_CLIENT_TOKEN=<token>
