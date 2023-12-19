@@ -83,7 +83,7 @@ export class NotificationHandler {
                                     .setTimestamp()
                             ]
                         }).then(() => {
-                            logger.debug('[' + guild.name + '] Notification (server): ' + title);
+                            logger.debug('[' + guild.name + '][Notification] ' + title);
                             if (!previousGuildNotificationMap) {
                                 notificationMap.push({
                                     guildId: guild.id,
