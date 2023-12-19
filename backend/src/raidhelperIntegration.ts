@@ -63,7 +63,7 @@ export class RaidhelperIntegration {
             return;
         }
 
-        let pollFailed = false;
+        let retryAfterAwaited = false;
         try {
             // poll
             const events = await this.getEvents(dbGuild);
@@ -86,20 +86,14 @@ export class RaidhelperIntegration {
                     );
                 }
                 await promiseTimeout(retry);
-                pollFailed = true;
+                retryAfterAwaited = true;
             }
         } finally {
-            if(!pollFailed){
+            if (!retryAfterAwaited) {
                 const timeout = 1000 * 60 * 10;
                 await promiseTimeout(timeout);
             }
-            // If too many retries, reset api key and stop polling else schedule a new poll
-            const tooManyTries = dbGuild.id in pollingRetries && pollingRetries[dbGuild.id] >= MAX_POLL_RETRIES;
-            if (tooManyTries) {
-                dbGuild.raidHelper.apiKey = undefined;
-                await dbGuild.save();
-                logger.error(`[${dbGuild.name}] Polling failed >20 times, removing API key`);
-            } else if (guild && (interval || pollFailed)) {
+            if (guild && (interval || retryAfterAwaited)) {
                 // Refresh dbGuild data and start next poll
                 await Database.getGuild(guild).then((dbGuild) =>
                     this.poll(guild, dbGuild)
