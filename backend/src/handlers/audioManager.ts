@@ -193,20 +193,19 @@ class AudioManager {
         subscriber.connection.subscribe(subscriber.audioPlayer);
     }
     // eslint-disable-next-line max-len
-    public subscribe(options: {
-        connection: VoiceConnection;
-        guild: Guild;
-        voice?: Voices;
-        customTimings?: string;
-    }): void {
-        const timings = TimingsSettings.convertToSeconds(options.customTimings ?? '');
-        const audioPlayer = timings ? createAudioPlayer(defaultAudioPlayerBehaviour) : this.voices.find((sounds) => sounds.voiceType === options.voice)!.player;
-        options.connection.subscribe(audioPlayer);
+    public subscribe(
+        connection: VoiceConnection,
+        guild: Guild,
+        dbGuild: DBGuild
+    ): void {
+        const timings = TimingsSettings.convertToSeconds(dbGuild.customTimings ?? '');
+        const audioPlayer = timings ? createAudioPlayer(defaultAudioPlayerBehaviour) : this.voices.find((sounds) => sounds.voiceType === dbGuild.voice)!.player;
+        connection.subscribe(audioPlayer);
         this.subscribers.push({
             timeStamp: Date.now(),
-            guild: options.guild,
-            voice: options.voice ?? 'female',
-            connection: options.connection,
+            guild: guild,
+            voice: dbGuild.voice ?? 'female',
+            connection: connection,
             audioPlayer,
             timings
         });
@@ -224,20 +223,26 @@ class AudioManager {
         }).catch(logger.error);
     }
 
-    public isConnected(guildId: string): boolean {
-        return !!this.subscribers.find((subscriber) => subscriber.guild.id === guildId);
+    public isConnected(guild: Guild, dbGuild: DBGuild): boolean {
+        const subscriber = this.subscribers.find((subscriber) => subscriber.guild.id === guild.id)
+        const connection = getVoiceConnection(guild.id)
+        if (!subscriber && !!connection) {
+            this.subscribe(connection, guild, dbGuild);
+            return true;
+        } else {
+            return !!subscriber;
+        }
     }
 
     public async connect(channel: VoiceBasedChannel, dbGuild: DBGuild): Promise<void> {
         if (this.subscribers.find((s) => s.guild.id === dbGuild.id)) return Promise.resolve();
         return this.getConnection(channel)
             .then((connection) => {
-                this.subscribe({
+                this.subscribe(
                     connection,
-                    guild: channel.guild,
-                    voice: dbGuild.voice,
-                    customTimings: dbGuild.customTimings
-                })
+                    channel.guild,
+                    dbGuild
+                );
                 return new Promise((res) =>
                     connection
                         .on(VoiceConnectionStatus.Disconnected, () => {

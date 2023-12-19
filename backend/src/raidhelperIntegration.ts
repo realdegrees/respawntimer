@@ -298,7 +298,7 @@ export class RaidhelperIntegration {
                     // Voice Start
                     try {
                         // Connect to voice if not connected and auto-join is enabled
-                        if (guild.db.raidHelper.enabled && !audioManager.isConnected(guild.client.id)) {
+                        if (guild.db.raidHelper.enabled && !audioManager.isConnected(guild.client, guild.db)) {
                             let channel;
                             if (event.voiceChannelId) {
                                 channel = await guild.client.channels.fetch(event.voiceChannelId);
