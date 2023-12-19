@@ -226,7 +226,7 @@ export class RaidhelperIntegration {
         const info = `${scheduledEvents.some((ev) => ev.includes('⚠️')) ? ' ≫ *Missing Some Permissions*' : ''}`;
         await NotificationHandler.sendNotification(
             guild, dbGuild,
-            `** New Event${scheduledEvents.length > 1 ? 's' : ''} Scheduled**`,
+            `**New Event${scheduledEvents.length > 1 ? 's' : ''} Scheduled**`,
             `${info}\n${scheduledEvents.map((e) => `- ${e}`).join('\n')}`,
             { color: Colors.Green, byPassDuplicateCheck: true }
         ).catch(logger.error);
