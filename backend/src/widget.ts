@@ -258,7 +258,7 @@ export class Widget {
             (dbGuild.raidHelper.defaultVoiceChannelId ? await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId).catch(() => undefined) : undefined);
 
         const voiceChannelText = dbGuild.raidHelper.enabled ?
-            `${voiceChannel ? `Joining ${voiceChannel} at <t:${startTimeStamp}:t>` : '⚠️ *No Default Voice Channel Set*'}` :
+            `${voiceChannel ? `${startTimeStamp <= Date.now() / 1000 ? 'Joined' : 'Joining'} ${voiceChannel} at <t:${startTimeStamp}:t>` : '⚠️ *No Default Voice Channel Set*'}` :
             '```fix\nAuto-Join Disabled```';
 
         const timeText = `<t:${event.startTimeUnix}:d>${event.startTimeUnix === startTimeStamp
