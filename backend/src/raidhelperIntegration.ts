@@ -87,6 +87,10 @@ export class RaidhelperIntegration {
                 const retry = Number.parseInt(response.headers.get('retry-after') || '0');
                 await promiseTimeout(retry);
                 retryAfterAwaited = true;
+            } else if (response instanceof Response) {
+                logger.error(`[${guild.name}] ${response.status}: ${response.statusText}`);
+            } else {
+                logger.error('Unkown Error while polling')
             }
         } finally {
             if (!retryAfterAwaited) {
