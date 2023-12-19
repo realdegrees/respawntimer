@@ -70,21 +70,21 @@ export class RaidhelperIntegration {
             await this.onFetchEventSuccess(guild, dbGuild, events);
             logger.debug('Event Poll Success');
         } catch (response) {
+            dbGuild.raidHelper.apiKeyValid = false;
+            await dbGuild.save();
+
+            pollingRetries[dbGuild.id] = (pollingRetries[dbGuild.id] ?? 0) + 1;
+            logger.error(`[${dbGuild.name}] Polling failed (Attempt #${pollingRetries[dbGuild.id]})`);
+
+            if (guild) {
+                await RaidhelperIntegration.onFetchEventError(
+                    guild,
+                    dbGuild
+                );
+            }
+
             if (response instanceof Response && response.status === 429) {
-                dbGuild.raidHelper.apiKeyValid = false;
-                await dbGuild.save();
-
-                pollingRetries[dbGuild.id] = (pollingRetries[dbGuild.id] ?? 0) + 1;
-                logger.error(`[${dbGuild.name}] Polling failed (Attempt #${pollingRetries[dbGuild.id]})`);
-
                 const retry = Number.parseInt(response.headers.get('retry-after') || '0');
-
-                if (guild) {
-                    await RaidhelperIntegration.onFetchEventError(
-                        guild,
-                        dbGuild
-                    );
-                }
                 await promiseTimeout(retry);
                 retryAfterAwaited = true;
             }
@@ -154,24 +154,19 @@ export class RaidhelperIntegration {
     private static async onFetchEventError(guild: Guild | null, dbGuild: DBGuild): Promise<void> {
         try {
             if (guild) {
-                if (pollingRetries[dbGuild.id] >= POLL_RETRY_NOTIFICATION_THRESHOLD) {
-                    const message = pollingRetries[dbGuild.id] === MAX_POLL_RETRIES ?
-                        'Failed to fetch new Raidhelper events ' + MAX_POLL_RETRIES + ' times.\n' +
-                        'Check your Raidhelper Integration settings in `/settings`\n' +
-                        'If this issue persists try resetting your data in `Misc Settings`'
-                        : `Failed to fetch events ${MAX_POLL_RETRIES} times in a row.\n` +
-                        'Your Raidhelper API key has been reset. Check your Raidhelper Integration settings.';
+                const message = 'Failed to fetch new Raidhelper events!\n' +
+                    'Check your Raidhelper Integration settings in `/settings`\n' +
+                    'If this issue persists set a new API key in `Raidhelper Integration Settings`';
 
 
-                    // Send notification
-                    await NotificationHandler.sendNotification(
-                        guild,
-                        dbGuild,
-                        'Raidhelper Integration Error',
-                        message,
-                        { color: Colors.Red }
-                    );
-                }
+                // Send notification
+                await NotificationHandler.sendNotification(
+                    guild,
+                    dbGuild,
+                    'Raidhelper Integration Error',
+                    message,
+                    { color: Colors.Red }
+                );
 
                 // Update widget to reflect that API key is not valid
                 const widget = await Widget.find(
