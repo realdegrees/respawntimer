@@ -267,12 +267,14 @@ export class RaidhelperIntegration {
                 // Get guilds with an API Key from DB and filter out those with events starting soon
                 guilds = guilds.filter((guild) =>
                     guild.db.raidHelper.events.find((event) => {
+                        // Get the actual time when the war starts to calculate when to join
+                        const warStartTime = event.startTimeUnix + (1800 - (event.startTimeUnix % 1800))
                         // Past events = negative diff, Future events = positive diff
-                        const diff = event.startTimeUnix * 1000 - Date.now();
+                        const diff = warStartTime * 1000 - Date.now();
                         const diffSeconds = diff / 1000;
                         const diffMinutes = diffSeconds / 60;
 
-                        const isWithinFutureThreshold = diffSeconds < 5;
+                        const isWithinFutureThreshold = diffSeconds < 30;
                         const isWithinPastThreshold = diffMinutes > GRACE_PERIOD_MINUTES * -1;
 
                         return isWithinFutureThreshold && isWithinPastThreshold;
