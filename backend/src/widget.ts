@@ -19,6 +19,7 @@ import Database from './db/database';
 import { SettingsHandler } from './handlers/settingsHandler';
 import { ECollectorStopReason } from './common/types/collectorStopReason';
 import { userHasRole } from './util/permissions';
+import { roundUpHalfHourUnix } from './util/formatTime';
 
 export enum EWidgetButtonID {
     TEXT = 'text',
@@ -250,14 +251,10 @@ export class Widget {
         }
         return embed;
     }
-    private static getWarStartTime(startTimeUnix: number): number {
-        const remainder = startTimeUnix % 1800;
-        return remainder === 0 ? startTimeUnix : startTimeUnix + (1800 - remainder);
-    }
     private static async getEventDisplayFields(guild: Guild, dbGuild: DBGuild): Promise<EmbedField[]> {
         const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
             Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
-        const startTimeStamp = this.getWarStartTime(event.startTimeUnix);
+        const startTimeStamp = roundUpHalfHourUnix(event.startTimeUnix);
         const voiceChannel = (event.voiceChannelId ? await guild.channels.fetch(event.voiceChannelId).catch(() => undefined) : undefined) ??
             (dbGuild.raidHelper.defaultVoiceChannelId ? await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId).catch(() => undefined) : undefined);
 
