@@ -270,9 +270,9 @@ export class RaidhelperIntegration {
                     const diffMinutes = diffSeconds / 60;
 
                     const isWithinFutureThreshold = diffSeconds <= 30;
-                    const isWithinPastThreshold = diffMinutes >= RETRY_ATTEMPT_DUR_MIN * -1;
+                    const isWithinPastThreshold = diffMinutes >= RETRY_ATTEMPT_DUR_MIN * -1 && diffMinutes <= 0;
 
-                    return isWithinFutureThreshold && isWithinPastThreshold;
+                    return isWithinFutureThreshold || isWithinPastThreshold;
                 }));
 
             // for each guild find the closest event and attempt to start the widget and voice
