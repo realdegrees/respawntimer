@@ -34,9 +34,12 @@ Promise.resolve()
     .then(async (bot) => {
         // Remove discord servers from DB taht have been inactive or where bot is not a member anymore
         let dbGuilds = await Database.getAllGuilds();
-        logStats(dbGuilds);
-        const guildsCleaned = await cleanGuilds(bot.client, dbGuilds, MAX_INACTIVE_DAYS);
-        guildsCleaned.forEach((clean) => logger.info(`[${clean.name}] ${clean.reason}`))
+        
+        //logStats(dbGuilds);
+
+        //TODO check why no workey
+        // const guildsCleaned = await cleanGuilds(bot.client, dbGuilds, MAX_INACTIVE_DAYS);
+        // guildsCleaned.forEach((clean) => logger.info(`[${clean.name}] ${clean.reason}`))
 
         // Start polling interval for all guilds
         dbGuilds = await Database.getAllGuilds();

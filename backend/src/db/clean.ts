@@ -18,7 +18,7 @@ export const cleanGuilds = async (client: Client, dbGuilds: DBGuild[], maxInacti
     const clientGuilds = await client.guilds.fetch();
     for (const dbGuild of dbGuilds) {
         try {
-            const clientGuild = await clientGuilds.find((guild) => guild.id === dbGuild.id);
+            const clientGuild = clientGuilds.find((guild) => guild.id === dbGuild.id);
             if (!clientGuild) {
                 // Delete guild if bot cannot find the discord server
                 await Database.deleteGuild(dbGuild.id);
