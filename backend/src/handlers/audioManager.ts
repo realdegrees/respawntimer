@@ -201,6 +201,7 @@ class AudioManager {
         const timings = TimingsSettings.convertToSeconds(dbGuild.customTimings ?? '');
         const audioPlayer = timings ? createAudioPlayer(defaultAudioPlayerBehaviour) : this.voices.find((sounds) => sounds.voiceType === dbGuild.voice)!.player;
         connection.subscribe(audioPlayer);
+        connection.setMaxListeners(100);
         this.subscribers.push({
             timeStamp: Date.now(),
             guild: guild,

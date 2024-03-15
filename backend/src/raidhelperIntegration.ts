@@ -21,49 +21,53 @@ const pollingRetries: {
   [guildId: string]: number;
 } = {};
 export class RaidhelperIntegration {
-  public static startRaidhelperMessageCollector(guild: Guild): void {
-    const messageCreateEvent = guild.client.on(
-      "messageCreate",
-      async (message) => {
-        if (message.author.id !== RAIDHELPER_USER_ID || message.type !== 20) {
+  public static startRaidhelperMessageCollector(client: Client): void {
+    const messageCreateEvent = client.on("messageCreate", async (message) => {
+      const guild = message.guild;
+      if (
+        message.author.id !== RAIDHELPER_USER_ID ||
+        message.type !== 20 ||
+        !guild
+      ) {
+        return;
+      }
+      try {
+        const dbGuild = await Database.getGuild(guild);
+        if (!dbGuild.raidHelper.apiKey) {
+          await messageCreateEvent.destroy();
           return;
         }
-        try {
-          const dbGuild = await Database.getGuild(guild);
-          if (!dbGuild.raidHelper.apiKey) {
-            await messageCreateEvent.destroy();
-            return;
-          }
-          await promiseTimeout(1000);
-          await this.poll(guild, dbGuild);
-        } catch (err) {
-          logger.error(`[${guild.name}] Autopoll on messageCreate failed`);
-        }
+        await promiseTimeout(1000);
+        await this.poll(guild, dbGuild);
+      } catch (err) {
+        logger.error(`[${guild.name}] Autopoll on messageCreate failed`);
       }
-    );
-    const messageDeleteEvent = guild.client.on(
-      "messageDelete",
-      async (message) => {
-        if (message.author?.id !== RAIDHELPER_USER_ID || message.type !== 0) {
+    });
+    const messageDeleteEvent = client.on("messageDelete", async (message) => {
+      const guild = message.guild;
+
+      if (
+        message.author?.id !== RAIDHELPER_USER_ID ||
+        message.type !== 0 ||
+        !guild
+      ) {
+        return;
+      }
+      try {
+        const dbGuild = await Database.getGuild(guild);
+        if (!dbGuild.raidHelper.apiKey) {
+          await messageDeleteEvent.destroy();
           return;
         }
-        try {
-          const dbGuild = await Database.getGuild(guild);
-          if (!dbGuild.raidHelper.apiKey) {
-            await messageDeleteEvent.destroy();
-            return;
-          }
-          await promiseTimeout(10000);
-          await this.poll(guild, dbGuild);
-        } catch (err) {
-          logger.error(`[${guild.name}] Autopoll on messageDelete failed`);
-        }
+        await promiseTimeout(10000);
+        await this.poll(guild, dbGuild);
+      } catch (err) {
+        logger.error(`[${guild.name}] Autopoll on messageDelete failed`);
       }
-    );
+    });
   }
   public static start(guild: Guild, dbGuild: DBGuild): void {
     this.poll(guild, dbGuild, true);
-    this.startRaidhelperMessageCollector(guild);
   }
   public static async poll(
     guild: Guild,
