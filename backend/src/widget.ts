@@ -101,7 +101,7 @@ export class Widget {
     for (const dbGuild of dbGuilds) {
       try {
         const clientGuild = await client.guilds.fetch(dbGuild.id).catch(() => {
-          throw new Error("Unable to fetch guild " + clientGuild.name);
+          throw new Error("Unable to fetch guild " + dbGuild.name);
         });
         if (!clientGuild) {
           throw new Error("Unable to find guild while initializing widget");
