@@ -35,7 +35,7 @@ export class RaidhelperIntegration {
             return;
           }
           await promiseTimeout(1000);
-          await this.poll(guild, dbGuild, false);
+          await this.poll(guild, dbGuild);
         } catch (err) {
           logger.error(`[${guild.name}] Autopoll on messageCreate failed`);
         }
@@ -54,7 +54,7 @@ export class RaidhelperIntegration {
             return;
           }
           await promiseTimeout(10000);
-          await this.poll(guild, dbGuild, false);
+          await this.poll(guild, dbGuild);
         } catch (err) {
           logger.error(`[${guild.name}] Autopoll on messageDelete failed`);
         }
@@ -62,13 +62,13 @@ export class RaidhelperIntegration {
     );
   }
   public static start(guild: Guild, dbGuild: DBGuild): void {
-    this.poll(guild, dbGuild);
+    this.poll(guild, dbGuild, true);
     this.startRaidhelperMessageCollector(guild);
   }
   public static async poll(
     guild: Guild,
     dbGuild: DBGuild,
-    interval = true
+    interval = false
   ): Promise<void> {
     if (!dbGuild.raidHelper.apiKey) {
       logger.info(`[${guild.name}] No API Key! Polling stopped.`);
@@ -97,15 +97,15 @@ export class RaidhelperIntegration {
               const retryDate = new Date(retryAfter);
               const diff = retryDate.getTime() - Date.now();
               logger.error(
-                `[${guild.name}] Too many requests! Retrying in ${Math.round(
+                `[${guild.name}] Rate Limited! Retrying in ${Math.round(
                   diff / 1000
-                )}s (${retryDate})`
+                )}s (${retryDate.toDateString()})`
               );
               await promiseTimeout(diff);
               retryAfterAwaited = true;
             } else {
               logger.error(
-                `[${guild.name}] Too many requests! \nHeaders: ${[
+                `[${guild.name}] Rate Limited! \nHeaders: ${[
                   ...response.headers.entries(),
                 ].toString()}`
               );
@@ -136,7 +136,7 @@ export class RaidhelperIntegration {
     } finally {
       await dbGuild.save();
       if (!retryAfterAwaited) {
-        const timeout = 1000 * 60 * 45;
+        const timeout = 1000 * 60 * 5;
         await promiseTimeout(timeout);
       }
       if (guild && (interval || retryAfterAwaited)) {
