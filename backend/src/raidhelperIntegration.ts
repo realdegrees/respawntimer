@@ -94,13 +94,21 @@ export class RaidhelperIntegration {
             const retry = Number.parseInt(
               response.headers.get("retry-after") || "0"
             );
-            logger.error(
-              `[${guild.name}] Too many requests! Retrying in ${Math.round(
-                retry / 1000
-              )} seconds.`
-            );
-            await promiseTimeout(retry);
-            retryAfterAwaited = true;
+
+            if (!isNaN(retry)) {
+              logger.error(
+                `[${guild.name}] Too many requests! Retrying in ${Math.round(
+                  retry / 1000
+                )} seconds.`
+              );
+              await promiseTimeout(retry);
+              retryAfterAwaited = true;
+            } else {
+              logger.error(
+                `[${guild.name}] Too many requests! No retry received.\nResponse: ${response.statusText}\nHeaders: ${[...response.headers.entries()].toString()}`
+              );
+            }
+
             break;
 
           case 401:
