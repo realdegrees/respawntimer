@@ -67,7 +67,7 @@ Promise.resolve()
     for (const dbGuild of dbGuilds) {
       if (dbGuild.raidHelper.apiKey) {
         const guild = await bot.client.guilds.fetch(dbGuild.id);
-        RaidhelperIntegration.start(guild, dbGuild);
+        if (guild) RaidhelperIntegration.start(guild, dbGuild);
         await setTimeout(100);
       }
     }
