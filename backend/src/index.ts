@@ -67,7 +67,6 @@ Promise.resolve()
     for (const dbGuild of dbGuilds) {
       if (dbGuild.raidHelper.apiKey) {
         const guild = await bot.client.guilds.fetch(dbGuild.id);
-        logger.info(`[${guild.name}] Starting polling interval`);
         RaidhelperIntegration.start(guild, dbGuild);
         await setTimeout(100);
       }

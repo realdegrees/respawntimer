@@ -17,9 +17,16 @@ import { roundUpHalfHourUnix } from "./util/formatTime";
 const RETRY_ATTEMPT_DUR_MIN = 1;
 const RETRY_INTERVAL_SECONDS = 5;
 const GRACE_PERIOD_MINUTES = 20; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
-const pollingRetries: {
-  [guildId: string]: number;
-} = {};
+
+const activePollIntervals: Partial<
+  Record<
+    string,
+    {
+      retries: number;
+    }
+  >
+> = {};
+
 export class RaidhelperIntegration {
   public static startRaidhelperMessageCollector(client: Client): void {
     const messageCreateEvent = client.on("messageCreate", async (message) => {
@@ -67,7 +74,15 @@ export class RaidhelperIntegration {
     });
   }
   public static start(guild: Guild, dbGuild: DBGuild): void {
-    this.poll(guild, dbGuild, true);
+    if (!activePollIntervals[guild.id]) {
+      activePollIntervals[guild.id] = { retries: 0 };
+      this.poll(guild, dbGuild, true);
+      logger.info(`[${guild.name}] Starting polling interval`);
+    } else {
+      logger.warn(
+        `[${guild.name}] Attempted to start second polling interval!`
+      );
+    }
   }
   public static async poll(
     guild: Guild,
@@ -88,10 +103,6 @@ export class RaidhelperIntegration {
     } catch (response) {
       dbGuild.raidHelper.apiKeyValid = false;
 
-      if (guild) {
-        await RaidhelperIntegration.onFetchEventError(guild, dbGuild);
-      }
-
       if (response instanceof Response) {
         switch (response.status) {
           case 429:
@@ -100,6 +111,13 @@ export class RaidhelperIntegration {
             if (retryAfter) {
               const retryDate = new Date(retryAfter);
               const diff = retryDate.getTime() - Date.now();
+              await RaidhelperIntegration.onFetchEventError(
+                guild,
+                dbGuild,
+                "Your Raidhelper API Key was rate-limited! Retrying in " +
+                  Math.round(diff / 1000) +
+                  " seconds. You can refresh your API key in the Raidhelper Integration settings to fix this immediately."
+              );
               logger.error(
                 `[${guild.name}] Rate Limited! Retrying in ${Math.round(
                   diff / 1000
@@ -118,17 +136,32 @@ export class RaidhelperIntegration {
             break;
 
           case 401:
-            pollingRetries[dbGuild.id] = (pollingRetries[dbGuild.id] ?? 0) + 1;
-            if (pollingRetries[dbGuild.id] > 10) {
-              dbGuild.raidHelper.apiKey = undefined;
-              dbGuild.raidHelper.apiKeyValid = false;
-              pollingRetries[dbGuild.id] = 0;
-              logger.error(
-                `[${guild.name}] Unsetting API Key. Too many unauthorized requests!`
-              );
+            const pollIntervalObject = activePollIntervals[guild.id];
+            if (pollIntervalObject) {
+              pollIntervalObject.retries++;
+              if (pollIntervalObject.retries > 10) {
+                dbGuild.raidHelper.apiKey = undefined;
+                dbGuild.raidHelper.apiKeyValid = false;
+                delete activePollIntervals[guild.id];
+                logger.error(
+                  `[${guild.name}] Unsetting API Key. Too many unauthorized requests!`
+                );
+                await RaidhelperIntegration.onFetchEventError(
+                  guild,
+                  dbGuild,
+                  "Your Raidhelper API key is not valid. Please refresh it in the Raidhelper Integration settings."
+                );
+              }
             }
             break;
-
+          case 404:
+            await RaidhelperIntegration.onFetchEventError(
+              guild,
+              dbGuild,
+              "The Raidhelper API is currently unreachable. The Raidhelper Integration will not work until it is back up again!"
+            );
+            logger.warn(`[${guild.name}] 404: Raidhelper API not reachable!`);
+            break;
           default:
             logger.error(
               `[${guild.name}] ${response.status}: ${
@@ -143,11 +176,15 @@ export class RaidhelperIntegration {
         const timeout = 1000 * 60 * 5;
         await promiseTimeout(timeout);
       }
-      if (guild && (interval || retryAfterAwaited)) {
+      if ((interval || retryAfterAwaited) && activePollIntervals[guild.id]) {
         // Refresh dbGuild data and start next poll
         Database.getGuild(guild)
           .then((dbGuild) => this.poll(guild, dbGuild, interval))
           .catch(logger.error);
+      } else {
+        if (interval) {
+          logger.info(`[${guild.name}] Polling interval stopped!`);
+        }
       }
     }
   }
@@ -158,7 +195,9 @@ export class RaidhelperIntegration {
     events: ScheduledEvent[]
   ): Promise<void> {
     // Reset retries
-    pollingRetries[dbGuild.id] = 0;
+    const activePollObject = activePollIntervals[dbGuild.id];
+    if (activePollObject) activePollObject.retries = 0;
+
     const oldEvents = [...dbGuild.raidHelper.events];
     dbGuild.raidHelper.apiKeyValid = true;
     dbGuild.raidHelper.events = events;
@@ -240,34 +279,30 @@ export class RaidhelperIntegration {
     }
   }
   private static async onFetchEventError(
-    guild: Guild | null,
-    dbGuild: DBGuild
+    guild: Guild,
+    dbGuild: DBGuild,
+    message: string
   ): Promise<void> {
     try {
-      if (guild) {
-        const message =
-          "Failed to fetch new Raidhelper events!\n" +
-          "Check your Raidhelper Integration settings in `/settings`\n" +
-          "If this issue persists set a new API key in `Raidhelper Integration Settings`";
+      const body = message + '\nIf this issue persist please ask for help in the support discord!';
 
-        // Send notification
-        await NotificationHandler.sendNotification(
-          guild,
-          dbGuild,
-          "Raidhelper Integration Error",
-          message,
-          { color: Colors.Red }
-        );
+      // Send notification
+      await NotificationHandler.sendNotification(
+        guild,
+        dbGuild,
+        "Raidhelper Integration Error",
+        body,
+        { color: Colors.Red }
+      );
 
-        // Update widget to reflect that API key is not valid
-        const widget = await Widget.find(
-          guild,
-          dbGuild.widget.messageId,
-          dbGuild.widget.channelId
-        );
-        if (!widget?.getTextState()) {
-          await widget?.update({ force: true });
-        }
+      // Update widget to reflect that API key is not valid
+      const widget = await Widget.find(
+        guild,
+        dbGuild.widget.messageId,
+        dbGuild.widget.channelId
+      );
+      if (!widget?.getTextState()) {
+        await widget?.update({ force: true });
       }
     } catch (e) {
       logger.error(
