@@ -91,21 +91,23 @@ export class RaidhelperIntegration {
       if (response instanceof Response) {
         switch (response.status) {
           case 429:
-            const retry = Number.parseInt(
-              response.headers.get("retry-after") || "0"
-            );
+            const retryAfter = response.headers.get("retry-after");
 
-            if (!isNaN(retry)) {
+            if (retryAfter) {
+              const retryDate = new Date(retryAfter);
+              const diff = retryDate.getTime() - Date.now();
               logger.error(
                 `[${guild.name}] Too many requests! Retrying in ${Math.round(
-                  retry / 1000
-                )} seconds.`
+                  diff / 1000
+                )}s (${retryDate})`
               );
-              await promiseTimeout(retry);
+              await promiseTimeout(diff);
               retryAfterAwaited = true;
             } else {
               logger.error(
-                `[${guild.name}] Too many requests! No retry received.\nResponse: ${response.statusText}\nHeaders: ${[...response.headers.entries()].toString()}`
+                `[${guild.name}] Too many requests! \nHeaders: ${[
+                  ...response.headers.entries(),
+                ].toString()}`
               );
             }
 
@@ -116,6 +118,7 @@ export class RaidhelperIntegration {
             if (pollingRetries[dbGuild.id] > 10) {
               dbGuild.raidHelper.apiKey = undefined;
               dbGuild.raidHelper.apiKeyValid = false;
+              pollingRetries[dbGuild.id] = 0;
               logger.error(
                 `[${guild.name}] Unsetting API Key. Too many unauthorized requests!`
               );
@@ -124,7 +127,9 @@ export class RaidhelperIntegration {
 
           default:
             logger.error(
-              `[${guild.name}] ${response.status}: ${response.statusText}`
+              `[${guild.name}] ${response.status}: ${
+                response.statusText
+              }\nHeaders: ${[...response.headers.entries()].toString()}`
             );
         }
       }
