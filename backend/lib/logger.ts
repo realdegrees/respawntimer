@@ -132,7 +132,7 @@ const logParams = (indentation: number, level: Level, params: unknown[]): void =
             logParams(indentation, level, param);
             return;
         }
-        logFunc(level)(`[${'~'.repeat(indentation)}] ${JSON.stringify(param)}`);
+        logFunc(level)(`[${'-'.repeat(indentation)}] ${JSON.stringify(param)}`);
     });
 };
 const logFunc = (level: Level):

@@ -61,7 +61,6 @@ export class NotificationSettings extends BaseSetting<StringSelectMenuBuilder> {
         switch (option) {
             case 'makenewclearchannelbuttonhere':
                 await NotificationHandler.sendNotification(
-                    interaction.guild,
                     dbGuild,
                     'Notifications',
                     'This channel will not receive any more notifications and dev updates!',
@@ -93,7 +92,7 @@ export class NotificationSettings extends BaseSetting<StringSelectMenuBuilder> {
                 await checkChannelPermissions(channel, ['ViewChannel', 'SendMessages']);
                 logger.info('[' + channel.guild.name + '] Enabled Notifications');
                 dbGuild.notificationChannelId = interaction.values[0];
-                await NotificationHandler.sendNotification(channel.guild, dbGuild, 'Notifications', 'This channel will now receive notifications and dev updates!', { color: Colors.Green })
+                await NotificationHandler.sendNotification(dbGuild, 'Notifications', 'This channel will now receive notifications and dev updates!', { color: Colors.Green })
                 return ['saveGuild', 'update', 'updateWidget'];
                 break;
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');

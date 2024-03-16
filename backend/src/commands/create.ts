@@ -29,7 +29,7 @@ export class Create extends Command {
         if (!interaction.guild) {
             throw new Error('This command can only be run on a server.');
         }
-        const dbGuild = await Database.getGuild(interaction.guild);
+        const dbGuild = await Database.getGuild(interaction.guild.id);
         await interaction.deferReply({ ephemeral: true });
         const hasPermission = await this.checkPermission(interaction, 'editor');
         if (hasPermission) {

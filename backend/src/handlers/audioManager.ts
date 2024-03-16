@@ -13,6 +13,7 @@ import { TimingsSettings } from '../common/settings/timings.settings';
 import { DBGuild } from '../common/types/dbGuild';
 import { WarInfo } from '../common/types';
 import Database from '../db/database';
+import Bot from '../bot';
 
 const loadFiles = (voice: Voices): {
     id: string;
@@ -62,7 +63,7 @@ const defaultAudioPlayerBehaviour = {
 export type Voices = 'male' | 'female' | 'female legacy' | 'material' | 'rocket league';
 type Subscriber = {
     timeStamp: number;
-    guild: Guild;
+    dbGuild: DBGuild;
     voice: Voices;
     connection: VoiceConnection;
     audioPlayer: AudioPlayer;
@@ -118,9 +119,9 @@ class AudioManager {
             const minutesSubscribed = new Date(date.getTime() - subscriber.timeStamp).getTime() / 1000 / 60;
 
             if ((minutes === 59 || minutes === 29) && seconds === 59 && minutesSubscribed >= 15) {
-                logger.info(`[${subscriber.guild.name}] auto-disconnect voice`);
-                Database.getGuild(subscriber.guild).then((dbGuild) =>
-                    this.disconnect(subscriber.guild, dbGuild)
+                logger.info(`[${subscriber.dbGuild.name}] auto-disconnect voice`);
+                Database.getGuild(subscriber.dbGuild.id).then((dbGuild) =>
+                    this.disconnect(dbGuild)
                 ).catch(logger.error);
             }
         });
@@ -171,7 +172,7 @@ class AudioManager {
     }
 
     public setVoice(guildId: string, voice: Voices): void {
-        const subscriber = this.subscribers.find((s) => s.guild.id === guildId);
+        const subscriber = this.subscribers.find((s) => s.dbGuild.id === guildId);
         if (!subscriber) return;
         subscriber.voice = voice;
         // No need to change audioplayer susbcription because subscribers with custom timings have individual audioplayers they are already subscribed to
@@ -180,14 +181,14 @@ class AudioManager {
     }
 
     public setTimings(guildId: string, timings: string): void {
-        const subscriber = this.subscribers.find((s) => s.guild.id === guildId);
+        const subscriber = this.subscribers.find((s) => s.dbGuild.id === guildId);
         if (!subscriber) return;
         const timingsList = TimingsSettings.convertToSeconds(timings);
         if (!timingsList) return this.resetTimings(guildId);
         subscriber.timings = timingsList;
     }
     public resetTimings(guildId: string): void {
-        const subscriber = this.subscribers.find((s) => s.guild.id === guildId);
+        const subscriber = this.subscribers.find((s) => s.dbGuild.id === guildId);
         if (!subscriber?.timings) return;
         subscriber.audioPlayer = this.voices.find((sounds) => sounds.voiceType === subscriber.voice)!.player;
         subscriber.connection.subscribe(subscriber.audioPlayer);
@@ -195,7 +196,6 @@ class AudioManager {
     // eslint-disable-next-line max-len
     public subscribe(
         connection: VoiceConnection,
-        guild: Guild,
         dbGuild: DBGuild
     ): void {
         const timings = TimingsSettings.convertToSeconds(dbGuild.customTimings ?? '');
@@ -204,31 +204,28 @@ class AudioManager {
         connection.setMaxListeners(100);
         this.subscribers.push({
             timeStamp: Date.now(),
-            guild: guild,
+            dbGuild,
             voice: dbGuild.voice ?? 'female',
             connection: connection,
             audioPlayer,
             timings
         });
     }
-    public async disconnect(guild: Guild, dbGuild: DBGuild): Promise<void> {
-        return Widget.find(
-            guild,
-            dbGuild.widget.messageId,
-            dbGuild.widget.channelId
-        ).then((widget) => {
+    public async disconnect(dbGuild: DBGuild): Promise<void> {
+        
+        return Widget.find(dbGuild).then((widget) => {
             widget?.onAudioUnsubscribe();
         }).finally(() => {
-            this.subscribers.splice(this.subscribers.findIndex((s) => s.guild.id === guild.id), 1);
-            getVoiceConnection(guild.id)?.destroy();
+            this.subscribers.splice(this.subscribers.findIndex((s) => s.dbGuild.id === dbGuild.id), 1);
+            getVoiceConnection(dbGuild.id)?.destroy();
         }).catch(logger.error);
     }
 
-    public isConnected(guild: Guild, dbGuild: DBGuild): boolean {
-        const subscriber = this.subscribers.find((subscriber) => subscriber.guild.id === guild.id)
-        const connection = getVoiceConnection(guild.id)
+    public isConnected(dbGuild: DBGuild): boolean {
+        const subscriber = this.subscribers.find((subscriber) => subscriber.dbGuild.id === dbGuild.id)
+        const connection = getVoiceConnection(dbGuild.id)
         if (!subscriber && !!connection) {
-            this.subscribe(connection, guild, dbGuild);
+            this.subscribe(connection, dbGuild);
             return true;
         } else {
             return !!subscriber;
@@ -236,23 +233,17 @@ class AudioManager {
     }
 
     public async connect(channel: VoiceBasedChannel, dbGuild: DBGuild): Promise<void> {
-        if (this.subscribers.find((s) => s.guild.id === dbGuild.id)) return Promise.resolve();
+        if (this.subscribers.find((s) => s.dbGuild.id === dbGuild.id)) return Promise.resolve();
         return this.getConnection(channel)
             .then((connection) => {
                 this.subscribe(
                     connection,
-                    channel.guild,
                     dbGuild
                 );
                 return new Promise((res) =>
                     connection
                         .on(VoiceConnectionStatus.Disconnected, () => {
-                            Database.getGuild(channel.guild)
-                                .then((dbGuild) => Widget.find(
-                                    channel.guild,
-                                    dbGuild.widget.messageId,
-                                    dbGuild.widget.channelId
-                                ))
+                            Widget.find(dbGuild)
                                 .then((widget) => widget?.toggleVoice({ dbGuild }))
                                 .catch(() => { });
                             logger.info(`[${dbGuild.name}] disconnected from voice channel`);

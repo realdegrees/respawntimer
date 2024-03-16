@@ -152,18 +152,12 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
                 }
                 // remove duplicates and trim spaces
                 dbGuild.customTimings = TimingsSettings.sort(timings).join(',');
-                audioManager.setTimings(dbGuild.id, timings);
-                textManager.setTimings(dbGuild.id, timings);
                 await modalInteraction.deferUpdate();
                 return ['saveGuild', 'update'];
-                break;
             case ETimingsSettingsOptions.RESET:
                 if (!interaction.isButton()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
                 dbGuild.customTimings = undefined;
-                audioManager.resetTimings(dbGuild.id);
-                textManager.resetTimings(dbGuild.id);
                 return ['saveGuild', 'update'];
-                break;
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
         }
     }

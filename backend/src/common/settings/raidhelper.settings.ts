@@ -16,6 +16,7 @@ import { EPHEMERAL_REPLY_DURATION_SHORT } from '../constant';
 import { formatEvents } from '../../util/formatEvents';
 import { ScheduledEvent } from '../types/raidhelperEvent';
 import { AdvancedChannelSelectMenuBuilder, EAdvancedChannelSelectReturnValue } from '../../util/advancedChannelSelectMenuBuilder';
+import Bot from '../../bot';
 
 export enum ERaidhelperSettingsOptions {
     API_KEY = 'apikey',
@@ -97,10 +98,13 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
             apiKeyRow
         ]);
     }
-    public async getCurrentSettings(guildData: DBGuild, guild: Guild) {
-        // Default Voice Channel
-        const defaultVoiceChannel = guildData.raidHelper.defaultVoiceChannelId ?
-            await guild.channels.fetch(guildData.raidHelper.defaultVoiceChannelId).catch(() => undefined) : undefined;
+    public async getCurrentSettings(dbGuild: DBGuild) {
+        const guild = await Bot.client.guilds.fetch(dbGuild.id);
+        const defaultVoiceChannel =
+          dbGuild.raidHelper.defaultVoiceChannelId ? await guild.channels.fetch(
+            dbGuild.raidHelper.defaultVoiceChannelId
+          ) : null;
+
         const defaultVoiceChannelText = defaultVoiceChannel && defaultVoiceChannel.isVoiceBased() ?
             await checkChannelPermissions(defaultVoiceChannel, ['ViewChannel', 'Connect', 'Speak'])
                 .then(() => `${defaultVoiceChannel}`)
@@ -108,15 +112,16 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
             `*None*`;
 
         // Scheduled Events
-        const events = await Database.getGuild(guild)
-            .then((dbGuild) => dbGuild.raidHelper.events)
+        const events = await Database.getGuild(dbGuild.id)
+            .then(({raidHelper: {events}}) => events)
             .catch(() => []);
+
         const scheduledEvents = events.length > 0 ? await formatEvents(guild, ...events) : ['*None*'];
         const eventChannelPermissionInfo = scheduledEvents.includes('⚠️') ? ' ≫ *Missing Some Permissions*' : '';
 
         // API KEY
-        const apiKey = guildData.raidHelper.apiKey;
-        const apiKeyValid = guildData.raidHelper.apiKeyValid;
+        const apiKey = dbGuild.raidHelper.apiKey;
+        const apiKeyValid = dbGuild.raidHelper.apiKeyValid;
         const apiKeyValidText = apiKey ?
             apiKeyValid ?
                 ' » *Valid Key* ✅' :
@@ -128,8 +133,8 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
         const apiKeyNotSetInfo = !apiKey ? 'Use `/apikey show` to retrieve your Raidhelper API Key\nOr `/apikey refresh` if you don\'t have an API Key yet' : '';
         const apiKeyInvalidInfo = apiKey && !apiKeyValid ? 'You can use `/apikey refresh` to get a new API Key and enter it again' : '';
 
-        const eventChannel = guildData.raidHelper.eventChannelId ?
-            await guild.channels.fetch(guildData.raidHelper.eventChannelId).catch(() => undefined) : undefined;
+        const eventChannel = dbGuild.raidHelper.eventChannelId ?
+            await guild.channels.fetch(dbGuild.raidHelper.eventChannelId) : null;
         // No need to check permissions for the text channel as we only use the id as a filter for the Raidhelper API
         const eventChannelText = eventChannel && eventChannel.isTextBased() ?
             `Only events posted in ${eventChannel} will be scheduled\n` :
@@ -144,14 +149,14 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
         }, {
             name: `Auto-Join`,
             value: '*The bot will automatically join voice when an event starts*\n' +
-                (guildData.raidHelper.enabled ?
+                (dbGuild.raidHelper.enabled ?
                     '```diff\n+ Enabled ```' :
                     '```diff\n- Disabled ```'),
             inline: true
         }, {
             name: `Auto-Widget`,
             value: '*The bot will automatically start the text-widget when an event starts*\n' +
-                (guildData.raidHelper.widget ?
+                (dbGuild.raidHelper.widget ?
                     '```diff\n+ Enabled ```' :
                     '```diff\n- Disabled ```'),
             inline: true
@@ -219,7 +224,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
                     return [];
                 }
                 // onFetchEventSuccess saves the events to db, sets apiKeyValid and handles notifications
-                await RaidhelperIntegration.onFetchEventSuccess(guild, dbGuild, events)
+                await RaidhelperIntegration.onFetchEventSuccess(dbGuild, events)
                 await modalInteraction.deferUpdate();
                 return ['update', 'startEventPolling'] as SettingsPostInteractAction[];
                 break;

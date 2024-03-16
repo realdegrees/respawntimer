@@ -104,7 +104,7 @@ export class HelpSettings extends BaseSetting<ButtonBuilder> {
                 break;
             case EHelpSettingsOptions.CLEAR_CONFIRM:
                 if (interaction.guild.id === UPDATE_SOURCE_SERVER_ID && !debug) return Promise.reject('Data cannot be deleted on this server.');
-                await NotificationHandler.sendNotification(interaction.guild, dbGuild, 'Data Deletion', `${interaction.user} just deleted all data for this server.\nIf this was not intentional you will have to redo your settings!`)
+                await NotificationHandler.sendNotification(dbGuild, 'Data Deletion', `${interaction.user} just deleted all data for this server.\nIf this was not intentional you will have to redo your settings!`)
                 return ['update', 'deleteGuild'];
                 break;
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');

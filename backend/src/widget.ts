@@ -18,6 +18,7 @@ import {
   Message,
   MessageFlags,
   PartialMessage,
+  PermissionsBitField,
   TextChannel,
   VoiceBasedChannel,
 } from "discord.js";
@@ -38,6 +39,24 @@ import { SettingsHandler } from "./handlers/settingsHandler";
 import { ECollectorStopReason } from "./common/types/collectorStopReason";
 import { userHasRole } from "./util/permissions";
 import { roundUpHalfHourUnix } from "./util/formatTime";
+import Bot from "./bot";
+import { channel } from "diagnostics_channel";
+import { title } from "process";
+
+//TODO: do this when widget tries to update and message is not found
+/**
+ if (reason === ECollectorStopReason.DISPOSE || this.isResetting) return;
+        // Delete from memory when stopped because message was deleted
+        const widgetIndex = Widget.LIST.findIndex(
+          (widget) => widget.getId() === this.getId()
+        );
+        if (widgetIndex !== -1) {
+          const [widget] = Widget.LIST.splice(widgetIndex, 1);
+          textManager.unsubscribe(widget.getId(), true);
+        }
+ */
+
+//TODO: see if Widget.LIST is even necessary
 
 export enum EWidgetButtonID {
   TEXT = "text",
@@ -47,9 +66,9 @@ export enum EWidgetButtonID {
 }
 const resetDurationSeconds = 3;
 const DEFAULT_TITLE = "Respawn Timer";
-
+type GuildID = string;
 export class Widget {
-  private static LIST: Widget[] = []; // in-memory widgets
+  private static memory: Record<GuildID, Widget> = {}; // in-memory widgets
 
   private textState = false;
   private voiceState = false;
@@ -64,8 +83,7 @@ export class Widget {
     return this.isResetting;
   }
 
-  private listener: InteractionCollector<ButtonInteraction> | undefined;
-  private showButtons: boolean;
+  private showButtons: boolean = true;
   private onUpdateOnce: (() => void) | undefined;
 
   /**
@@ -75,55 +93,25 @@ export class Widget {
    * @param managerRole The role that was specified in the command
    */
   public constructor(
-    public message: Message | PartialMessage,
-    public readonly guild: Guild,
-    private dbGuild: DBGuild,
-    onReady: (widget: Widget) => void
+    public guildId: string,
+    public messageId: string,
+    public channelId: string
   ) {
-    this.showButtons = !dbGuild.widget.hideButtons;
-    Widget.LIST.push(this);
-    this.init(onReady).catch(logger.error);
+    Database.getGuild(guildId)
+      .then((dbGuild) => {
+        dbGuild.widget.hideButtons = false;
+        return dbGuild.save();
+      })
+      .then((dbGuild) => {
+        this.voiceState = audioManager.isConnected(dbGuild);
+        this.update();
+      })
+      .catch((e) =>
+        logger.error(e?.toString?.() || "Error initializing widget")
+      );
   }
 
   //region - Static Methods
-
-  /**
-   * Loads the existing widgets from all guilds into memory
-   * @param client
-   * @throws {Error}
-   */
-  public static async loadExisting(client: Client): Promise<void> {
-    // load all guilds from db that have an existing widget
-    const dbGuilds = await Database.queryGuilds({
-      "widget.messageId": { $exists: true },
-    });
-    logger.info(`[Server] Loading widget for ${dbGuilds.length} guilds`);
-    for (const dbGuild of dbGuilds) {
-      try {
-        const clientGuild = await client.guilds.fetch(dbGuild.id).catch(() => {
-          throw new Error("Unable to fetch guild " + dbGuild.name);
-        });
-        if (!clientGuild) {
-          throw new Error("Unable to find guild while initializing widget");
-        }
-        const widget = await Widget.find(
-          clientGuild,
-          dbGuild.widget.messageId,
-          dbGuild.widget.channelId,
-          dbGuild
-        );
-        logger.info(`[${dbGuild.name}] Connected to widget`);
-        await widget?.update({ force: true });
-      } catch (e) {
-        logger.error(
-          `[${dbGuild.name}] Error while trying to initialize widget: ${
-            e?.toString?.() || "Unknown"
-          }`
-        );
-        continue;
-      }
-    }
-  }
   /**
    * Creates a new widget and deletes the existing one
    * @param interaction The interaction the widget was created from (DO NOT DEFER OR REPLY THIS INTERACTION)
@@ -133,16 +121,17 @@ export class Widget {
    */
   public static async create(
     interaction: CommandInteraction<CacheType>,
-    channel: GuildTextBasedChannel,
+    channel: TextChannel,
     dbGuild: DBGuild
   ): Promise<void> {
     const guild = channel.guild;
 
     // Check permissions of the user
     const member = await guild.members.fetch(interaction.user);
+    if (!member) throw new Error("Internal Error. User not found!");
     if (
-      !(member.user.id === process.env["OWNER_ID"]) &&
-      !member.permissions.has("Administrator") &&
+      member.user.id !== process.env["OWNER_ID"] &&
+      !member.permissions.has(PermissionsBitField.Flags.Administrator) &&
       !member.roles.cache.some((role) =>
         dbGuild.editorRoleIDs.includes(role.id)
       )
@@ -152,20 +141,11 @@ export class Widget {
       );
     }
 
-    // Delete existing widget message if it exists
-    if (dbGuild.widget.channelId && dbGuild.widget.messageId) {
-      const widget = await Widget.find(
-        guild,
-        dbGuild.widget.messageId,
-        dbGuild.widget.channelId
-      );
-      if (widget) {
-        await widget.message.delete();
-      }
-    }
+    const existing = await Widget.find(dbGuild);
+    await existing?.delete();
 
     // Create and send the new widget message
-    const embed = await Widget.getEmbed(guild);
+    const embed = await Widget.getEmbed(dbGuild.id);
     const message = await channel.send({ embeds: [embed] });
 
     // Update dbGuild widget data
@@ -174,92 +154,61 @@ export class Widget {
     dbGuild.widget.hideButtons = false; // reset buttons when creating new widget
     await dbGuild.save();
 
-    await new Promise<Widget>((res) => {
-      new Widget(message, guild, dbGuild, res);
-    });
+    const widget = new Widget(
+      dbGuild.id,
+      dbGuild.widget.messageId,
+      dbGuild.widget.channelId
+    );
+    Widget.memory[dbGuild.id] = widget;
   }
 
-  public static async find(
-    guild: Guild,
-    messageId?: string,
-    channelId?: string,
-    dbGuildArg?: DBGuild
-  ): Promise<Widget | undefined> {
+  public static async find(dbGuild: DBGuild): Promise<Widget | undefined> {
     try {
       let widget: Widget | undefined;
       // first check if widget can be found in memory
-      widget = Widget.LIST.find((widget) => widget.getId() === messageId);
-      if (widget) return widget;
+      widget = Widget.memory[dbGuild.id];
+      if (widget) {
+        if (widget.messageId !== dbGuild.widget.messageId) {
+          await widget.delete();
+        } else {
+          return widget;
+        }
+      }
 
       // if it's not in memory try to find the original message and load it into memory as a widget instance
-      const message = await this.findWidgetMessage(guild, messageId, channelId);
+      if (!dbGuild.widget.channelId || !dbGuild.widget.messageId) return;
+      const guild = await Bot.client.guilds
+        .fetch(dbGuild.id)
+        .catch(() => undefined);
+      const channel = await guild?.channels
+        .fetch(dbGuild.widget.channelId)
+        .catch(() => undefined);
+      if (!channel?.isTextBased()) return;
+      const message = await channel.messages
+        .fetch(dbGuild.widget.messageId)
+        .catch(() => undefined);
 
-      if (!message || message.flags.has("Ephemeral"))
-        throw new Error(undefined);
-      if (!message.guild) throw new Error(undefined);
+      if (!message) {
+        dbGuild.widget = {};
+        await dbGuild.save();
+        return;
+      }
 
-      const dbGuild = dbGuildArg ?? (await Database.getGuild(message.guild));
-
-      // if the clicked message doesn't equal the message stored in the db we try to find the message corresponding to the stored data and delete it
-      const argMessageIsNotDbMessage =
-        dbGuild.widget.channelId &&
-        dbGuild.widget.messageId &&
-        (message.channel.id !== dbGuild.widget.channelId ||
-          message.id !== dbGuild.widget.messageId);
-      if (argMessageIsNotDbMessage) {
-        await this.deleteDbWidgetMessage(guild, messageId, channelId);
-      }
-      dbGuild.widget.channelId = message.channel.id;
-      dbGuild.widget.messageId = message.id;
-      await dbGuild.save();
-
-      return new Promise((res) => {
-        new Widget(message, guild, dbGuild, (widget) => res(widget));
-      });
-    } catch (error) {
-      return undefined;
-    }
-  }
-  private static async findWidgetMessage(
-    guild: Guild,
-    messageId?: string,
-    channelId?: string
-  ): Promise<Message<boolean> | undefined> {
-    try {
-      if (!channelId || !messageId) {
-        return undefined;
-      }
-      const channel = await guild?.channels.fetch(channelId);
-      if (channel?.isTextBased?.()) {
-        return await channel.messages.fetch(messageId);
-      }
-      return undefined;
-    } catch (error) {
-      logger.debug("Message saved in DB not found " + error?.toString?.());
-      return undefined;
-    }
-  }
-  private static async deleteDbWidgetMessage(
-    guild: Guild,
-    messageId?: string,
-    channelId?: string
-  ): Promise<void> {
-    try {
-      if (!messageId || !channelId) return;
-      // delete old message
-      const channel = await guild.channels.fetch(channelId);
-      if (channel?.isTextBased?.()) {
-        const message = await channel.messages.fetch(messageId);
-        await message.delete();
-      }
-    } catch (error) {
-      logger.debug(
-        "Unable to delete old widget message " + error?.toString?.()
+      widget = new Widget(
+        dbGuild.id,
+        dbGuild.widget.messageId,
+        dbGuild.widget.channelId
       );
+      Widget.memory[dbGuild.id] = widget;
+      return widget;
+    } catch (error) {
+      logger.error(`[${dbGuild.name}] Error finding widget`, error);
+      return undefined;
     }
   }
+
   private static async getEmbed(
-    guild: Guild,
+    guildId: string,
     widget?: Widget,
     description?: string,
     title?: string
@@ -273,7 +222,8 @@ export class Widget {
       embed.setDescription(description);
     } else {
       try {
-        const dbGuild = await Database.getGuild(guild);
+        const dbGuild = await Database.getGuild(guildId);
+        const guild = await Bot.client.guilds.fetch(guildId);
         const apiKeyStatus = dbGuild.raidHelper.apiKeyValid
           ? "Enabled"
           : dbGuild.raidHelper.apiKey
@@ -291,7 +241,7 @@ export class Widget {
         });
 
         if (dbGuild.raidHelper.events.length > 0) {
-          const fields = await this.getEventDisplayFields(guild, dbGuild);
+          const fields = await this.getEventDisplayFields(dbGuild);
           embed.setFields(fields);
         } else {
           if (widget?.voiceState) {
@@ -315,9 +265,9 @@ export class Widget {
     return embed;
   }
   private static async getEventDisplayFields(
-    guild: Guild,
     dbGuild: DBGuild
   ): Promise<EmbedField[]> {
+    const guild = await Bot.client.guilds.fetch(dbGuild.id);
     const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
       Math.abs(current.startTimeUnix * 1000 - Date.now()) <
       Math.abs(lowest.startTimeUnix * 1000 - Date.now())
@@ -327,15 +277,11 @@ export class Widget {
     const startTimeStamp = roundUpHalfHourUnix(event.startTimeUnix);
     const voiceChannel =
       (event.voiceChannelId
-        ? await guild.channels
-            .fetch(event.voiceChannelId)
-            .catch(() => undefined)
-        : undefined) ??
+        ? await guild.channels.fetch(event.voiceChannelId)
+        : null) ??
       (dbGuild.raidHelper.defaultVoiceChannelId
-        ? await guild.channels
-            .fetch(dbGuild.raidHelper.defaultVoiceChannelId)
-            .catch(() => undefined)
-        : undefined);
+        ? await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId)
+        : null);
 
     const voiceChannelText = dbGuild.raidHelper.enabled
       ? `${
@@ -382,28 +328,23 @@ export class Widget {
 
   //endregion
   //region - Instance methods
-  private async init(onReady: (widget: Widget) => void): Promise<void> {
-    try {
-      this.voiceState =
-        !!this.message.guild &&
-        audioManager.isConnected(this.message.guild, this.dbGuild);
-      this.startListening();
-      textManager.subscribe(
-        {
-          widget: this,
-          customTimings: this.dbGuild.customTimings,
-        },
-        this.update.bind(this)
-      );
-      this.update();
-
-      onReady(this);
-    } catch (e) {
-      logger.error(e?.toString?.() || "Error initializing widget");
-    }
-  }
   public async delete(): Promise<void> {
-    return this.message
+    const guild = await Bot.client.guilds
+      .fetch(this.guildId)
+      .catch(() => undefined);
+    const channel = this.channelId
+      ? await guild?.channels.fetch(this.channelId).catch(() => undefined)
+      : undefined;
+    const message =
+      this.messageId && channel?.isTextBased()
+        ? await channel.messages.fetch(this.messageId).catch(() => undefined)
+        : undefined;
+
+    if (!message) return;
+
+    textManager.unsubscribe(this.guildId);
+
+    return message
       .delete()
       .then(() => {})
       .catch(() => {});
@@ -428,134 +369,146 @@ export class Widget {
     this.isUpdating = true;
     try {
       const embed = await Widget.getEmbed(
-        this.guild,
+        this.guildId,
         this,
         options?.description,
         options?.title
       );
-      await this.message.edit({
-        components: this.showButtons ? [this.getButtons()] : [],
-        embeds: [embed],
-      });
 
-      this.onUpdateOnce?.();
-      this.onUpdateOnce = undefined;
+      try {
+        const guild = await Bot.client.guilds
+          .fetch(this.guildId)
+          .catch(() => undefined);
+        const channel = this.channelId
+          ? await guild?.channels.fetch(this.channelId).catch(() => undefined)
+          : undefined;
+        const message =
+          this.messageId && channel?.isTextBased()
+            ? await channel.messages
+                .fetch(this.messageId)
+                .catch(() => undefined)
+            : undefined;
 
-      this.isUpdating = false;
-      this.failedUpdateCount = 0;
-      return Promise.resolve();
+        if (!message) {
+          const dbGuild = await Database.getGuild(this.guildId);
+          dbGuild.widget = {};
+          await dbGuild.save();
+          textManager.unsubscribe(this.guildId);
+          delete Widget.memory[this.guildId];
+          logger.info(
+            `[${dbGuild.name}] Unable to find widget message. Cleaning up references.`
+          );
+          return;
+        }
+
+        await message
+          ?.edit({
+            components: this.showButtons ? [this.getButtons()] : [],
+            embeds: [embed],
+          })
+          .catch(() => undefined);
+
+        this.onUpdateOnce?.();
+        this.onUpdateOnce = undefined;
+
+        this.isUpdating = false;
+        this.failedUpdateCount = 0;
+        return Promise.resolve();
+      } catch (e) {
+        logger.error(JSON.stringify(e));
+      }
     } catch (e) {
       this.isUpdating = false;
       if (!(e instanceof DiscordAPIError)) {
+        const { name } = await Database.getGuild(this.guildId);
         // Handle other errors or log them as needed
         logger.error(
-          `[${this.dbGuild.name}] Widget update Error: ${
-            e?.toString?.() || "Unknown"
-          }`
+          `[${name}] Widget update Error: ${e?.toString?.() || "Unknown"}`
         );
       }
     }
   }
-  private stopListening(): void {
-    if (this.listener) {
-      this.listener.stop(ECollectorStopReason.DISPOSE);
+
+  public async handleInteraction(
+    interaction: ButtonInteraction
+  ): Promise<void> {
+    try {
+      const [, , interactionId] = interaction.customId.split(
+        WARTIMER_INTERACTION_SPLIT
+      );
+      if (!interaction.guild) {
+        await interaction.deferUpdate();
+        return;
+      }
+      const { name } = await Database.getGuild(this.guildId);
+
+      logger.info(`[${name}] ${interactionId} interaction`);
+
+      const dbGuild = await Database.getGuild(interaction.guild.id);
+      const hasEditorPermission = await userHasRole(
+        interaction.guild,
+        interaction.user,
+        dbGuild.editorRoleIDs
+      );
+      const hasAssistantPermission = await userHasRole(
+        interaction.guild,
+        interaction.user,
+        dbGuild.assistantRoleIDs
+      );
+      let hasPermission;
+      switch (interactionId) {
+        case EWidgetButtonID.TEXT:
+          if (this.isResetting) {
+            throw new Error("Widget is currently resetting! Please wait.");
+          }
+          hasPermission =
+            hasAssistantPermission ||
+            hasEditorPermission ||
+            dbGuild.assistantRoleIDs.length === 0;
+          if (hasPermission) {
+            await this.toggleText();
+          } else throw new Error("You do not have permission to use this.");
+          break;
+        case EWidgetButtonID.VOICE:
+          hasPermission =
+            hasAssistantPermission ||
+            hasEditorPermission ||
+            dbGuild.assistantRoleIDs.length === 0;
+          if (hasPermission) {
+            await this.toggleVoice({
+              dbGuild,
+              interaction: interaction as ButtonInteraction,
+            });
+          } else throw new Error("You do not have permission to use this.");
+          break;
+        case EWidgetButtonID.SETTINGS:
+          if (hasEditorPermission) {
+            await SettingsHandler.openSettings(
+              interaction as ButtonInteraction
+            );
+          } else
+            throw new Error(
+              dbGuild.editorRoleIDs.length === 0
+                ? "Editor permissions have not been set up yet!\nPlease ask someone with administrator permissions to add editor roles in the settings."
+                : "You do not have editor permissions."
+            );
+          break;
+        default:
+          throw new Error("Could not complete request");
+      }
+      await interaction.deferUpdate().catch(() => {});
+    } catch (error) {
+      interaction
+        .reply({
+          ephemeral: true,
+          content:
+            (error instanceof Error ? error.message : error?.toString?.()) ||
+            "An error occurred",
+        })
+        .then(() => setTimeout(EPHEMERAL_REPLY_DURATION_SHORT))
+        .then(() => interaction.deleteReply())
+        .catch(logger.error);
     }
-  }
-  public startListening(): void {
-    this.stopListening();
-    this.listener = this.message
-      .createMessageComponentCollector({ componentType: ComponentType.Button })
-      .on("collect", async (interaction) => {
-        try {
-          const [, , interactionId] = interaction.customId.split(
-            WARTIMER_INTERACTION_SPLIT
-          );
-          logger.info(
-            `[${this.message.guild?.name}] ${interactionId} interaction`
-          );
-          if (!interaction.guild) {
-            await interaction.deferUpdate();
-            return;
-          }
-          const dbGuild = await Database.getGuild(interaction.guild);
-          const hasEditorPermission = await userHasRole(
-            interaction.guild,
-            interaction.user,
-            dbGuild.editorRoleIDs
-          );
-          const hasAssistantPermission = await userHasRole(
-            interaction.guild,
-            interaction.user,
-            dbGuild.assistantRoleIDs
-          );
-          let hasPermission;
-          switch (interactionId) {
-            case EWidgetButtonID.TEXT:
-              if (this.isResetting) {
-                throw new Error("Widget is currently resetting! Please wait.");
-              }
-              hasPermission =
-                hasAssistantPermission ||
-                hasEditorPermission ||
-                dbGuild.assistantRoleIDs.length === 0;
-              if (hasPermission) {
-                await this.toggleText();
-              } else throw new Error("You do not have permission to use this.");
-              break;
-            case EWidgetButtonID.VOICE:
-              hasPermission =
-                hasAssistantPermission ||
-                hasEditorPermission ||
-                dbGuild.assistantRoleIDs.length === 0;
-              if (hasPermission) {
-                await this.toggleVoice({
-                  dbGuild,
-                  interaction: interaction as ButtonInteraction,
-                });
-              } else throw new Error("You do not have permission to use this.");
-              break;
-            case EWidgetButtonID.SETTINGS:
-              if (hasEditorPermission) {
-                await SettingsHandler.openSettings(
-                  interaction as ButtonInteraction
-                );
-              } else
-                throw new Error(
-                  dbGuild.editorRoleIDs.length === 0
-                    ? "Editor permissions have not been set up yet!\nPlease ask someone with administrator permissions to add editor roles in the settings."
-                    : "You do not have editor permissions."
-                );
-              break;
-            default:
-              throw new Error("Could not complete request");
-          }
-          await interaction.deferUpdate().catch(() => {});
-        } catch (error) {
-          interaction
-            .reply({
-              ephemeral: true,
-              content:
-                (error instanceof Error
-                  ? error.message
-                  : error?.toString?.()) || "An error occurred",
-            })
-            .then(() => setTimeout(EPHEMERAL_REPLY_DURATION_SHORT))
-            .then(() => interaction.deleteReply())
-            .catch(logger.error);
-        }
-      })
-      .on("end", (interactions, reason) => {
-        // Do nothing when manually stopped or widget is resetting
-        if (reason === ECollectorStopReason.DISPOSE || this.isResetting) return;
-        // Delete from memory when stopped because message was deleted
-        const widgetIndex = Widget.LIST.findIndex(
-          (widget) => widget.getId() === this.getId()
-        );
-        if (widgetIndex !== -1) {
-          const [widget] = Widget.LIST.splice(widgetIndex, 1);
-          textManager.unsubscribe(widget.getId(), true);
-        }
-      });
   }
   public async setButtonsDisplay(state: boolean): Promise<void> {
     this.showButtons = state;
@@ -616,45 +569,67 @@ export class Widget {
     }
     return actionRow;
   }
-  public getId(): string {
-    return this.message.id;
-  }
+
   public async recreateMessage(): Promise<void> {
     this.isResetting = true;
-    logger.info(`[${this.guild.name}] Recreating widget`);
-    // Delete the existing message, unsubscribe the listener even inc ase the message couldn't be deleted
-    await this.message.delete().catch(() => {
-      this.stopListening();
-      logger.error("Unable to delete old widget on recreation!");
-    });
+    const dbGuild = await Database.getGuild(this.guildId);
+    logger.info(`[${dbGuild.name}] Recreating widget`);
 
+    const guild = await Bot.client.guilds
+      .fetch(this.guildId)
+      .catch(() => undefined);
+    const channel = this.channelId
+      ? await guild?.channels.fetch(this.channelId).catch(() => undefined)
+      : undefined;
+    const message =
+      this.messageId && channel?.isTextBased()
+        ? await channel.messages.fetch(this.messageId).catch(() => undefined)
+        : undefined;
+
+    if (message?.deletable) {
+      // Delete the existing message, unsubscribe the listener even inc ase the message couldn't be deleted
+      await message.delete().catch(() => {
+        logger.error(
+          `[${dbGuild.name}] Failed to delete message while reloading widget`
+        );
+      });
+    } else {
+      logger.error(
+        `[${dbGuild.name}] Unable to find old message while reloading widget`
+      );
+    }
+
+    if (!channel || !channel.isTextBased()) {
+      logger.error(`[${dbGuild.name}] Channel invalid while reloading widget`);
+      return;
+    }
     // Try to create a new message
     let newMessage: Message<true> | undefined;
     while (!newMessage) {
       // Create a new message with components and an embed
-      newMessage = await (this.message.channel as TextChannel)
+      newMessage = await channel
         .send({
           components: [this.getButtons(true, false)],
           embeds: [
-            EmbedBuilder.from(this.message.embeds[0])
+            EmbedBuilder.from(await Widget.getEmbed(this.guildId, this))
               .setTitle("Discord API Timeout")
               .setFooter({ text: "Wartimer" })
               .setDescription(
                 `Resetting.. (${resetDurationSeconds}s) This only affects the widget.\nAudio announcements still work.`
-              ),
+              )
+              .setFields(),
           ],
           flags: [MessageFlags.SuppressNotifications],
         })
-        .catch(() => setTimeout(100).then(() => undefined));
+        .catch(() => setTimeout(500).then(() => undefined));
     }
-    // Update the database with new message information
-    const dbGuild = await Database.getGuild(newMessage.guild);
-    dbGuild.widget.channelId = newMessage.channel.id;
-    dbGuild.widget.messageId = newMessage.id;
-    await dbGuild.save();
+    this.channelId = newMessage.channel.id;
+    this.messageId = newMessage.id;
 
-    this.message = newMessage;
-    this.startListening();
+    // Update the database with new message information
+    dbGuild.widget.channelId = this.channelId;
+    dbGuild.widget.messageId = this.messageId;
+    await dbGuild.save();
 
     // Delay before further actions (setTimeout returns a Promise)
     await setTimeout(resetDurationSeconds * 1000);
@@ -680,15 +655,18 @@ export class Widget {
     await new Promise(async (res) => {
       if (!this.textState || forceOn) {
         this.textState = true;
+        textManager.subscribe(this.guildId);
         this.onUpdateOnce = () => res(undefined);
       } else {
         this.textState = false;
+        textManager.unsubscribe(this.guildId);
         this.onUpdateOnce = () => res(undefined);
         await this.update({ force: true });
       }
     });
+    const { name } = await Database.getGuild(this.guildId);
     logger.info(
-      `[${this.guild.name}] ${
+      `[${name}] ${
         this.textState ? "widget text started" : "widget text stopped"
       }`
     );
@@ -700,7 +678,7 @@ export class Widget {
   }): Promise<void> {
     if (options.interaction) {
       if (this.voiceState) {
-        await audioManager.disconnect(this.guild, options.dbGuild);
+        await audioManager.disconnect(options.dbGuild);
       } else {
         const channel =
           options.channel ??
@@ -725,7 +703,7 @@ export class Widget {
         await this.update();
       }
     } else {
-      await audioManager.disconnect(this.guild, options.dbGuild);
+      await audioManager.disconnect(options.dbGuild);
     }
     // Resolve the Promise
     return Promise.resolve();
