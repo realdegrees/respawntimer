@@ -44,12 +44,10 @@ export class RaidhelperIntegration {
         }
         try {
           const dbGuild = await Database.getGuild(guild.id);
-          if (!dbGuild.raidHelper.apiKey) {
-            await messageCreateEvent.destroy();
-            return;
+          if (dbGuild.raidHelper.apiKey) {
+            await promiseTimeout(1000);
+            await this.poll(dbGuild);
           }
-          await promiseTimeout(1000);
-          await this.poll(dbGuild);
         } catch (err) {
           logger.error(`[${guild.name}] Autopoll on messageCreate failed`);
         }
@@ -70,12 +68,10 @@ export class RaidhelperIntegration {
         }
         try {
           const dbGuild = await Database.getGuild(guild.id);
-          if (!dbGuild.raidHelper.apiKey) {
-            await messageDeleteEvent.destroy();
-            return;
+          if (dbGuild.raidHelper.apiKey) {
+            await promiseTimeout(10000);
+            await this.poll(dbGuild);
           }
-          await promiseTimeout(10000);
-          await this.poll(dbGuild);
         } catch (err) {
           logger.error(`[${guild.name}] Autopoll on messageDelete failed`);
         }
@@ -262,7 +258,8 @@ export class RaidhelperIntegration {
 
           if (
             isNewEvent ||
-            isNoEvent ||
+            isNoEvent || 
+            !isSameEvent ||
             (isSameEvent && hasChangedProperties)
           ) {
             await widget?.update({ force: true });
@@ -463,7 +460,7 @@ export class RaidhelperIntegration {
                   dbGuild,
                   channel,
                 })
-              : audioManager.connect(channel,dbGuild));
+              : audioManager.connect(channel, dbGuild));
             logger.info(
               `[${dbGuild.name}] Joined voice via raidhelper integration`
             );
