@@ -13,7 +13,7 @@ import {
 	Message,
 	MessageFlags,
 	PermissionsBitField,
-	TextChannel,
+	TextChannel
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
 import logger from '../lib/logger';
@@ -182,7 +182,6 @@ export class Widget {
 		} else {
 			try {
 				const dbGuild = await Database.getGuild(guildId);
-				const guild = await Bot.client.guilds.fetch(guildId);
 				const apiKeyStatus = dbGuild.raidHelper.apiKeyValid
 					? 'Enabled'
 					: dbGuild.raidHelper.apiKey
@@ -203,9 +202,14 @@ export class Widget {
 					const fields = await this.getEventDisplayFields(dbGuild);
 					embed.setFields(fields);
 				} else {
-					if (widget?.voiceState) {
+					const channelId = widget
+						? getVoiceConnection(widget.guildId)?.joinConfig.channelId
+						: undefined;
+					if (widget?.voiceState && channelId) {
 						try {
-							const channel = (await guild.members.fetch(guild.client.user)).voice.channel;
+							const channel = await (await Bot.client.guilds.fetch(widget.guildId)).channels.fetch(
+								channelId
+							);
 							embed.setDescription(`in ${channel}`);
 						} catch (e) {
 							embed.setDescription('-');
@@ -397,14 +401,14 @@ export class Widget {
 			switch (interactionId) {
 				case EWidgetButtonID.TEXT:
 					if (this.textState) {
-						textManager.unsubscribe(this.guildId, 'Manual');
+						await textManager.unsubscribe(this.guildId, 'Manual');
 					} else {
-						textManager.subscribe(this.guildId, this);
+						await textManager.subscribe(this.guildId);
 					}
 					break;
 				case EWidgetButtonID.VOICE:
 					if (this.voiceState) {
-						audioManager.unsubscribe(this.guildId, 'Manual');
+						await audioManager.unsubscribe(this.guildId, 'Manual');
 					} else {
 						const channel = await interaction.guild?.members
 							.fetch(interaction.user)
@@ -414,7 +418,7 @@ export class Widget {
 						if (!channel) {
 							throw new Error('You are not in a voice channel!');
 						}
-						audioManager.subscribe(this.guildId, channel);
+						await audioManager.subscribe(this.guildId, channel);
 					}
 					break;
 				case EWidgetButtonID.SETTINGS:
