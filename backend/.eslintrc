@@ -21,6 +21,12 @@
         "plugin:@typescript-eslint/recommended"
     ],
     "rules": {
+        "eslint-plugin-import/no-cycle": [
+            "error",
+            {
+                
+            }
+        ],
         "max-lines": [
             "error",
             {

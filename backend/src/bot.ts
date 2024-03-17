@@ -3,12 +3,9 @@ import { Routes } from "discord-api-types/v9";
 import {
   ActivityType,
   ButtonInteraction,
-  CacheType,
   Client,
   CommandInteraction,
   GatewayIntentBits,
-  Interaction,
-  InteractionType,
   User,
 } from "discord.js";
 import logger from "../lib/logger";
@@ -21,10 +18,9 @@ import {
   EPHEMERAL_REPLY_DURATION_SHORT,
   WARTIMER_INTERACTION_SPLIT,
 } from "./common/constant";
-import { EWidgetButtonID, Widget } from "./widget";
-import { DBGuild } from "./common/types/dbGuild";
 import Database from "./db/database";
 import { EInteractionType } from "./common/types/interactionType";
+import { Widget } from "./widget";
 
 class Bot {
   public static client: Client;

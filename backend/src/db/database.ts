@@ -1,8 +1,6 @@
 import { connect } from 'mongoose';
 import logger from '../../lib/logger';
 import { FilterQuery } from 'mongoose';
-import { Document } from 'mongoose';
-import { Guild } from 'discord.js';
 import { GuildData, GuildModel } from './guild.schema';
 import { DBGuild } from '../common/types/dbGuild';
 import Bot from '../bot';

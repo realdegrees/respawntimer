@@ -1,9 +1,7 @@
 import { ActionRowBuilder, AnySelectMenuInteraction, ButtonInteraction, ButtonStyle, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from 'discord.js';
 import { ESettingsID, BaseSetting } from './base.setting';
-import audioManager, { Voices } from '../../handlers/audioManager';
+import audioManager, { Voices, voices } from '../../handlers/audioManager';
 import { DBGuild } from '../types/dbGuild';
-import logger from '../../../lib/logger';
-import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 
 export enum EVoiceSettingsOptions {
@@ -25,10 +23,10 @@ export class VoiceSettings extends BaseSetting<StringSelectMenuBuilder> {
             .setPlaceholder((dbGuild.voice || 'female').split(' ').map((voice) => voice.charAt(0).toUpperCase() + voice.slice(1)).join(' '))
             .setMinValues(0)
             .setMaxValues(1)
-            .addOptions(audioManager.voices.map((s) => new StringSelectMenuOptionBuilder()
-                .setLabel(s.voiceType.split(' ').map((voice) => voice.charAt(0).toUpperCase() + voice.slice(1)).join(' '))
-                .setDescription(s.voiceDescription)
-                .setValue(s.voiceType)));
+            .addOptions(Object.entries(voices).map(([voice, description]) => new StringSelectMenuOptionBuilder()
+                .setLabel(voice.toPascalCase())
+                .setDescription(description)
+                .setValue(voice)));
 
         const row = new ActionRowBuilder<StringSelectMenuBuilder>()
             .addComponents(voice);
@@ -40,12 +38,9 @@ export class VoiceSettings extends BaseSetting<StringSelectMenuBuilder> {
     public async onInteract(
         dbGuild: DBGuild,
         interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
-        widget: Widget | undefined,
-        option: string
     ): Promise<SettingsPostInteractAction[]> {
         if (!interaction.isStringSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
         dbGuild.voice = interaction.values[0] as Voices || 'female';
-        audioManager.setVoice(dbGuild.id, dbGuild.voice);
         return ['saveGuild', 'update', 'updateWidget'];
     }
 }

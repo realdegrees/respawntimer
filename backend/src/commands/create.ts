@@ -6,7 +6,6 @@ import { Command } from './command';
 import { Widget } from '../widget';
 import logger from '../../lib/logger';
 import { setTimeout } from 'timers/promises';
-import { DBGuild } from '../common/types/dbGuild';
 import { EPHEMERAL_REPLY_DURATION_SHORT } from '../common/constant';
 import Database from '../db/database';
 
