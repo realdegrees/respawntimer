@@ -347,7 +347,7 @@ export class RaidhelperIntegration {
 		const minutes = date.getMinutes();
 
 		// Only run on war start
-		if (seconds !== 0 && minutes !== 0 && minutes !== 30) return;
+		if (!((minutes === 0 || minutes === 30) && seconds === 0)) return;
 
 		try {
 			const dbGuilds = await Database.queryGuilds({
