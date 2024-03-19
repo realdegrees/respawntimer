@@ -12,9 +12,9 @@ import { RAIDHELPER_USER_ID } from './common/constant';
 import { roundUpHalfHourUnix } from './util/formatTime';
 import Bot from './bot';
 import textManager from './handlers/textManager';
+import { getEventVoiceChannel } from './util/discord';
 
-const RETRY_ATTEMPT_DUR_MIN = 1;
-const RETRY_INTERVAL_SECONDS = 5;
+const POLL_INTERVAL_MINUTES = 5;
 const GRACE_PERIOD_MINUTES = 20; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
 
 const activePollIntervals: Partial<
@@ -118,29 +118,17 @@ export class RaidhelperIntegration {
 						break;
 
 					case 401:
-						const pollIntervalObject = activePollIntervals[dbGuild.id];
-						if (pollIntervalObject) {
-							pollIntervalObject.retries++;
-							if (pollIntervalObject.retries > 10) {
-								dbGuild.raidHelper.apiKey = undefined;
-								dbGuild.raidHelper.apiKeyValid = false;
-								delete activePollIntervals[dbGuild.id];
-								logger.error(
-									`[${dbGuild.name}] Unsetting API Key. Too many unauthorized requests!`
-								);
-								await RaidhelperIntegration.onFetchEventError(
-									dbGuild,
-									'Your Raidhelper API key is not valid. Please refresh it in the Raidhelper Integration settings.'
-								);
-							}
-						}
+						await RaidhelperIntegration.onFetchEventError(
+							dbGuild,
+							'Raidhelper API key is invalid.\nPlease refresh it in the Raidhelper Integration settings.'
+						);
+						dbGuild.raidHelper.apiKeyValid = false;
 						break;
 					case 404:
 						await RaidhelperIntegration.onFetchEventError(
 							dbGuild,
-							'The Raidhelper API is currently unreachable. The Raidhelper Integration will not work until it is back up again!'
+							'Raidhelper API is currently unreachable.\nThe Raidhelper Integration will not work until it is back up again!'
 						);
-						logger.warn(`[${dbGuild.name}] 404: Raidhelper API not reachable!`);
 						break;
 					default:
 						logger.error(
@@ -153,7 +141,7 @@ export class RaidhelperIntegration {
 		} finally {
 			await dbGuild.save();
 			if (!retryAfterAwaited) {
-				const timeout = 1000 * 60 * 5;
+				const timeout = 1000 * 60 * POLL_INTERVAL_MINUTES;
 				await promiseTimeout(timeout);
 			}
 			if ((interval || retryAfterAwaited) && activePollIntervals[dbGuild.id]) {
@@ -177,6 +165,16 @@ export class RaidhelperIntegration {
 		const activePollObject = activePollIntervals[dbGuild.id];
 		if (activePollObject) activePollObject.retries = 0;
 
+		// Send notification if apiKey vas previously not valid
+		if (dbGuild.raidHelper.apiKey && !dbGuild.raidHelper.apiKeyValid) {
+			await NotificationHandler.sendNotification(
+				dbGuild,
+				'Raidhelper Integration',
+				'Raidhelper API key validated ✅\nThis channel will now receive updates about scheduled events again!',
+				{ color: Colors.Green, byPassDuplicateCheck: true }
+			);
+		}
+
 		const oldEvents = [...dbGuild.raidHelper.events];
 		dbGuild.raidHelper.apiKeyValid = true;
 		dbGuild.raidHelper.events = events;
@@ -184,15 +182,6 @@ export class RaidhelperIntegration {
 
 		try {
 			const guild = await Bot.client.guilds.fetch(dbGuild.id);
-			// Send notification if apiKey vas previously not valid
-			if (guild && dbGuild.raidHelper.apiKey && !dbGuild.raidHelper.apiKeyValid) {
-				await NotificationHandler.sendNotification(
-					dbGuild,
-					'Raidhelper Integration',
-					'Raidhelper API key validated ✅\nThis channel will now receive updates about scheduled events!',
-					{ color: Colors.Green, byPassDuplicateCheck: true }
-				);
-			}
 
 			if (guild) {
 				await RaidhelperIntegration.sendEventNotifications(guild, dbGuild, events, oldEvents).catch(
@@ -240,7 +229,7 @@ export class RaidhelperIntegration {
 	}
 	private static async onFetchEventError(dbGuild: DBGuild, message: string): Promise<void> {
 		try {
-			const body = message + '\nIf this issue persist please ask for help in the support discord!';
+			const body = message + '\n\n*If this issue persist please ask for help in the support discord!*';
 
 			// Send notification
 			await NotificationHandler.sendNotification(dbGuild, 'Raidhelper Integration Error', body, {
@@ -308,13 +297,11 @@ export class RaidhelperIntegration {
 		guild: Guild
 	): Promise<void> {
 		const scheduledEvents = await formatEvents(guild, ...events);
-		const info = `${
-			scheduledEvents.some((ev) => ev.includes('⚠️')) ? ' ≫ *Missing Some Permissions*' : ''
-		}`;
+
 		await NotificationHandler.sendNotification(
 			dbGuild,
 			`**New Event${scheduledEvents.length > 1 ? 's' : ''} Scheduled**`,
-			`${info}\n${scheduledEvents.map((e) => `- ${e}`).join('\n')}`,
+			`${scheduledEvents.map((e) => `- ${e}`).join('\n')}`,
 			{ color: Colors.Green, byPassDuplicateCheck: true }
 		).catch(logger.error);
 	}
@@ -377,8 +364,7 @@ export class RaidhelperIntegration {
 			// for each guild find the closest event and attempt to start the widget and voice
 			for (const dbGuild of dbGuilds) {
 				const event = findEarliestEventWithinThreshold(dbGuild.raidHelper.events);
-				const guild = await Bot.client.guilds.fetch(dbGuild.id).catch(() => undefined);
-				if (!guild || !event) break;
+				if (!event) break;
 
 				const widget = await Widget.find(dbGuild);
 
@@ -386,14 +372,7 @@ export class RaidhelperIntegration {
 				try {
 					// Connect to voice if auto-join is enabled
 					if (dbGuild.raidHelper.enabled) {
-						let channel: GuildBasedChannel | null = null;
-						if (event.voiceChannelId) {
-							channel = await guild.channels.fetch(event.voiceChannelId).catch(() => null);
-						} else if (dbGuild.raidHelper.defaultVoiceChannelId) {
-							channel = await guild.channels
-								.fetch(dbGuild.raidHelper.defaultVoiceChannelId)
-								.catch(() => null);
-						}
+						let channel: GuildBasedChannel | null = await getEventVoiceChannel(event, dbGuild.id);
 
 						if (!channel)
 							throw new Error(
@@ -464,12 +443,16 @@ export class RaidhelperIntegration {
 				headers: header
 			}
 		)
+			.then((res) => {
+				if (res.ok) return res;
+				else throw res;
+			})
 			.then((res) => res.json())
 			.then(({ postedEvents }) => postedEvents);
 
 		logger.debug(
 			`[${dbGuild.name}] Fetched events`,
-			postedEvents.map((e) => e.id)
+			postedEvents?.map((e) => e.id)
 		);
 		return (
 			await Promise.allSettled(
@@ -502,7 +485,7 @@ export class RaidhelperIntegration {
 						id: event.id,
 						startTimeUnix: event.startTime,
 						title: event.title,
-						voiceChannelId: event.advancedSettings.voice_channel.match(/^[0-9]+$/)
+						voiceChannelId: event.advancedSettings.voice_channel?.match(/^[0-9]+$/)
 							? event.advancedSettings.voice_channel
 							: undefined,
 						lastUpdatedUnix: event.lastUpdated

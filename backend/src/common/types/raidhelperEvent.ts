@@ -3,13 +3,13 @@ export interface ScheduledEvent {
     title: string;
     startTimeUnix: number;
     lastUpdatedUnix: number;
-    voiceChannelId: string;
+    voiceChannelId?: string;
 }
 export interface RaidhelperAPIEvent {
     id: string;
     startTime:number;
     advancedSettings: {
-        voice_channel: string;
+        voice_channel?: string;
     };
     title: string;
     lastUpdated: number;

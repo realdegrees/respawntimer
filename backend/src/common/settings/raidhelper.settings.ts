@@ -5,14 +5,13 @@ import {
 import { ESettingsID, BaseSetting } from './base.setting';
 import { checkChannelPermissions } from '../../util/permissions';
 import { DBGuild } from '../types/dbGuild';
-import Database from '../../db/database';
 import logger from '../../../lib/logger';
 import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 import { setTimeout } from 'timers/promises';
 import { RaidhelperIntegration } from '../../raidhelperIntegration';
 import { EPHEMERAL_REPLY_DURATION_SHORT } from '../constant';
-import { formatEvents } from '../../util/formatEvents';
+import { formatEventsNoFetch } from '../../util/formatEvents';
 import { ScheduledEvent } from '../types/raidhelperEvent';
 import { AdvancedChannelSelectMenuBuilder, EAdvancedChannelSelectReturnValue } from '../../util/advancedChannelSelectMenuBuilder';
 import Bot from '../../bot';
@@ -39,16 +38,15 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
             'Raidhelper Integration',
             `**Respawn Timer** now integrates with Raidhelper to automatically connect to a channel when an event scheduled by *Raidhelper* starts.\n
             Set the API Key to enable **automatic event scheduling!**\n`,
-            'Respawn Timer will connect to the voice channel specified in the Raidhelper event.\nIf no event is set it will use the default voice channel set below.'
+            'Respawn Timer will connect to the voice channel specified in the Raidhelper event.\nIf no voice channel is set for an event it will use the default voice channel set below.'
         );
     }
 
     public async getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const apiKeyButton = new ButtonBuilder({
             custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.API_KEY]),
-            label: 'Set API Key',
-            style: dbGuild.raidHelper.apiKeyValid ? ButtonStyle.Secondary : ButtonStyle.Primary,
-            disabled: !!dbGuild.raidHelper.apiKeyValid
+            label: dbGuild.raidHelper.apiKeyValid ? 'Change API Key' : 'Set API Key',
+            style: ButtonStyle.Primary,
         });
         const autoJoinToggleButton = new ButtonBuilder({
             custom_id: this.getCustomId(this.id, [ERaidhelperSettingsOptions.TOGGLE_AUTO_VOICE]),
@@ -80,11 +78,10 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
         this.textChannelSelectCache = textChannelSelectMenu.getChannelCache();
         this.voiceChannelSelectCache = voiceChannelSelectMenu.getChannelCache();
 
-        const autoRow = new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(autoJoinToggleButton)
-            .addComponents(autoWidgetToggleButton);
-        const apiKeyRow = new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(apiKeyButton);
+        const buttonRow = new ActionRowBuilder<ButtonBuilder>()
+					.addComponents(autoJoinToggleButton)
+					.addComponents(autoWidgetToggleButton)
+					.addComponents(apiKeyButton);
         const defaultVoiceChannelRow = new ActionRowBuilder<StringSelectMenuBuilder>()
             .addComponents(voiceChannelSelectMenu.getMenu());
         const raidhelperEventChannelRow = new ActionRowBuilder<StringSelectMenuBuilder>()
@@ -93,28 +90,18 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
         return Promise.resolve([
             raidhelperEventChannelRow,
             defaultVoiceChannelRow,
-            autoRow,
-            apiKeyRow
+            buttonRow
         ]);
     }
     public async getCurrentSettings(dbGuild: DBGuild) {
-        const guild = await Bot.client.guilds.fetch(dbGuild.id);
-        const defaultVoiceChannel =
-          dbGuild.raidHelper.defaultVoiceChannelId ? await guild.channels.fetch(
-            dbGuild.raidHelper.defaultVoiceChannelId
-          ) : null;
-
-        const defaultVoiceChannelText = defaultVoiceChannel && defaultVoiceChannel.isVoiceBased() ?
-            await checkChannelPermissions(defaultVoiceChannel, ['ViewChannel', 'Connect', 'Speak'])
-                .then(() => `${defaultVoiceChannel}`)
-                .catch((reason) => `${defaultVoiceChannel} ⚠️ ${reason}`) :
-            `*None*`;
+        const defaultVoiceChannelText = dbGuild.raidHelper.defaultVoiceChannelId
+					? `<#${dbGuild.raidHelper.defaultVoiceChannelId}>`
+					: `*None*`;
 
         // Scheduled Events
         const events = dbGuild.raidHelper.events;
 
-        const scheduledEvents = events.length > 0 ? await formatEvents(guild, ...events) : ['*None*'];
-        const eventChannelPermissionInfo = scheduledEvents.includes('⚠️') ? ' ≫ *Missing Some Permissions*' : '';
+        const scheduledEvents = events.length > 0 ? formatEventsNoFetch(dbGuild, ...events) : ['*None*'];
 
         // API KEY
         const apiKey = dbGuild.raidHelper.apiKey;
@@ -130,12 +117,10 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
         const apiKeyNotSetInfo = !apiKey ? 'Use `/apikey show` to retrieve your Raidhelper API Key\nOr `/apikey refresh` if you don\'t have an API Key yet' : '';
         const apiKeyInvalidInfo = apiKey && !apiKeyValid ? 'You can use `/apikey refresh` to get a new API Key and enter it again' : '';
 
-        const eventChannel = dbGuild.raidHelper.eventChannelId ?
-            await guild.channels.fetch(dbGuild.raidHelper.eventChannelId) : null;
         // No need to check permissions for the text channel as we only use the id as a filter for the Raidhelper API
-        const eventChannelText = eventChannel && eventChannel.isTextBased() ?
-            `Only events posted in ${eventChannel} will be scheduled\n` :
-            `\`\`\`diff\n- Not Set\`\`\`*Events from all channels will be scheduled*`;
+        const eventChannelText = dbGuild.raidHelper.eventChannelId
+					? `Only events posted in <#${dbGuild.raidHelper.eventChannelId}> will be scheduled\n`
+					: `\`\`\`diff\n- Not Set\`\`\`*Events from all channels will be scheduled*`;
 
         return [{
             name: `Raidhelper API Key${apiKeyValidText} `,
@@ -161,7 +146,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
             name: `Default Voice Channel`,
             value: defaultVoiceChannelText
         }, {
-            name: `Scheduled Events${eventChannelPermissionInfo}`,
+            name: `Scheduled Events`,
             value: `${scheduledEvents.map((event) => `- ${event}`).join('\n')}`
         }] as EmbedField[];
     }
