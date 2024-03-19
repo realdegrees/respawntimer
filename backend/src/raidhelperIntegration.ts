@@ -137,6 +137,10 @@ export class RaidhelperIntegration {
 							].toString()}`
 						);
 				}
+			} else {
+				logger.error(
+					`[${dbGuild.name}] Internal: ${String(response)}`
+				);
 			}
 		} finally {
 			await dbGuild.save();
