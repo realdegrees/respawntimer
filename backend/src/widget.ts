@@ -186,7 +186,7 @@ export class Widget {
 				const apiKeyStatus = dbGuild.raidHelper.apiKeyValid
 					? 'Enabled'
 					: dbGuild.raidHelper.apiKey
-					? 'Invalid Key'
+					? '⚠️'
 					: 'Disabled';
 
 				embed.setFooter({
