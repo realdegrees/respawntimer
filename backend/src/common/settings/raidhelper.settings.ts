@@ -14,7 +14,6 @@ import { EPHEMERAL_REPLY_DURATION_SHORT } from '../constant';
 import { formatEventsNoFetch } from '../../util/formatEvents';
 import { ScheduledEvent } from '../types/raidhelperEvent';
 import { AdvancedChannelSelectMenuBuilder, EAdvancedChannelSelectReturnValue } from '../../util/advancedChannelSelectMenuBuilder';
-import Bot from '../../bot';
 
 export enum ERaidhelperSettingsOptions {
     API_KEY = 'apikey',
