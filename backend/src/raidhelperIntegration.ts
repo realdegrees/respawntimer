@@ -129,6 +129,13 @@ export class RaidhelperIntegration {
 							'Raidhelper API is currently unreachable.\nThe Raidhelper Integration will not work until it is back up again!'
 						);
 						break;
+					case 502:
+						logger.debug(
+							`[${dbGuild.name}] ${response.status}: ${response.statusText}\nHeaders: ${[
+								...response.headers.entries()
+							].toString()}`
+						);
+						break;
 					default:
 						logger.error(
 							`[${dbGuild.name}] ${response.status}: ${response.statusText}\nHeaders: ${[
