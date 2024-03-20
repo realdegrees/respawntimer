@@ -293,15 +293,6 @@ export class RaidhelperIntegration {
 		)
 			return;
 
-		// Check for old events that have been descheduled and notify
-		const descheduledEvents = oldEvents.filter(
-			(event) => !events.find((newEvent) => newEvent.id === event.id)
-		);
-		if (descheduledEvents.length !== 0 && guild) {
-			await this.notifyDescheduledEvents(descheduledEvents, dbGuild, guild);
-			logger.info(`[${dbGuild.name}] Sent descheduled events notification`);
-		}
-
 		// Check for new events and notify
 		const newEvents = events.filter(
 			(event) => !oldEvents.find((oldEvent) => oldEvent.id === event.id)
@@ -329,25 +320,6 @@ export class RaidhelperIntegration {
 			`**New Event${scheduledEvents.length > 1 ? 's' : ''} Scheduled**`,
 			`${scheduledEvents.map((e) => `- ${e}`).join('\n')}`,
 			{ color: Colors.Green, byPassDuplicateCheck: true }
-		).catch(logger.error);
-	}
-	/**
-	 * Notify guild in notification channel about descheduled events
-	 * @param events
-	 * @param dbGuild
-	 * @param guild
-	 */
-	private static async notifyDescheduledEvents(
-		events: ScheduledEvent[],
-		dbGuild: DBGuild,
-		guild: Guild
-	): Promise<void> {
-		const scheduledEvents = await formatEvents(guild, ...events);
-		await NotificationHandler.sendNotification(
-			dbGuild,
-			`**Event${scheduledEvents.length > 1 ? 's' : ''} Descheduled**`,
-			`${scheduledEvents.map((e) => `- ${e}`).join('\n')}`,
-			{ color: Colors.DarkOrange, byPassDuplicateCheck: true }
 		).catch(logger.error);
 	}
 
