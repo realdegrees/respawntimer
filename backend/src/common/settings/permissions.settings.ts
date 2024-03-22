@@ -76,12 +76,15 @@ export class PermissionSettings extends BaseSetting<RoleSelectMenuBuilder> {
         const roleIds = interaction.roles.map((role) => role.id);
         switch (option) {
             case EPermissionSettingsOptions.EDITOR:
-                const perm = await userHasRole(interaction.guild, interaction.user, roleIds)
-                perm ?
-                    dbGuild.editorRoleIDs = roleIds :
-                    Promise.reject('Unable to complete request. This action would remove your editor permissions!');
+				const perm = await userHasRole(interaction.guild, interaction.user, roleIds);
+				if (perm) {
+					dbGuild.editorRoleIDs = roleIds;
                 return ['saveGuild', 'update'];
-                break;
+				} else {
+					return Promise.reject(
+						'Unable to complete request. This action would remove your editor permissions!'
+					);
+				}
             case EPermissionSettingsOptions.ASSISTANT:
                 dbGuild.assistantRoleIDs = roleIds;
                 return ['saveGuild', 'update', 'updateWidget'];
