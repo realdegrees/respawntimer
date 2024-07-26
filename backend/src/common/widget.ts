@@ -9,6 +9,7 @@ import { setTimeout } from 'timers/promises';
 import logger from '../../lib/logger';
 import audioManager from '../audioManager';
 import textManager from '../textManager';
+import applicationSettings from './applicationSettings';
 
 const buttonIds = {
     text: 'text',
@@ -135,7 +136,7 @@ export class Widget {
             // logger.debug(
             //     '[' + this.guild.name + '] Updated message (' + editDuration + 'ms) (' + title?.trim() + ')'
             // );
-            if (editDuration > 500) {
+            if (editDuration > applicationSettings.get(this.guild.id).delay * 1000) {
                 this.recreateMessage();
             }
         }).catch(() => {
