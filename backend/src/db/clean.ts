@@ -18,7 +18,7 @@ export const cleanGuilds = async (client: Client, dbGuilds: DBGuild[], maxInacti
     const clientGuilds = await client.guilds.fetch();
     for (const dbGuild of dbGuilds) {
         try {
-            const clientGuild = await clientGuilds.find((guild) => guild.id === dbGuild.id)?.fetch();
+            const clientGuild = await clientGuilds.find((guild) => guild.id === dbGuild.id);
             if (!clientGuild) {
                 // Delete guild if bot cannot find the discord server
                 await Database.deleteGuild(dbGuild.id);
@@ -32,7 +32,8 @@ export const cleanGuilds = async (client: Client, dbGuilds: DBGuild[], maxInacti
                 const inactiveDurationDays = (Date.now() - dbGuild.lastActivity.getTime()) / 1000 / 60 / 60 / 24;
                 logger.info(`[${dbGuild.name}] Last Activity ${(inactiveDurationDays * 24).toFixed(2)} hours ago`);
                 if (inactiveDurationDays > maxInactiveDays) {
-                    await NotificationHandler.sendNotification(clientGuild, dbGuild,
+                    const guild = await clientGuild.fetch();
+                    await NotificationHandler.sendNotification(guild, dbGuild,
                         'Data Deletion',
                         'The bot has been inactive for a month on this server.\nAll saved data will be deleted, you can still use the bot at any time but will have to redo any settings.',
                         { color: Colors.DarkRed }
