@@ -56,7 +56,7 @@ export class SettingsHandler {
                 ) as ActionRowBuilder<any>)
         });
         let settingInteraction: AnySelectMenuInteraction | ButtonInteraction | undefined;
-        const overviewCollector = (await res.fetch()).createMessageComponentCollector({ idle: 1000 * 60 * 1.5 });
+        const overviewCollector = (await res.fetch()).createMessageComponentCollector({ idle: 1000 * 60 * 2 });
         let settingCollector: InteractionCollector<AnySelectMenuInteraction | ButtonInteraction> | undefined;
         overviewCollector
             .on('collect', async (interaction) => {
@@ -86,9 +86,9 @@ export class SettingsHandler {
                         dbGuild
                     )
 
-                    settingCollector = message.createMessageComponentCollector({ idle: 1000 * 60 * 1 })
+                    settingCollector = message.createMessageComponentCollector({ idle: 1000 * 60 * 1.5 })
                         .on('collect', async (interaction) => {
-                            overviewCollector.resetTimer({ idle: 1000 * 60 * 1.5 })
+                            overviewCollector.resetTimer({ idle: 1000 * 60 * 2 })
                             try {
                                 if (!interaction.guild) {
                                     await interaction.reply({ ephemeral: true, content: 'Unable to process request' });
@@ -127,7 +127,6 @@ export class SettingsHandler {
                         })
                         .on('end', async (interaction, reason: ECollectorStopReason) => {
                             if(reason === ECollectorStopReason.DISPOSE) return;
-                            logger.debug('stopped');
                             // Delete reply, catch into nothing because it doesn't matter
                             await settingInteraction?.deleteReply().catch(() => {});
                             settingInteraction = undefined;
