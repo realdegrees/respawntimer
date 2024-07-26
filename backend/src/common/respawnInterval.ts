@@ -1,6 +1,6 @@
 import { Client } from 'discord.js';
 import audioManager from '../util/audioManager';
-import raidhelperIntegration from '../util/raidhelperIntegration';
+import raidhelperIntegration from '../raidhelperIntegration';
 import textManager from '../util/textManager';
 import { getRespawnInfo } from '../util/util';
 

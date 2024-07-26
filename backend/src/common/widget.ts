@@ -119,7 +119,7 @@ export class Widget {
                     throw new Error('You must have editor permissions to use this command! Ask an administrator or editor to adjust the bot `/settings`');
                 }
             }).then(async () => {
-                await interaction.deferReply({ ephemeral: true });
+                await interaction.deferReply({ ephemeral: true }).catch(logger.error);
                 channel.send({
                     embeds: [new EmbedBuilder().setTitle('Respawn Timer')]
                 }).then((message) => {
@@ -128,7 +128,7 @@ export class Widget {
                     dbGuild.save().then(() => {
                         new Widget(message, guild, async (widget) => {
                             widgets.push(widget);
-                            await interaction.editReply({ content: 'Widget created.' });
+                            await interaction.editReply({ content: 'Widget created.' }).catch(logger.error);
                         }, (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
                     });
                 });
@@ -136,7 +136,7 @@ export class Widget {
                 interaction.reply({
                     ephemeral: true,
                     content: (e as Error).message
-                });
+                }).catch(logger.error);
             });
     }
     private async init(onReady: (widget: Widget) => void): Promise<void> {
