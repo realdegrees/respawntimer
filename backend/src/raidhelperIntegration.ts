@@ -71,6 +71,7 @@ export class RaidhelperIntegration {
     interval = true
   ): Promise<void> {
     if (!dbGuild.raidHelper.apiKey) {
+      logger.info(`[${guild.name}] No API Key! Polling stopped.`);
       return;
     }
 
@@ -87,25 +88,37 @@ export class RaidhelperIntegration {
         await RaidhelperIntegration.onFetchEventError(guild, dbGuild);
       }
 
-      if (response instanceof Response && response.status === 429) {
-        const retry = Number.parseInt(
-          response.headers.get("retry-after") || "0"
-        );
-        await promiseTimeout(retry);
-        retryAfterAwaited = true;
-      } else if (response instanceof Response) {
-        logger.error(
-          `[${guild.name}] ${response.status}: ${response.statusText}`
-        );
-        if (response.status === 401) {
-          pollingRetries[dbGuild.id] = (pollingRetries[dbGuild.id] ?? 0) + 1;
-          if (pollingRetries[dbGuild.id] > 10) {
-            dbGuild.raidHelper.apiKey = undefined;
-            logger.error(`[${guild.name}] Unsetting API Key. Too many unauthorized requests!`);
-          }
+      if (response instanceof Response) {
+        switch (response.status) {
+          case 429:
+            const retry = Number.parseInt(
+              response.headers.get("retry-after") || "0"
+            );
+            logger.error(
+              `[${guild.name}] Too many requests! Retrying in ${Math.round(
+                retry / 1000
+              )} seconds.`
+            );
+            await promiseTimeout(retry);
+            retryAfterAwaited = true;
+            break;
+
+          case 401:
+            pollingRetries[dbGuild.id] = (pollingRetries[dbGuild.id] ?? 0) + 1;
+            if (pollingRetries[dbGuild.id] > 10) {
+              dbGuild.raidHelper.apiKey = undefined;
+              dbGuild.raidHelper.apiKeyValid = false;
+              logger.error(
+                `[${guild.name}] Unsetting API Key. Too many unauthorized requests!`
+              );
+            }
+            break;
+
+          default:
+            logger.error(
+              `[${guild.name}] ${response.status}: ${response.statusText}`
+            );
         }
-      } else {
-        logger.error(`[${guild.name}] Unknown Error while polling`);
       }
     } finally {
       await dbGuild.save();
@@ -115,8 +128,8 @@ export class RaidhelperIntegration {
       }
       if (guild && (interval || retryAfterAwaited)) {
         // Refresh dbGuild data and start next poll
-        await Database.getGuild(guild)
-          .then((dbGuild) => this.poll(guild, dbGuild))
+        Database.getGuild(guild)
+          .then((dbGuild) => this.poll(guild, dbGuild, interval))
           .catch(logger.error);
       }
     }
