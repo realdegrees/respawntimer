@@ -35,6 +35,13 @@ export class RaidhelperIntegration {
             events = await this.getEvents(dbGuild);
             await this.onFetchEventSuccess(guild, dbGuild, events);
         } catch (e) {
+            // Set retries
+            pollingRetries[dbGuild.id] = (pollingRetries[dbGuild.id] ?? 0) + 1;
+            logger.error(`[${dbGuild.name}] Polling failed (Attempt #${pollingRetries[dbGuild.id]})`);
+
+            dbGuild.raidHelper.apiKeyValid = false;
+            await dbGuild.save();
+
             if (guild) {
                 await RaidhelperIntegration.onFetchEventError(
                     guild,
@@ -43,13 +50,25 @@ export class RaidhelperIntegration {
             }
         } finally {
             const timeout = getEventPollingInterval(dbGuild.raidHelper.events.length);
-            await new Promise((res) => {
-                pollingIntervals[dbGuild.id] = setTimeout(res, timeout)
-            });
-            if (guild)
+
+            // If too many retries, reset api key and stop polling else schedule a new poll
+            const tooManyTries = dbGuild.id in pollingRetries && pollingRetries[dbGuild.id] >= MAX_POLL_RETRIES;
+            if (tooManyTries) {
+                dbGuild.raidHelper.apiKey = undefined;
+                await dbGuild.save();
+                logger.error(`[${dbGuild.name}] Polling failed >20 times, removing API key`);
+
+            } else if (guild) {
+                // Set Timeout for new poll
+                await new Promise((res) => {
+                    pollingIntervals[dbGuild.id] = setTimeout(res, timeout)
+                });
+                // Refresh dbGuild data and start next poll
                 Database.getGuild(guild).then((dbGuild) =>
                     this.startPollingInterval(guild, dbGuild)
                 ).catch(logger.error);
+            }
+
         }
     }
 
@@ -88,23 +107,8 @@ export class RaidhelperIntegration {
     }
     private static async onFetchEventError(guild: Guild | null, dbGuild: DBGuild): Promise<void> {
         try {
-            // Set retries
-            pollingRetries[dbGuild.id] = (pollingRetries[dbGuild.id] ?? 0) + 1;
-            logger.error(`[${dbGuild.name}] Polling failed (Attempt #${pollingRetries[dbGuild.id]})`);
-
-            // If too many retries, reset api key and stop polling
-            if (pollingRetries[dbGuild.id] > MAX_POLL_RETRIES) {
-                if (dbGuild.id in pollingIntervals) {
-                    clearTimeout(pollingIntervals[dbGuild.id]);
-                }
-                dbGuild.raidHelper.apiKey = undefined;
-                logger.error(`[${dbGuild.name}] Polling failed >20 times, removing API key`);
-            }
-            dbGuild.raidHelper.apiKeyValid = false;
-            await dbGuild.save();
-
             if (guild) {
-                const message = pollingRetries[dbGuild.id] <= MAX_POLL_RETRIES ?
+                const message = pollingRetries[dbGuild.id] < MAX_POLL_RETRIES ?
                     'Error while trying to schedule a Raidhelper event.\n' +
                     'Check your Raidhelper Integration settings in `/settings`\n' +
                     'If this issue persists try resetting your data in `Misc Settings`'
