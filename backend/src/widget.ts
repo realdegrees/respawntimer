@@ -29,10 +29,11 @@ import { EInteractionType } from './common/types/interactionType';
 import { DBGuild } from './common/types/dbGuild';
 import Database from './db/database';
 import { SettingsHandler } from './handlers/settingsHandler';
-import { userHasRole } from './util/permissions';
+import { checkChannelPermissions, userHasRole } from './util/permissions';
 import { roundUpHalfHourUnix } from './util/formatTime';
 import Bot from './bot';
 import { getVoiceConnection } from '@discordjs/voice';
+import { getEventVoiceChannel } from './util/discord';
 
 //TODO: do this when widget tries to update and message is not found
 /**
@@ -207,9 +208,9 @@ export class Widget {
 						: undefined;
 					if (widget?.voiceState && channelId) {
 						try {
-							const channel = await (await Bot.client.guilds.fetch(widget.guildId)).channels.fetch(
-								channelId
-							);
+							const channel = await (
+								await Bot.client.guilds.fetch(widget.guildId)
+							).channels.fetch(channelId);
 							embed.setDescription(`in ${channel}`);
 						} catch (e) {
 							embed.setDescription('-');
@@ -227,7 +228,6 @@ export class Widget {
 		return embed;
 	}
 	private static async getEventDisplayFields(dbGuild: DBGuild): Promise<EmbedField[]> {
-		const guild = await Bot.client.guilds.fetch(dbGuild.id);
 		const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
 			Math.abs(current.startTimeUnix * 1000 - Date.now()) <
 			Math.abs(lowest.startTimeUnix * 1000 - Date.now())
@@ -235,20 +235,21 @@ export class Widget {
 				: lowest
 		);
 		const startTimeStamp = roundUpHalfHourUnix(event.startTimeUnix);
-		const voiceChannel =
-			(event.voiceChannelId ? await guild.channels.fetch(event.voiceChannelId) : null) ??
-			(dbGuild.raidHelper.defaultVoiceChannelId
-				? await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId)
-				: null);
+		const voiceChannel = await getEventVoiceChannel(event, dbGuild.id);
+		const permissionText = voiceChannel
+			? await checkChannelPermissions(voiceChannel, ['ViewChannel', 'Connect', 'Speak']).catch(
+					(e) => String(e)
+			  )
+			: undefined;
+
+		const channelInfo = voiceChannel
+			? `${
+					startTimeStamp <= Date.now() / 1000 ? 'Joined' : 'Joining'
+			  } ${voiceChannel} at <t:${startTimeStamp}:t>`
+			: '⚠️ *No Default Voice Channel Set*';
 
 		const voiceChannelText = dbGuild.raidHelper.enabled
-			? `${
-					voiceChannel
-						? `${
-								startTimeStamp <= Date.now() / 1000 ? 'Joined' : 'Joining'
-						  } ${voiceChannel} at <t:${startTimeStamp}:t>`
-						: '⚠️ *No Default Voice Channel Set*'
-			  }`
+			? `${permissionText ?? channelInfo}`
 			: '```fix\nAuto-Join Disabled```';
 
 		const timeText = `<t:${event.startTimeUnix}:d>${
