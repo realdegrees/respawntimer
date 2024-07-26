@@ -14,16 +14,14 @@ import {
     ComponentType,
     EmbedBuilder
 } from 'discord.js';
-import { EditorSettings } from '../common/settings/editor.settings';
-import { AssistantSettings } from '../common/settings/assistant.settings';
+import { PermissionSettings } from '../common/settings/permissions.settings';
 import { VoiceSettings } from '../common/settings/voice.settings';
 import { RaidhelperSettings } from '../common/settings/raidhelper.settings';
 import { WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../common/constant';
 import { EInteractionType } from '../common/types/interactionType';
 
 export const SETTINGS_LIST = [
-    new EditorSettings(),
-    new AssistantSettings(),
+    new PermissionSettings(),
     new VoiceSettings(),
     new RaidhelperSettings()
 ];
