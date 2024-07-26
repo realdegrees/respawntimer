@@ -35,7 +35,7 @@ export const GuildModel = model<GuildData>('Guild', new Schema<GuildData>({
         lastManualRefresh: Date,
         apiKeyValid: Boolean,
         defaultVoiceChannelId: String,
-        eventChannelId: String,
+        eventChannelId: [String],
         events: [{
             id: String,
             title: String,

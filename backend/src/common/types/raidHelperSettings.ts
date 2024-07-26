@@ -6,6 +6,6 @@ export interface RaidhelperSettingData {
     apiKey?: string;
     apiKeyValid?: boolean;
     defaultVoiceChannelId?: string;
-    eventChannelId?: string;
+    eventChannelId?: string[];
     events: ScheduledEvent[];
 }

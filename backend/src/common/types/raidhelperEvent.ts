@@ -8,6 +8,7 @@ export interface ScheduledEvent {
 export interface RaidhelperAPIEvent {
     id: string;
     startTime:number;
+    channelId: string;
     advancedSettings: {
         voice_channel?: string;
     };

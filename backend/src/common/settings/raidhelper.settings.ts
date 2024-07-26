@@ -146,7 +146,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 
 		// No need to check permissions for the text channel as we only use the id as a filter for the Raidhelper API
 		const eventChannelText = dbGuild.raidHelper.eventChannelId
-			? `Only events posted in <#${dbGuild.raidHelper.eventChannelId}> will be scheduled\n`
+			? `Only events posted in\n${dbGuild.raidHelper.eventChannelId.map(id => `- <#${id}>`).join('\n')}\nwill be scheduled\n`
 			: `\`\`\`diff\n- Not Set\`\`\`*Events from all channels will be scheduled*`;
 
 		return [
@@ -296,7 +296,9 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 					return Promise.reject('Unable to find selected channel!');
 				}
 				await checkChannelPermissions(defaultEventChannel, ['ViewChannel']);
-				dbGuild.raidHelper.eventChannelId = interaction.values[0];
+				dbGuild.raidHelper.eventChannelId = interaction.values[0]
+					? [...dbGuild.raidHelper.eventChannelId ?? [], interaction.values[0]]
+					: undefined;
 				return ['saveGuild', 'update'];
 			case ERaidhelperSettingsOptions.TOGGLE_AUTO_VOICE:
 				dbGuild.raidHelper.enabled = !dbGuild.raidHelper.enabled;

@@ -54,6 +54,15 @@ export class RaidhelperIntegration {
 			}
 			try {
 				const dbGuild = await Database.getGuild(guild.id);
+
+				// Skip polling if channel is not observed
+				if (
+					dbGuild.raidHelper.eventChannelId?.length &&
+					!dbGuild.raidHelper.eventChannelId.includes(message.channelId)
+				) {
+					return;
+				}
+
 				if (dbGuild.raidHelper.apiKey) {
 					await promiseTimeout(1000);
 					await this.poll(dbGuild);
@@ -71,6 +80,15 @@ export class RaidhelperIntegration {
 			}
 			try {
 				const dbGuild = await Database.getGuild(guild.id);
+
+				// Skip polling if channel is not observed
+				if (
+					dbGuild.raidHelper.eventChannelId?.length &&
+					!dbGuild.raidHelper.eventChannelId.includes(message.channelId)
+				) {
+					return;
+				}
+
 				if (dbGuild.raidHelper.apiKey) {
 					await promiseTimeout(10000);
 					await this.poll(dbGuild);
@@ -348,7 +366,10 @@ export class RaidhelperIntegration {
 				try {
 					// Connect to voice if auto-join is enabled
 					if (dbGuild.raidHelper.enabled) {
-						let channel: GuildBasedChannel | null = await getEventVoiceChannel(event, dbGuild.id).catch(() => null);
+						let channel: GuildBasedChannel | null = await getEventVoiceChannel(
+							event,
+							dbGuild.id
+						).catch(() => null);
 
 						if (!channel)
 							throw new Error(
@@ -407,13 +428,13 @@ export class RaidhelperIntegration {
 		header.set('Authorization', dbGuild.raidHelper.apiKey);
 		header.set('IncludeSignups', 'false');
 		header.set('StartTimeFilter', startTimeFilter.toString());
-		if (dbGuild.raidHelper.eventChannelId) {
-			header.set('ChannelFilter', dbGuild.raidHelper.eventChannelId);
+		if (dbGuild.raidHelper.eventChannelId?.length === 1) {
+			header.set('ChannelFilter', dbGuild.raidHelper.eventChannelId[0]);
 		}
 
 		logger.debug(`[${dbGuild.name}] Fetching events`, [...header.entries()]);
 
-		const postedEvents: Omit<RaidhelperAPIEvent, 'advancedSettings'>[] = await fetch(
+		let postedEvents: Omit<RaidhelperAPIEvent, 'advancedSettings'>[] = await fetch(
 			serversEventsUrl,
 			{
 				headers: header
@@ -426,13 +447,20 @@ export class RaidhelperIntegration {
 			.then((res) => res.json())
 			.then(({ postedEvents }) => postedEvents);
 
+		// Remove events not posted in observed channels
+		if (dbGuild.raidHelper.eventChannelId?.length && dbGuild.raidHelper.eventChannelId.length >= 2) {
+			postedEvents = postedEvents.filter(({ channelId }) =>
+				dbGuild.raidHelper.eventChannelId!.includes(channelId)
+			);
+		}
+
 		logger.debug(
 			`[${dbGuild.name}] Fetched events`,
 			postedEvents?.map((e) => e.id)
 		);
 		return (
 			await Promise.allSettled(
-				postedEvents?.map(async ({ id, lastUpdated }) => {
+				postedEvents.map(async ({ id, lastUpdated }) => {
 					// Check is event is already scheduled
 					const scheduledEvent = dbGuild.raidHelper.events.find(
 						(scheduledEvent) => scheduledEvent.id === id
