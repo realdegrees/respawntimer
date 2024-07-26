@@ -115,7 +115,7 @@ export class RaidhelperIntegration {
                 }
             })
     }
-    public static interval(client: Client): void {
+    public static async interval(client: Client): Promise<void> {
         const date = new Date();
         const [minutes, seconds] = [date.getMinutes(), date.getSeconds(), date.getHours()];
 
@@ -124,73 +124,96 @@ export class RaidhelperIntegration {
         if (minutes >= 0 && minutes < RETRY_ATTEMPT_DUR ||
             minutes >= 30 && minutes < 30 + RETRY_ATTEMPT_DUR &&
             seconds % RETRY_INTERVAL_SECONDS === 0) {
-            Database.queryGuilds({
-                'raidHelper.apiKey': { $exists: true }
-            }).then((dbGuilds) =>
-                dbGuilds.filter((guild) =>
-                    guild.raidHelper.events.find((event) => {
-                        const diff = event.startTime * 1000 - Date.now();
-                        const diffSeconds = diff / 1000;
-                        const diffMinutes = diffSeconds / 60;
-                        // startTIme is in unix so need to multiplay by 1000
-                        return event.startTime && diffSeconds < 30 && diffMinutes > -20;
-                    }))
-            ).then((dbGuilds) => {
-                if (dbGuilds.length === 0) return;
-                const clientGuilds = client.guilds.cache.filter((clientGuild) => !!dbGuilds.find((dbGuild) => dbGuild.id === clientGuild.id));
-                dbGuilds.forEach(async (dbGuild) => {
-                    if (!dbGuild.raidHelper.enabled && !dbGuild.raidHelper.widget) return;
-                    const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
+            try {
+                // Get guilds with an API Key from DB and filter out those with events starting soon
+                const guilds = (await Database.queryGuilds({
+                    'raidHelper.apiKey': { $exists: true }
+                }))
+                    .filter((guild) =>
+                        guild.raidHelper.events.find((event) => {
+                            const diff = event.startTime * 1000 - Date.now();
+                            const diffSeconds = diff / 1000;
+                            const diffMinutes = diffSeconds / 60;
+                            return event.startTime && diffSeconds < 30 && diffMinutes > -20;
+                        }))
+                    .map((dbGuild) => ({
+                        db: dbGuild,
+                        client: client.guilds.cache.find((clientGuild) => clientGuild.id === dbGuild.id)
+                    }));
+
+                // for each guild find the closest event and attempt to start the widget and voice
+                for (const guild of guilds) {
+                    if (!guild.client) return;
+                    if (!guild.db.raidHelper.enabled && !guild.db.raidHelper.widget) return;
+                    const event = guild.db.raidHelper.events.reduce((lowest, current) =>
                         Math.abs(current.startTime * 1000 - Date.now()) < Math.abs(lowest.startTime * 1000 - Date.now()) ? current : lowest);
-                    const guild = clientGuilds.find((cg) => cg.id === dbGuild.id);
-                    if (!guild) return;
 
+                    // Try to find a widget
                     const widget = await Widget.find(
-                        guild,
-                        dbGuild.widget.messageId,
-                        dbGuild.widget.channelId
+                        guild.client,
+                        guild.db.widget.messageId,
+                        guild.db.widget.channelId
                     );
-                    // Connect to voice if not connected and auto-join is enabled
-                    if (!audioManager.isConnected(guild.id) && dbGuild.raidHelper.enabled) {
-                        await Promise.resolve().then(() => {
-                            if (event.voiceChannelId) {
-                                return guild.channels.fetch(event.voiceChannelId);
-                            } else if (dbGuild.raidHelper.defaultVoiceChannelId) {
-                                return guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId);
-                            } else return undefined;
-                        })
-                            .then((channel) => {
-                                if (!channel) return Promise.reject('No voice channel specified in event and no default voice channel set');
-                                if (!channel.isVoiceBased()) return Promise.reject(`${channel} is not a voice channel.`);
 
-                                return widget ? widget.toggleVoice({
-                                    dbGuild,
+
+                    // Voice Start
+                    try {
+                        // Connect to voice if not connected and auto-join is enabled
+                        if (!audioManager.isConnected(guild.client.id) && guild.db.raidHelper.enabled) {
+                            let channel;
+                            if (event.voiceChannelId) {
+                                channel = await guild.client.channels.fetch(event.voiceChannelId);
+                            } else if (guild.db.raidHelper.defaultVoiceChannelId) {
+                                channel = await guild.client.channels.fetch(guild.db.raidHelper.defaultVoiceChannelId);
+                            }
+
+
+                            if (!channel) return Promise.reject('No voice channel specified in event and no default voice channel set');
+                            if (!channel.isVoiceBased()) return Promise.reject(`${channel} is not a voice channel.`);
+
+                            await (widget ?
+                                widget.toggleVoice({
+                                    dbGuild: guild.db,
                                     channel
-                                }) : audioManager.connect(channel, dbGuild);
-                            })
-                            .catch((reason) =>
-                                NotificationHandler.sendNotification(
-                                    guild, dbGuild, `Voice Error`, `Error while attempting to join channel\nfor scheduled event **${event.title}**\n\n${reason?.toString()}`
-                                ).then((res) => res.type === 'error' ? Promise.reject(res.info) : Promise.resolve()))
-                            .catch(logger.error);
-                    }
-                    // Attempt to start widget if auto-widget is enabled
-                    if (dbGuild.raidHelper.widget) {
-                        if (widget) {
-                            if (widget.textState) return; // It's already on
-                            await widget.toggleText({ dbGuild, forceOn: true })
-                                .catch((reason) => NotificationHandler.sendNotification(
-                                    guild, dbGuild, `Widget Error`, `Error while attempting to enable text-widget\nfor scheduled event **${event.title}**\n\n${reason?.toString()}`
-                                ).then((res) => res.type === 'error' ? Promise.reject(res.info) : Promise.resolve())).catch(logger.error);
-                        } else {
-                            await NotificationHandler.sendNotification(
-                                guild, dbGuild, `Widget Error`, `Error while attempting to enable text-widget\nfor scheduled event **${event.title}**\n\n**Unable to find a text-widget**`)
-                                .then((res) => res.type === 'error' ? Promise.reject(res.info) : Promise.resolve())
-                                .catch(logger.error);
+                                }) : audioManager.connect(channel, guild.db));
                         }
+                    } catch (e) {
+                        await NotificationHandler.sendNotification(
+                            guild.client,
+                            guild.db,
+                            `Voice Error`,
+                            `Error while attempting to join channel\nfor scheduled event **${event.title}**\n\n${(e instanceof Error ? e.message : e?.toString?.()) || 'Unknown Error'}`
+                        ).catch(logger.error);
                     }
-                });
-            }).catch(logger.error);
+
+                    // Widget Start
+                    try {
+                        // Attempt to start widget if auto-widget is enabled
+                        if (guild.db.raidHelper.widget) {
+                            if (widget) {
+                                if (widget.textState) return; // It's already on
+                                await widget.toggleText({ dbGuild: guild.db, forceOn: true });
+                            } else {
+                                await NotificationHandler.sendNotification(
+                                    guild.client,
+                                    guild.db,
+                                    `Widget Error`,
+                                    `Error while attempting to enable text-widget\nfor scheduled event **${event.title}**\n\n**Unable to find a text-widget**`
+                                ).catch(logger.error);
+                            }
+                        }
+                    } catch (e) {
+                        await NotificationHandler.sendNotification(
+                            guild.client,
+                            guild.db,
+                            `Widget Error`,
+                            `Error while attempting to enable text-widget\nfor scheduled event **${event.title}**\n\n${(e instanceof Error ? e.message : e?.toString?.()) || 'Unknown Error'}`
+                        ).catch(logger.error);
+                    }
+                }
+            } catch (e) {
+                logger.error('Error in raidhelper integration interval. ' + (e instanceof Error ? e.message : e?.toString?.()) || 'Unknown Error');
+            }
         }
     }
     /**
