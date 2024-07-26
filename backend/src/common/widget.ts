@@ -221,7 +221,7 @@ export class Widget {
                 .then((dbGuild) => {
                     embed.setAuthor({ name: title ?? DEFAULT_TITLE, iconURL: WARTIMER_ICON_LINK })
                         .setFooter({
-                            text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKey ? 'Enabled' : 'Disabled'}` +
+                            text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKeyValid ? 'Enabled' : 'Disabled'}` +
                                 `\nNotifications » ${dbGuild.notificationChannelId?.match(/^[0-9]+$/) ? 'Enabled' : 'Disabled'}` +
                                 `${dbGuild.assistantRoleIDs.length === 0 ? '\n\nMissing permission setup.\nEveryone can use the widget!' : ''}`
                         });
