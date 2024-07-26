@@ -121,7 +121,8 @@ class AudioManager {
 
         // Play sounds for all subscribers with custom timings
         customSubscribers.forEach((subscriber) => {
-            const customRespawnData = TimingsSettings.convertToRespawnData(subscriber.timings!);
+            if(!subscriber.timings) return;
+            const customRespawnData = TimingsSettings.convertToRespawnData(subscriber.timings);
             this.handleSounds(customRespawnData, subscriber.voice, subscriber.audioPlayer);
         });
         // Play sounds for all subscribers listening to default timings
