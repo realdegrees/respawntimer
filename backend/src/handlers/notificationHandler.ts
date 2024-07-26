@@ -79,10 +79,8 @@ export class NotificationHandler {
 			notificationMap.push(guildNotificationMap);
 		}
 
-		if (
-			!options?.byPassDuplicateCheck &&
-			guildNotificationMap.notifications.includes([title, text].join())
-		) {
+		const isDuplicate = !saveToLog(guildNotificationMap, title, text);
+		if (!options?.byPassDuplicateCheck && isDuplicate) {
 			return {
 				type: 'duplicate'
 			};
@@ -92,7 +90,7 @@ export class NotificationHandler {
 
 		if (channel) {
 			try {
-				const message = await channel.send({
+				await channel.send({
 					embeds: [
 						new EmbedBuilder()
 							.setAuthor({
@@ -107,7 +105,6 @@ export class NotificationHandler {
 				});
 
 				logger.info('[' + dbGuild.name + '][Notification] ' + title + ' ' + text);
-				saveToLog(guildNotificationMap, dbGuild.id, title, text);
 				return {
 					type: 'sent'
 				};
@@ -119,7 +116,6 @@ export class NotificationHandler {
 			}
 		} else {
 			logger.info('[' + dbGuild.name + '][Notification-Log] ' + title + ' ' + text);
-			saveToLog(guildNotificationMap, dbGuild.id, title, text);
 			return { type: 'nochannel' };
 		}
 	}
@@ -127,15 +123,17 @@ export class NotificationHandler {
 
 const saveToLog = (
 	guildNotificationMap: typeof notificationMap extends (infer U)[] ? U : never,
-	guildId: string,
 	title: string,
 	text: string
-) => {
+): boolean => {
 	if (!guildNotificationMap.notifications.includes([title, text].join())) {
 		guildNotificationMap.notifications.push([title, text].join());
 		if (guildNotificationMap.notifications.length >= DUPLICATE_PROTECTION_STRENGTH) {
 			guildNotificationMap.notifications.reverse().pop();
 			guildNotificationMap.notifications.reverse();
 		}
+		return true;
+	} else {
+		return false;
 	}
 };
