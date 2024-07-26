@@ -3,6 +3,7 @@ import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, BaseSetting } from './base.setting';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
+import { Widget } from '../widget';
 
 export enum EPermissionSettingsOptions {
     EDITOR = 'Editor',
@@ -10,8 +11,8 @@ export enum EPermissionSettingsOptions {
 }
 
 export class PermissionSettings extends BaseSetting<RoleSelectMenuBuilder> {
-    
-    
+
+
     public constructor() {
         super(ESettingsID.PERMISSIONS,
             'Permission Settings',
@@ -56,7 +57,12 @@ export class PermissionSettings extends BaseSetting<RoleSelectMenuBuilder> {
                         .join('\n')
                 ).catch(() => ['Unable to retrieve roles'])}`;
     }
-    public async onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, option: string): Promise<unknown> {
+    public async onInteract(
+        dbGuild: DBGuild,
+        interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
+        widget: Widget | undefined,
+        option: string
+    ): Promise<unknown> {
         switch (option) {
             case EPermissionSettingsOptions.EDITOR:
                 if (!interaction.isRoleSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');

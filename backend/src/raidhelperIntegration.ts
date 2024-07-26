@@ -78,12 +78,15 @@ export class RaidhelperIntegration {
                             dbGuild.raidHelper.events = events;
                             return dbGuild.save().then(() => {
                                 if (guild) {
-                                    return Widget.get(guild, dbGuild.widget.messageId, dbGuild.widget.channelId)
-                                        .then((widget) => {
-                                            if (!widget?.textState) {
-                                                widget?.update({ force: true });
-                                            }
-                                        });
+                                    return Widget.get({
+                                        guild,
+                                        messageId: dbGuild.widget.messageId,
+                                        channelId: dbGuild.widget.channelId
+                                    }).then((widget) => {
+                                        if (!widget?.textState) {
+                                            widget?.update({ force: true });
+                                        }
+                                    }).catch(logger.error);
                                 }
                             });
                         }).catch(logger.error);
@@ -118,7 +121,11 @@ export class RaidhelperIntegration {
                     const guild = clientGuilds.find((cg) => cg.id === dbGuild.id);
                     if (!guild) return;
 
-                    const widget = await Widget.get(guild, dbGuild.widget.messageId, dbGuild.widget.channelId);
+                    const widget = await Widget.get({
+                        guild,
+                        messageId: dbGuild.widget.messageId,
+                        channelId: dbGuild.widget.channelId
+                    });
                     // Connect to voice if not connected and auto-join is enabled
                     if (!audioManager.isConnected(guild.id) && dbGuild.raidHelper.enabled) {
                         await Promise.resolve().then(() => {

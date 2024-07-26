@@ -4,6 +4,7 @@ import { DBGuild } from '../types/dbGuild';
 import Database from '../../db/database';
 import logger from '../../../lib/logger';
 import { Widget } from '../widget';
+import { WidgetHandler } from '../../widgetHandler';
 
 export enum EMiscSettingsOptions {
     CLEAR = 'clear',
@@ -42,7 +43,12 @@ export class MiscSettings extends BaseSetting<ButtonBuilder> {
     public async getCurrentSettings(guildData: DBGuild) {
         return Promise.resolve(`**Text Widget Buttons**\n${guildData.hideWidgetButtons ? 'Hidden' : 'Shown'}`);
     }
-    public async onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, option: string): Promise<unknown> {
+    public async onInteract(
+        dbGuild: DBGuild,
+        interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
+        widget: Widget | undefined,
+        option: string
+    ): Promise<unknown> {
         if (!interaction.isButton()) return Promise.reject('Internal Error');
         if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
         switch (option) {
@@ -50,12 +56,17 @@ export class MiscSettings extends BaseSetting<ButtonBuilder> {
                 // eslint-disable-next-line no-case-declarations
                 return Database.deleteGuild(interaction.guild.id)
                     .then(() => interaction.reply({ ephemeral: true, content: 'Data deleted ✅' }))
-                    .then(() => logger.info('[' + interaction.guild!.name + '] Data Deleted'));
+                    .then(() => logger.info('[' + interaction.guild!.name + '] Data Deleted'))
+                    .then(() => {
+                        if (widget && !widget.textState) {
+                            WidgetHandler.removeWidgetFromMemory(widget.getId());
+                            widget.update({ force: true });
+                        }
+                    });
             case EMiscSettingsOptions.TOGGLE_WIDGET_BUTTONS:
                 dbGuild.hideWidgetButtons = !dbGuild.hideWidgetButtons;
                 return dbGuild.save().then(() => this.send(interaction, dbGuild, { update: true }))
                     .then(async () => {
-                        const widget = interaction.guild ? await Widget.get(interaction.guild, dbGuild.widget.messageId, dbGuild.widget.channelId).catch(() => undefined) : undefined;
                         return widget ? widget.setButtonsDisplay(!dbGuild.hideWidgetButtons) : Promise.resolve();
                     });
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');

@@ -9,6 +9,7 @@ import { string } from 'yargs';
 import textManager from '../../util/textManager';
 import audioManager from '../../util/audioManager';
 import logger from '../../../lib/logger';
+import { Widget } from '../widget';
 
 export enum ETimingsSettingsOptions {
     TIMINGS = 'timings',
@@ -102,7 +103,12 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
         modal.addComponents(apiKeyRow);
         return interaction.showModal(modal);
     }
-    public async onInteract(dbGuild: DBGuild, interaction: Interaction, option: string): Promise<unknown> {
+    public async onInteract(
+        dbGuild: DBGuild,
+        interaction: Interaction,
+        widget: Widget | undefined,
+        option: string
+    ): Promise<unknown> {
         switch (option) {
             case ETimingsSettingsOptions.TIMINGS:
                 if (interaction.isButton()) {

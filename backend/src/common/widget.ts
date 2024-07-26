@@ -2,7 +2,7 @@
 import {
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonInteraction, ButtonStyle, CacheType, CommandInteraction, DiscordAPIError, EmbedBuilder, Guild,
+    ButtonInteraction, ButtonStyle, CacheType, CommandInteraction, DiscordAPIError, Embed, EmbedBuilder, Guild,
     Message, PartialMessage, TextBasedChannel, TextChannel, VoiceBasedChannel
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
@@ -73,18 +73,24 @@ export class Widget {
     ) {
         this.init(onReady).catch(logger.error);
     }
-    public static async get(guild: Guild, messageId?: string, channelId?: string): Promise<Widget | undefined>;
-    public static async get(message?: Message<boolean> | PartialMessage): Promise<Widget | undefined>;
-    public static async get(arg1?: Guild | string | Message<boolean> | PartialMessage, arg2?: string, arg3?: string): Promise<Widget | undefined> {
-        return new Promise<Message<boolean> | PartialMessage | undefined>((res, rej) => {
-            if (!arg2) {
-                res(arg1 as Message<boolean> | PartialMessage);
+    public static async get(options: {
+        guild?: Guild;
+        message?: Message<boolean>;
+        messageId?: string;
+        channelId?: string;
+    }): Promise<Widget | undefined> {
+        return new Promise<Message<boolean> | PartialMessage | undefined>((res) => {
+            if (options.message) {
+                res(options.message);
             } else {
-                arg3 ? res((arg1 as Guild).channels.fetch(arg3)
-                    .then((channel) => {
-                        return !channel?.isTextBased() ? undefined :
-                            channel.messages.fetch(arg2);
-                    })) : rej();
+                options.channelId ?
+                    res(options.guild?.channels.fetch(options.channelId)
+                        .then((channel) => {
+                            return options.messageId && channel?.isTextBased() ?
+                                channel.messages.fetch(options.messageId).catch(() => undefined) :
+                                undefined;
+                        })) :
+                    res(undefined);
             }
         }).then(async (message) => {
             if (!message) return Promise.resolve(undefined);
@@ -136,9 +142,13 @@ export class Widget {
         const dbGuild = await Database.getGuild(guild);
 
         if (dbGuild.widget.channelId && dbGuild.widget.messageId) {
-            await Widget.get(guild, dbGuild.widget.messageId, dbGuild.widget.channelId)
-                .then((widget) => widget?.message.delete())
-                .catch(logger.error);
+            await Widget.get({
+                guild,
+                messageId: dbGuild.widget.messageId,
+                channelId: dbGuild.widget.channelId
+            }).then((widget) => {
+                widget?.message.delete()
+            }).catch(logger.error);
         }
 
         return guild.members.fetch(interaction.user)
@@ -155,10 +165,7 @@ export class Widget {
             .then(() => interaction.deferReply({ ephemeral: true }))
             .then(async () =>
                 channel.send({
-                    embeds: [new EmbedBuilder()
-                        .setTitle(DEFAULT_TITLE)
-                        .setDescription('-')
-                        .setFooter({ text: 'Lots of new features! Check /settings' })]
+                    embeds: [await Widget.getEmbed(guild)]
                 }).then((message) => {
                     dbGuild.widget.channelId = message.channel.id;
                     dbGuild.widget.messageId = message.id;
@@ -243,23 +250,7 @@ export class Widget {
         }
         this.isUpdating++;
 
-        const embed = new EmbedBuilder();
-        if (!options?.description) {
-            const nextWar = await Database.getGuild(this.guild).then((dbGuild) => {
-                embed.setFooter({ text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKeyValid ? 'Enabled' : 'Disabled'}` });
-                const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
-                    Math.abs(current.startTime * 1000 - Date.now()) < Math.abs(lowest.startTime * 1000 - Date.now()) ? current : lowest);
-                return `On Standby for **${event.title}**\n*at* <t:${event.startTime}:t> *on* <t:${event.startTime}:d>`;
-            }).catch(() => '-');
-            embed
-                .setDescription(nextWar)
-                .setAuthor({ name: options?.title ?? DEFAULT_TITLE, iconURL: WARTIMER_ICON_LINK });
-        } else {
-            embed.setDescription(options.description);
-            if (options.title) {
-                embed.setAuthor({ name: options.title, iconURL: WARTIMER_ICON_LINK });
-            }
-        }
+        const embed = await Widget.getEmbed(this.guild, options?.description, options?.title);
 
         return this.message.edit({
             components: this.showButtons ? [this.getButtons()] : [],
@@ -276,6 +267,34 @@ export class Widget {
                     .catch(logger.error);
             }
         });
+    }
+
+    private static async getEmbed(guild: Guild, description?: string, title?: string): Promise<EmbedBuilder> {
+        const embed = new EmbedBuilder();
+        if (!description) {
+            await Database.getGuild(guild)
+                .then((dbGuild) => {
+                    embed.setAuthor({ name: title ?? DEFAULT_TITLE, iconURL: WARTIMER_ICON_LINK })
+                        .setFooter({
+                            text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKeyValid ? 'Enabled' : 'Disabled'}\n` +
+                                `Notifications » ${dbGuild.notificationChannelId?.match(/^[0-9]+$/) ? 'Enabled' : 'Disabled'}`
+                        });
+
+                    if (dbGuild.raidHelper.events.length > 0) {
+                        const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
+                            Math.abs(current.startTime * 1000 - Date.now()) < Math.abs(lowest.startTime * 1000 - Date.now()) ? current : lowest);
+                        return `On Standby for **${event.title}**\n*at* <t:${event.startTime}:t> *on* <t:${event.startTime}:d>`;
+                    } else {
+                        return '-'
+                    }
+                }).catch(() => '-').then((description) => embed.setDescription(description));
+        } else {
+            embed.setDescription(description);
+            if (title) {
+                embed.setAuthor({ name: title, iconURL: WARTIMER_ICON_LINK });
+            }
+        }
+        return embed;
     }
 
     public async recreateMessage(manual = false): Promise<unknown> {
