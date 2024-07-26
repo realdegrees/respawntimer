@@ -1,5 +1,5 @@
 import { ButtonInteraction, CacheType, CommandInteraction, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ComponentType, AnySelectMenuInteraction, InteractionCollector, ModalSubmitInteraction, ChannelSelectMenuInteraction, MentionableSelectMenuInteraction, RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction, Guild } from "discord.js";
-import { WARTIMER_ICON_LINK, EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT, EPHEMERAL_REPLY_DURATION_LONG } from "../common/constant";
+import { WARTIMER_ICON_LINK, EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT, EPHEMERAL_REPLY_DURATION_LONG, debug } from "../common/constant";
 import { WidgetSettings } from "../common/settings/widget.settings";
 import { NotificationSettings } from "../common/settings/notifications.settings";
 import { PermissionSettings } from "../common/settings/permissions.settings";
@@ -18,6 +18,7 @@ import { ECollectorStopReason } from "../common/types/collectorStopReason";
 import { error } from "console";
 import { RaidhelperIntegration } from "../raidhelperIntegration";
 import { HelpSettings } from "../common/settings/help.settings";
+import { DevSettings } from "../common/settings/dev.settings";
 
 const settingsEmbed = new EmbedBuilder()
     .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: 'Settings' })
@@ -45,6 +46,9 @@ export class SettingsHandler {
             new WidgetSettings(),
             new HelpSettings()
         ]]
+        if(debug){
+            settings.push([new DevSettings()])
+        }
         const res = await interaction.reply({
             ephemeral: true,
             embeds: [settingsEmbed],
