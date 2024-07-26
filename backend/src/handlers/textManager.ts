@@ -10,9 +10,8 @@ const settings = {
     barIconEmpty: '○'
 };
 
-// TODO: make textmanager static along with voicemanager
+// TODO make textmanager static along with voicemanager
 type Subscriber = {
-    timeStamp: number;
     widget: Widget;
     timings?: number[];
     update: (options?: {
@@ -20,6 +19,7 @@ type Subscriber = {
         description?: string;
         force?: boolean;
     }) => Promise<unknown>;
+    timeStamp?: number;
 };
 class TextManager {
     private subscribers: Subscriber[] = [];
@@ -28,14 +28,15 @@ class TextManager {
         this.subscribers.forEach((subscriber) => {
             const date = new Date();
             const [minutes, seconds] = [date.getMinutes(), date.getSeconds()];
-            const minutesSubscribed = new Date(date.getTime() - subscriber.timeStamp).getTime() / 1000 / 60;
+            const minutesSubscribed = subscriber.timeStamp ? new Date(date.getTime() - subscriber.timeStamp).getTime() / 1000 / 60 : 0;
 
             // Toggle widget off at war end if it's been on for more than 15 minutes
             // Toggle widget off if it's been subscribed for over 45 minutes
             const widgetHasTextEnabled = subscriber.widget.getTextState();
-            const isEndOfwar = (minutes === 59 || minutes === 29) && seconds === 59 && minutesSubscribed >= 15 || minutesSubscribed >= 45;
+            const isEndOfwar = (minutes === 59 || minutes === 29) && seconds === 30 && (minutesSubscribed >= 15 || minutesSubscribed >= 45);
             if (widgetHasTextEnabled && isEndOfwar) {
-                subscriber.widget.toggleText();
+                subscriber.widget.toggleText().catch(logger.error);
+                logger.debug('Auto-stop widget');
             }
         });
 
@@ -54,7 +55,11 @@ class TextManager {
     }
     private async handleSubscriber(subscriber: Subscriber, respawnData: WarInfo): Promise<void> {
         if (!subscriber.widget.getTextState()) {
+            subscriber.timeStamp = undefined;
             return;
+        }
+        if(!subscriber.timeStamp){
+            subscriber.timeStamp = Date.now();
         }
         const description = this.getDescription(respawnData);
         await subscriber.update({ description })
@@ -116,7 +121,6 @@ class TextManager {
 
         const timeStamp = Date.now();
         this.subscribers.push({
-            timeStamp,
             widget: options.widget,
             timings,
             update

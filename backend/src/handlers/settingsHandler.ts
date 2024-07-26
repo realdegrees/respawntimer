@@ -1,6 +1,6 @@
 import { ButtonInteraction, CacheType, CommandInteraction, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ComponentType, AnySelectMenuInteraction, InteractionCollector, ModalSubmitInteraction, ChannelSelectMenuInteraction, MentionableSelectMenuInteraction, RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction, Guild } from "discord.js";
 import { WARTIMER_ICON_LINK, EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT, EPHEMERAL_REPLY_DURATION_LONG } from "../common/constant";
-import { MiscSettings } from "../common/settings/misc.settings";
+import { WidgetSettings } from "../common/settings/widget.settings";
 import { NotificationSettings } from "../common/settings/notifications.settings";
 import { PermissionSettings } from "../common/settings/permissions.settings";
 import { RaidhelperSettings } from "../common/settings/raidhelper.settings";
@@ -16,13 +16,15 @@ import { SettingsPostInteractAction } from "../common/types/settingsPostInteract
 import { DBGuild } from "../common/types/dbGuild";
 import { ECollectorStopReason } from "../common/types/collectorStopReason";
 import { error } from "console";
+import { RaidhelperIntegration } from "../raidhelperIntegration";
+import { HelpSettings } from "../common/settings/help.settings";
 
 const settingsEmbed = new EmbedBuilder()
     .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: 'Settings' })
-    .setThumbnail(WARTIMER_ICON_LINK)
-    .setDescription(`Select a button below to edit a specific setting`)
+    .setDescription(`Select a setting below to open a new menu.`)
     .setFooter({
-        text: `If something doesn't work try clearing the bot data in 'Misc Settings'`,
+        text: `Tip: Enable Notifications to get notified when the bot encounters an issue\n` +
+            `Tip: You can completely automate the bot with the Raidhelper Integration`,
         iconURL: EXCLAMATION_ICON_LINK
     });
 export class SettingsHandler {
@@ -34,13 +36,14 @@ export class SettingsHandler {
             return Promise.reject();
         }
         const settings: BaseSetting[][] = [[
-            new PermissionSettings(),
-            new VoiceSettings(),
+            new NotificationSettings(),
             new RaidhelperSettings(),
             new TimingsSettings()
         ], [
-            new NotificationSettings(),
-            new MiscSettings()
+            new PermissionSettings(),
+            new VoiceSettings(),
+            new WidgetSettings(),
+            new HelpSettings()
         ]]
         const res = await interaction.reply({
             ephemeral: true,
@@ -48,7 +51,7 @@ export class SettingsHandler {
             components: settings.map((row) => new ActionRowBuilder()
                 .setComponents(
                     row.map((setting) => new ButtonBuilder({
-                        label: setting.title,
+                        label: setting.id,
                         style: setting.buttonStyle,
                         type: ComponentType.Button,
                         customId: [WARTIMER_INTERACTION_ID, EInteractionType.SETTING, setting.id].join(WARTIMER_INTERACTION_SPLIT)
@@ -167,6 +170,7 @@ export class SettingsHandler {
         settingInteraction?: AnySelectMenuInteraction | ButtonInteraction,
         setting?: BaseSetting
     ): Promise<void> {
+        logger.debug('Executing post interaction settings: ' + JSON.stringify(postInteractActions ?? 'None'))
         if (postInteractActions?.includes('saveGuild')) {
             await dbGuild.save();
         }
@@ -186,6 +190,9 @@ export class SettingsHandler {
             if (settingInteraction) {
                 await setting?.send(settingInteraction, dbGuild, { update: true });
             }
+        }
+        if (postInteractActions?.includes('startEventPolling')) {
+            RaidhelperIntegration.startPollingInterval(guild, dbGuild);
         }
     }
 }

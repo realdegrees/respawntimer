@@ -1,4 +1,4 @@
-import { ActionRowBuilder, AnySelectMenuInteraction, ButtonInteraction, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from 'discord.js';
+import { ActionRowBuilder, AnySelectMenuInteraction, ButtonInteraction, ButtonStyle, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from 'discord.js';
 import { ESettingsID, BaseSetting } from './base.setting';
 import audioManager, { Voices } from '../../handlers/audioManager';
 import { DBGuild } from '../types/dbGuild';
@@ -13,12 +13,11 @@ export enum EVoiceSettingsOptions {
 export class VoiceSettings extends BaseSetting<StringSelectMenuBuilder> {
 
     public constructor() {
-        super(
-            ESettingsID.VOICE,
+        super(ESettingsID.VOICE,
+            ButtonStyle.Primary,
             'Voice Settings',
             `Wartimer supports several voices and sound effects.\nThey can be changed even while the bot is in your channel.`,
-            ''
-        );
+            '');
     }
     public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const voice = new StringSelectMenuBuilder()

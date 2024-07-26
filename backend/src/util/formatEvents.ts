@@ -4,8 +4,8 @@ import { checkChannelPermissions } from "./permissions";
 
 const MAX_TITLE_LEN = 20;
 const TITLE_CUT_FILL = '..';
-// TODO: check if this crashes the programm when there is e.g. a missing permission
-// TODO: add this function to the raidhelper settings overview
+// TODO check if this crashes the programm when there is e.g. a missing permission
+// TODO add this function to the raidhelper settings overview
 export const formatEvents = (guild: Guild, ...events: ScheduledEvent[]): Promise<string[]> => {
     return Promise.all(events.map(async (event) => {
         // Truncate title over the length of 20, fill other titles with spaces to line up with truncated titles

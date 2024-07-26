@@ -3,7 +3,7 @@ import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonComponentData,
-    ButtonInteraction, ButtonStyle, CacheType, Client, CommandInteraction, ComponentType, DiscordAPIError, DiscordjsErrorCodes, Embed, EmbedBuilder, Guild,
+    ButtonInteraction, ButtonStyle, CacheType, Client, CommandInteraction, ComponentType, DiscordAPIError, DiscordjsErrorCodes, Embed, EmbedBuilder, EmbedField, Guild,
     GuildTextBasedChannel,
     InteractionCollector,
     Message, PartialMessage, RateLimitError, TextBasedChannel, TextChannel, VoiceBasedChannel
@@ -38,6 +38,7 @@ export class Widget {
     private rateLimitExceeded = false;
 
     public getTextState() { return this.textState; }
+    public getResettingState() { return this.isResetting; }
 
     private listener: InteractionCollector<ButtonInteraction> | undefined;
     private showButtons: boolean;
@@ -56,7 +57,7 @@ export class Widget {
         private dbGuild: DBGuild,
         onReady: (widget: Widget) => void
     ) {
-        this.showButtons = !dbGuild.hideWidgetButtons;
+        this.showButtons = !dbGuild.widget.hideButtons;
         Widget.LIST.push(this);
         this.init(onReady).catch(logger.error);
     }
@@ -92,7 +93,7 @@ export class Widget {
         }
     }
     /**
-     * Creates a new widget and deletes the exisitng one
+     * Creates a new widget and deletes the existing one
      * @param interaction The interaction the widget was created from (DO NOT DEFER OR REPLY THIS INTERACTION)
      * @param guild 
      * @param channel 
@@ -129,10 +130,9 @@ export class Widget {
         const message = await channel.send({ embeds: [embed] });
 
         // Update dbGuild widget data
-        dbGuild.widget = {
-            channelId: message.channel.id,
-            messageId: message.id,
-        };
+        dbGuild.widget.messageId = message.id
+        dbGuild.widget.channelId = message.channel.id
+        dbGuild.widget.hideButtons = false; // reset buttons when creating new widget
         await dbGuild.save();
 
         await new Promise<Widget>((res) => {
@@ -159,8 +159,8 @@ export class Widget {
             // if it's not in memory try to find the original message and load it into memory as a widget instance
             const message = await this.findWidgetMessage(guild, messageId, channelId);
 
-            if (!message || message.flags.has('Ephemeral')) return Promise.resolve(undefined);
-            if (!message.guild) return Promise.reject('Not a guild message');
+            if (!message || message.flags.has('Ephemeral')) throw new Error(undefined);
+            if (!message.guild) throw new Error(undefined);
 
             const dbGuild = dbGuildArg ?? await Database.getGuild(message.guild);
 
@@ -169,10 +169,8 @@ export class Widget {
             if (argMessageIsNotDbMessage) {
                 await this.deleteDbWidgetMessage(guild, messageId, channelId);
             }
-            dbGuild.widget = {
-                channelId: message.channel.id,
-                messageId: message.id
-            }
+            dbGuild.widget.channelId = message.channel.id;
+            dbGuild.widget.messageId = message.id;
             await dbGuild.save();
 
             return new Promise((res) => {
@@ -180,7 +178,6 @@ export class Widget {
             });
         }
         catch (error) {
-            logger.debug('Unable to find widget ' + error?.toString?.());
             return undefined;
         }
     }
@@ -221,21 +218,19 @@ export class Widget {
         } else {
             try {
                 const dbGuild = await Database.getGuild(guild);
-                const apiKeyStatus = dbGuild.raidHelper.apiKeyValid ? 'Enabled' : 'Disabled';
+                const apiKeyStatus = dbGuild.raidHelper.apiKeyValid ?
+                    'Enabled' :
+                    dbGuild.raidHelper.apiKey ? 'Invalid Key' : 'Disabled';
                 const notificationsStatus = dbGuild.notificationChannelId?.match(/^[0-9]+$/) ? 'Enabled' : 'Disabled';
 
                 embed.setFooter({
-                    text: `Raidhelper Integration » ${apiKeyStatus}\n` +
-                        `Notifications » ${notificationsStatus}` +
+                    text: `Raidhelper Integration » ${apiKeyStatus}` +
                         `${dbGuild.assistantRoleIDs.length === 0 ? '\n\nMissing permission setup.\nEveryone can use the widget!' : ''}`,
                 });
 
                 if (dbGuild.raidHelper.events.length > 0) {
-                    const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
-                        Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
-
-                    const eventDescription = `On Standby for\n**${event.title}**\n*at* <t:${event.startTimeUnix}:t> *on* <t:${event.startTimeUnix}:d>`;
-                    embed.setDescription(eventDescription);
+                    const fields = await this.getEventDisplayFields(guild, dbGuild);
+                    embed.setFields(fields);
                 } else {
                     embed.setDescription('-');
                 }
@@ -246,6 +241,39 @@ export class Widget {
             }
         }
         return embed;
+    }
+    private static async getEventDisplayFields(guild: Guild, dbGuild: DBGuild): Promise<EmbedField[]> {
+        const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
+            Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
+        const startTimeStamp = new Date(Math.round(event.startTimeUnix / 60 / 30) * 30 * 60 * 1000).getTime() / 1000;
+        const voiceChannel = (event.voiceChannelId ? await guild.channels.fetch(event.voiceChannelId).catch(() => undefined) : undefined) ??
+            (dbGuild.raidHelper.defaultVoiceChannelId ? await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId).catch(() => undefined) : undefined);
+
+        const voiceChannelText = dbGuild.raidHelper.enabled ?
+            `${voiceChannel ? `Joining ${voiceChannel} at <t:${startTimeStamp}:t>` : '⚠️ *No Default Voice Channel Set*'}` :
+            '```fix\nAuto-Join Disabled```';
+
+        const timeText = `<t:${event.startTimeUnix}:d>${event.startTimeUnix === startTimeStamp
+            && voiceChannel
+            && dbGuild.raidHelper.enabled ? '' : ` at <t:${event.startTimeUnix}:t>`}`;
+
+        // Pad with empty fields to improve visual
+        return [{
+            name: ' ',
+            value: ' '
+        }, {
+            name: 'Scheduled Event',
+            value: `\`\`\`fix\n${event.title}\`\`\``
+        }, {
+            name: 'Voice',
+            value: voiceChannelText
+        }, {
+            name: 'Date',
+            value: timeText
+        }, {
+            name: ' ',
+            value: ' '
+        }] as EmbedField[];
     }
 
     //endregion
@@ -373,30 +401,6 @@ export class Widget {
                                 'Editor permissions have not been set up yet!\nPlease ask someone with administrator permissions to add editor roles in the settings.' :
                                 'You do not have editor permissions.');
                             break;
-                        case EWidgetButtonID.INFO:
-                            await interaction.reply({
-                                ephemeral: true,
-                                embeds: [
-                                    new EmbedBuilder()
-                                        .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
-                                        .setThumbnail('https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png')
-                                        .setTitle('Discord')
-                                        .setURL('https://discord.gg/tcvd8CsA4N')
-                                        .setDescription('Join the discord to get assistance, discuss the bot or suggest new features'),
-                                    new EmbedBuilder()
-                                        .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
-                                        .setThumbnail('https://cdn.pixabay.com/photo/2022/01/30/13/33/github-6980894_1280.png')
-                                        .setFooter({
-                                            text: 'If the bot is offline please contact dennisgrees on discord',
-                                            iconURL: EXCLAMATION_ICON_LINK
-                                        })
-                                        .setTitle('Github')
-                                        .setURL('https://github.com/realdegrees/wartimer')
-                                        // eslint-disable-next-line max-len
-                                        .setDescription('If you require assistance with the bot or have suggestions for improvements feel free to open an issue on the github repo linked above.')
-                                ]
-                            });
-                            break;
                         default: return Promise.reject('Could not complete request');
                     }
                     await interaction.deferUpdate().catch(() => { });
@@ -440,7 +444,7 @@ export class Widget {
     private getButtons(disableToggle = false, disableVoice = false): ActionRowBuilder<ButtonBuilder> {
         const buttonConfigs: (Partial<Omit<ButtonComponentData, 'customId'>> & { id: string })[] = [{
             id: EWidgetButtonID.TEXT,
-            label: this.textState ? '■' : '▶',
+            label: this.textState ? '📝' : '📝',
             style: this.textState ? ButtonStyle.Danger : ButtonStyle.Success,
             disabled: disableToggle,
         }, {
@@ -452,10 +456,6 @@ export class Widget {
             id: EWidgetButtonID.SETTINGS,
             label: '⚙️',
             style: ButtonStyle.Primary,
-        }, {
-            id: EWidgetButtonID.INFO,
-            label: 'ℹ️',
-            style: ButtonStyle.Secondary,
         }];
 
         const actionRow = new ActionRowBuilder<ButtonBuilder>();
@@ -506,10 +506,8 @@ export class Widget {
 
         // Update the database with new message information
         const dbGuild = await Database.getGuild(newMessage.guild);
-        dbGuild.widget = {
-            channelId: newMessage.channel.id,
-            messageId: newMessage.id,
-        };
+        dbGuild.widget.channelId = newMessage.channel.id;
+        dbGuild.widget.messageId = newMessage.id;
         await dbGuild.save();
 
         this.message = newMessage;
@@ -547,7 +545,7 @@ export class Widget {
                 await this.update({ force: true });
             }
         })
-        
+
     }
     public async toggleVoice(options: {
         dbGuild: DBGuild;

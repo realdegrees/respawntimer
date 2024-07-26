@@ -5,7 +5,7 @@ import { checkChannelPermissions } from '../../util/permissions';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
 import logger from '../../../lib/logger';
-import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, debug } from '../constant';
+import { debug } from '../constant';
 import { Widget } from '../../widget';
 import { NotificationHandler, UPDATE_SOURCE_SERVER_ID } from '../../handlers/notificationHandler';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
@@ -19,12 +19,12 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
 
     public constructor() {
         super(ESettingsID.NOTIFICATIONS,
+            ButtonStyle.Primary,
             'Notification Settings',
             `**Notification Channel**  
             This channel will receive notifications about updates and new features.  
             If the bot encounters any errors you will also get notified about it in this channel.`,
-            '',
-            ButtonStyle.Secondary
+            ''
         );
     }
     public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
@@ -77,7 +77,7 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
                         await checkChannelPermissions(channel, ['ViewChannel', 'SendMessages']);
                         logger.info('[' + channel.guild.name + '] Enabled Notifications');
                         dbGuild.notificationChannelId = interaction.values[0];
-                        await NotificationHandler.sendNotification(channel.guild, dbGuild, 'Notifications', 'This channel will now receive notifications and dev updates!', { color: Colors.DarkGold })
+                        await NotificationHandler.sendNotification(channel.guild, dbGuild, 'Notifications', 'This channel will now receive notifications and dev updates!', { color: Colors.Green })
                         return ['saveGuild', 'update', 'updateWidget'];
                     }
                 }

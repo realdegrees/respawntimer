@@ -64,7 +64,6 @@ type Subscriber = {
     audioPlayer: AudioPlayer;
     timings?: number[];
 };
-// TODO: create a new audioplayer for every single subscriber that joins that has custom timings saved in the db and play aduio from that for the subscriber
 class AudioManager {
     private subscribers: Subscriber[] = [];
     public voices: {
@@ -110,7 +109,7 @@ class AudioManager {
             const minutesSubscribed = new Date(date.getTime() - subscriber.timeStamp).getTime() / 1000 / 60;
 
             if ((minutes === 59 || minutes === 29) && seconds === 59 && minutesSubscribed >= 15) {
-                logger.debug(`[${subscriber.guild.name}] auto-disconnect`)
+                logger.debug(`auto-disconnect voice`);
                 Database.getGuild(subscriber.guild).then((dbGuild) =>
                     this.disconnect(subscriber.guild, dbGuild)
                 ).catch(logger.error);

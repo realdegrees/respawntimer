@@ -1,1 +1,1 @@
-export type SettingsPostInteractAction = 'update' | 'none' | 'saveGuild' | 'updateWidget' | 'deleteGuild'
+export type SettingsPostInteractAction = 'update' | 'none' | 'saveGuild' | 'updateWidget' | 'deleteGuild' | 'startEventPolling'
