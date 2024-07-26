@@ -10,6 +10,7 @@ import { INVITE_SETTINGS } from './commands/invite';
 import { Widget } from './common/widget';
 import { RaidhelperIntegration } from './raidhelperIntegration';
 import { NotificationHandler } from './handlers/notificationHandler';
+import { MAX_INACTIVE_DAYS } from './common/constant';
 install();
 config();
 
@@ -29,14 +30,12 @@ Promise.resolve()
         return bot;
     })
     .then(async (bot) => {
-        // If cleanup fails it gets logged, no need to await
-        await Database.getAllGuilds()
-            .then((guilds) => {
-                logStats(guilds);
-                return cleanGuilds(bot.client, guilds);
-            })
-            .then((guildsCleaned) => logger.info('Guild Cleanup: ' + guildsCleaned.length + '\n- ' + guildsCleaned.join('\n- ')))
-            .catch(logger.error);
+        // Remove discord servers from DB taht have been inactive or where bot is not a member anymore
+        const dbGuilds = await Database.getAllGuilds();
+        logStats(dbGuilds);
+        const guildsCleaned = await cleanGuilds(bot.client, dbGuilds, MAX_INACTIVE_DAYS);
+        guildsCleaned.forEach((clean) => logger.info(`[${clean.name}] ${clean.reason}`))
+        
         RespawnInterval.startInterval(bot.client);
         RaidhelperIntegration.startListening(bot.client);
         await NotificationHandler.startListening(bot.client);

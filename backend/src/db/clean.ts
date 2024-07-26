@@ -7,31 +7,47 @@ import { NotificationHandler } from '../handlers/notificationHandler';
 /**
  * @returns deleted guilds
  */
-export const cleanGuilds = async (client: Client, guilds: DBGuild[]): Promise<string[]> => {
-    return client.guilds.fetch().then((clientGuilds) => Promise.all(guilds.map(async (dbGuild) => {
-        const guild = clientGuilds.find((guild) => guild.id === dbGuild.id);
-        if (guild) {
-            if (dbGuild.lastActivity) {
+export const cleanGuilds = async (client: Client, dbGuilds: DBGuild[], maxInactiveDays: number): Promise<{
+    name: string;
+    reason: string;
+}[]> => {
+    const results: {
+        name: string;
+        reason: string;
+    }[] = [];
+    const clientGuilds = await client.guilds.fetch();
+    for (const dbGuild of dbGuilds) {
+        try {
+            const clientGuild = await clientGuilds.find((guild) => guild.id === dbGuild.id)?.fetch();
+            if (!clientGuild) {
+                // Delete guild if bot cannot find the discord server
+                await Database.deleteGuild(dbGuild.id);
+                results.push({
+                    name: dbGuild.name,
+                    reason: `Bot not on Server`
+                });
+            }
+            else if (clientGuild && dbGuild.lastActivity) {
+                // Delete guild if bot has not been interacted with for the specified duration
                 const inactiveDurationDays = (Date.now() - dbGuild.lastActivity.getTime()) / 1000 / 60 / 60 / 24;
                 logger.info(`[${dbGuild.name}] Last Activity ${(inactiveDurationDays * 24).toFixed(2)} hours ago`);
-                if (inactiveDurationDays > 31) {
-                    await guild.fetch().then((guild) =>
-                        NotificationHandler.sendNotification(guild, dbGuild,
-                            'Data Deletion',
-                            'The bot has been inactive for a month on this server.\nAll saved data will be deleted, you can still use the bot at any time but will have to redo any settings.',
-                            { color: Colors.DarkRed }
-                        ))
-
-                    return Database.deleteGuild(dbGuild.id).then(() => `${dbGuild.name} (Inactive ${inactiveDurationDays}d)`);
-                } else {
-                    return Promise.resolve();
+                if (inactiveDurationDays > maxInactiveDays) {
+                    await NotificationHandler.sendNotification(clientGuild, dbGuild,
+                        'Data Deletion',
+                        'The bot has been inactive for a month on this server.\nAll saved data will be deleted, you can still use the bot at any time but will have to redo any settings.',
+                        { color: Colors.DarkRed }
+                    )
+                    await Database.deleteGuild(dbGuild.id);
+                    results.push({
+                        name: dbGuild.name,
+                        reason: `Inactive for ${inactiveDurationDays}d`
+                    });
                 }
-            } else {
-                return Promise.resolve();
             }
-        } else {
-            logger.info(`[${dbGuild.name}] Server removed from DB as Bot is not present on server`);
-            return Database.deleteGuild(dbGuild.id).then(() => dbGuild.name);
+        } catch (e) {
+            logger.error(e?.toString?.() || `Error trying check cleaning state for ${dbGuild.name}`)
+            continue;
         }
-    }))).then((guildsStates) => guildsStates.filter((state) => !!state) as string[]);
+    }
+    return results;
 };
