@@ -11,6 +11,7 @@ import {
 import { DBGuild } from '../common/types/dbGuild';
 import { SettingsHandler } from '../handlers/settingsHandler';
 import { userHasRole } from '../util/permissions';
+import Database from '../db/database';
 
 
 export class Settings extends Command {
@@ -25,7 +26,11 @@ export class Settings extends Command {
             .setDMPermission(false)
             .toJSON();
     }
-    public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<void> {
+    public async execute(interaction: CommandInteraction<CacheType>): Promise<void> {
+        if (!interaction.guild) {
+            throw new Error('This command can only be run on a server.');
+        }
+        const dbGuild = await Database.getGuild(interaction.guild);
         const hasPermission = await userHasRole(
             interaction.guild!,
             interaction.user,

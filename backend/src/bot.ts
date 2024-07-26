@@ -5,9 +5,7 @@ import logger from '../lib/logger';
 import { Create } from './commands/create';
 import { Settings } from './commands/settings';
 import { Command } from './commands/command';
-import { NotificationHandler } from './handlers/notificationHandler';
 import { Invite } from './commands/invite';
-import Database from './db/database';
 import { setTimeout } from 'timers/promises';
 import { EPHEMERAL_REPLY_DURATION_SHORT } from './common/constant';
 
@@ -25,22 +23,32 @@ class Bot {
     ) {
         this.user = this.client.user;
         this.client.user?.setActivity({ name: 'New World', type: ActivityType.Playing });
-        this.client.on('interactionCreate', (interaction) => {
-            if (!interaction.isCommand() || !interaction.guild) return;
-            Database.getGuild(interaction.guild).then((dbGuild) =>
-                commands.find((command) => command.name === interaction.commandName)?.execute(interaction, dbGuild)
-            ).catch(async (error) => {
-                if(!interaction) return;
-                // Handle errors or log them as needed
-                await (interaction.deferred ? interaction.editReply : interaction.reply)({
-                    ephemeral: !interaction.deferred,
-                    content: (error instanceof Error ? error.message : error?.toString?.()) || 'An error occurred',
-                }).catch(logger.error);
-                await setTimeout(EPHEMERAL_REPLY_DURATION_SHORT);
-                await interaction.deleteReply()
-                    .catch(logger.error);
-                logger.error(error?.toString?.() || 'Error during command execution');
-            }).catch(logger.error);
+        this.client.on('interactionCreate', async (interaction) => {
+            if (!interaction.isCommand()) {
+                return;
+            }
+            const command = commands.find((command) => command.name === interaction.commandName);
+            try {
+                command ?
+                    await command.execute(interaction) :
+                    await interaction.reply({ ephemeral: true, content: 'Command not found.' }).
+                        catch(logger.error);
+            } catch (e) {
+                if (!interaction) {
+                    logger.error('Error occured in command ' + + ' but interaction is not available anymore');
+                    return;
+                }
+                if (interaction.isRepliable()) {
+                    await (interaction.replied ? interaction.editReply : interaction.reply)({
+                        ephemeral: true,
+                        content: e instanceof Error ? e.message : e?.toString?.() || 'Unknown Error'
+                    }).catch(logger.error);
+                    await setTimeout(EPHEMERAL_REPLY_DURATION_SHORT);
+                    await interaction.deleteReply()
+                        .catch(logger.error);
+                }
+                logger.debug('Command failed for interaction: ' + interaction.toJSON());
+            }
         });
     }
 

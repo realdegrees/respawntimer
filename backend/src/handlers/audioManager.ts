@@ -220,26 +220,30 @@ class AudioManager {
     }
 
     public async connect(channel: VoiceBasedChannel, dbGuild: DBGuild): Promise<void> {
-        if (this.subscribers.find((s) => s.guild.id === dbGuild.id)) return Promise.reject('Already connected');
+        if (this.subscribers.find((s) => s.guild.id === dbGuild.id)) return Promise.resolve();
         return this.getConnection(channel)
-            .then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
-                Database.getGuild(channel.guild)
-                    .then((dbGuild) => Widget.find(
-                        channel.guild,
-                        dbGuild.widget.messageId,
-                        dbGuild.widget.channelId
-                    ))
-                    .then((widget) => widget?.toggleVoice({ dbGuild }))
-                    .catch(() => { });
-            }))
-            .then((connection) =>
+            .then((connection) => {
                 this.subscribe({
                     connection,
                     guild: channel.guild,
                     voice: dbGuild.voice,
                     customTimings: dbGuild.customTimings
                 })
-            );
+                return new Promise((res) =>
+                    connection
+                        .on(VoiceConnectionStatus.Disconnected, () => {
+                            Database.getGuild(channel.guild)
+                                .then((dbGuild) => Widget.find(
+                                    channel.guild,
+                                    dbGuild.widget.messageId,
+                                    dbGuild.widget.channelId
+                                ))
+                                .then((widget) => widget?.toggleVoice({ dbGuild }))
+                                .catch(() => { });
+                        })
+                        .on(VoiceConnectionStatus.Ready, () => res())
+                )
+            })
     }
 
     private getConnection(channel: VoiceBasedChannel): Promise<VoiceConnection> {
