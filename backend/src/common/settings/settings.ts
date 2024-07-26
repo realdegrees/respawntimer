@@ -2,13 +2,15 @@ import { ActionRowBuilder, RepliableInteraction, InteractionResponse, EmbedBuild
 import { GuildData } from '../../db/guild.schema';
 import { EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../constant';
 import { EInteractionType } from '../types/interactionType';
+import { Document } from 'mongoose';
 
 export enum ESettingsID {
     PERMISSIONS = 'permissions',
     VOICE = 'voice',
     RAIDHELPER = 'raidhelper',
     MISC = 'misc',
-    NOTIFICATIONS = 'notifications'
+    NOTIFICATIONS = 'notifications',
+    TIMINGS = 'timings'
 }
 
 export abstract class Setting {
@@ -30,7 +32,9 @@ export abstract class Setting {
     }
     public async send(
         interaction: RepliableInteraction | MessageComponentInteraction,
-        guild: GuildData,
+        dbGuild: Document<unknown, object, GuildData> & GuildData & Required<{
+            _id: string;
+        }>,
         options?: {
             removeDescription?: boolean;
             removeCurrentSettings?: boolean;
@@ -48,7 +52,7 @@ export abstract class Setting {
                 iconURL: EXCLAMATION_ICON_LINK
             });
         }
-        const currentSettingsDesc = await this.getCurrentSettings(guild, interaction.guild ?? undefined);
+        const currentSettingsDesc = await this.getCurrentSettings(dbGuild, interaction.guild ?? undefined);
         const currentSettingsEmbed = new EmbedBuilder()
             .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: 'Current Settings' })
             .setDescription(currentSettingsDesc ? currentSettingsDesc : '-');
@@ -73,5 +77,7 @@ export abstract class Setting {
     public getCustomId(id: string, args: string[]): string {
         return [WARTIMER_INTERACTION_ID, EInteractionType.SETTING, id, ...args].join(WARTIMER_INTERACTION_SPLIT);
     }
-    public abstract getCurrentSettings(guildData: GuildData, guild?: Guild,): Promise<string>;
+    public abstract getCurrentSettings(dbGuild: Document<unknown, object, GuildData> & GuildData & Required<{
+        _id: string;
+    }>, guild?: Guild,): Promise<string>;
 }

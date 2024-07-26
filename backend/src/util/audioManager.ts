@@ -63,12 +63,12 @@ const loadFiles = (voice: Voices): {
             }
         } catch (e) { /* empty */ }
     }
-    logger.debug(JSON.stringify(sounds));
     return sounds;
 };
 
 export type Voices = 'male' | 'female' | 'material' | 'rocket league';
 
+// TODO: create a new audioplayer for every single subscriber that joins that has custom timings saved in the db and play aduio from that for the subscriber
 class AudioManager {
     private subscribers: {
         timeStamp: number;

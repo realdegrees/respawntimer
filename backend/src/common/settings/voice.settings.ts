@@ -2,6 +2,7 @@ import { ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilde
 import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, Setting } from './settings';
 import audioManager from '../../util/audioManager';
+import { Document } from 'mongoose';
 
 export enum EVoiceSettingsOptions {
     VOICE = 'voice'
@@ -30,7 +31,9 @@ export class VoiceSettings extends Setting {
             voicesRow
         );
     }
-    public async getCurrentSettings(guild: GuildData): Promise<string> {
+    public async getCurrentSettings(guild: Document<unknown, object, GuildData> & GuildData & Required<{
+        _id: string;
+    }>): Promise<string> {
         return Promise.resolve(guild.voice.split(' ').map((voice) => voice.charAt(0).toUpperCase() + voice.slice(1)).join(' '));
     }
 }
