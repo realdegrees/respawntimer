@@ -19,7 +19,7 @@ export interface GuildData {
     customTimings?: string;
 }
 
-export const DBGuild = model<GuildData>('Guild', new Schema<GuildData>({
+export const GuildModel = model<GuildData>('Guild', new Schema<GuildData>({
     _id: { type: String, required: true },
     name: { type: String, required: true },
     assistantRoleIDs: [String],
@@ -45,7 +45,7 @@ export const DBGuild = model<GuildData>('Guild', new Schema<GuildData>({
     }
 }));
 export const getGuild = async (guild: Guild): Promise<Document<unknown, object, GuildData> & GuildData & Required<{ _id: string }>> => {
-    return DBGuild.findById(guild.id).then((obj) => obj ?? new DBGuild({
+    return GuildModel.findById(guild.id).then((obj) => obj ?? new GuildModel({
         _id: guild.id,
         name: guild.name,
         assistantRoleIDs: [],
@@ -60,18 +60,18 @@ export const getGuild = async (guild: Guild): Promise<Document<unknown, object, 
 };
 
 export const deleteGuild = async (guild: Guild): Promise<void> => {
-    return DBGuild.deleteOne({
+    return GuildModel.deleteOne({
         _id: guild.id
     }).then();
 };
 export const getAllGuilds = async (): Promise<(Document<unknown, object, GuildData> & GuildData & Required<{
     _id: string;
 }>)[]> => {
-    return DBGuild.find({}).exec();
+    return GuildModel.find({}).exec();
 };
 export const queryGuilds = async (filter: FilterQuery<GuildData>): Promise<(Document<unknown, object, GuildData> & GuildData & Required<{
     _id: string;
 }>)[]> => {
-    return DBGuild.find(filter).exec();
+    return GuildModel.find(filter).exec();
 };
 

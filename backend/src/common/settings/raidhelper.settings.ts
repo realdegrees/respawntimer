@@ -8,6 +8,7 @@ import raidhelperIntegration from '../../raidhelperIntegration';
 import { formatTime } from '../../util/formatTime';
 import { checkChannelPermissions } from '../../util/checkChannelPermissions';
 import { Document } from 'mongoose';
+import { DBGuild } from '../types/dbGuild';
 
 export enum ERaidhelperSettingsOptions {
     API_KEY = 'apikey',
@@ -18,9 +19,7 @@ export enum ERaidhelperSettingsOptions {
 
 export class RaidhelperSettings extends Setting {
 
-    public async getCurrentSettings(guildData: Document<unknown, object, GuildData> & GuildData & Required<{
-        _id: string;
-    }>, guild: Guild): Promise<string> {
+    public async getCurrentSettings(guildData: DBGuild, guild: Guild): Promise<string> {
         const apiKey = guildData.raidHelper.apiKey;
         const apiKeyValid = apiKey ?
             await raidhelperIntegration.checkApiKey(guild, apiKey) : false;
