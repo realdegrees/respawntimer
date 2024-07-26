@@ -50,6 +50,7 @@ export const getGuild = async (guild: Guild): Promise<Document<unknown, object, 
     return GuildModel.findById(guild.id).then((obj) => {
         if (obj) {
             obj.lastActivityTimestamp = Date.now();
+            obj.name = guild.name;
             return obj;
         } else {
             return new GuildModel({

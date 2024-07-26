@@ -39,15 +39,19 @@ export class PermissionSettings extends Setting {
     }
     public async getCurrentSettings(guildData: DBGuild, guild?: Guild | undefined): Promise<string> {
         return `**Editor Roles**  
-                ${(await Promise.all(guildData.editorRoleIDs.map((id) => guild?.roles.fetch(id))))
-                .filter((role) => !!role)
-                .map((role) => `${role}`)
-                .join('\n')}\n
+                ${await Promise.all(guildData.editorRoleIDs.map((id) => guild?.roles.fetch(id)))
+                .then((roles) =>
+                    roles.filter((role) => !!role)
+                        .map((role) => `${role}`)
+                        .join('\n')
+                ).catch(() => ['Unable to retrieve roles'])}\n
                 **Assistant Roles**  
-                ${(await Promise.all(guildData.assistantRoleIDs.map((id) => guild?.roles.fetch(id))))
-                .filter((role) => !!role)
-                .map((role) => `${role}`)
-                .join('\n')}`;
+                ${await Promise.all(guildData.assistantRoleIDs.map((id) => guild?.roles.fetch(id)))
+                .then((roles) =>
+                    roles.filter((role) => !!role)
+                        .map((role) => `${role}`)
+                        .join('\n')
+                ).catch(() => ['Unable to retrieve roles']) }`;
     }
 
 }

@@ -46,16 +46,14 @@ export class Settings extends Command {
             .setDescription(this.description)
             .toJSON();
     }
-    // eslint-disable-next-line @typescript-eslint/require-await
     public async execute(interaction: CommandInteraction<CacheType>): Promise<unknown> {
         return this.checkPermission(interaction, 'editor').then(() =>
             openSettings(interaction)
-        ).catch(async (msg) => {
-            await interaction.reply({
+        ).catch(async (msg) => interaction.reply({
                 ephemeral: true,
                 content: msg?.toString()
-            }).catch(logger.error);
-        });
+            })
+        ).catch (logger.error);
     }
 }
 // eslint-disable-next-line max-len

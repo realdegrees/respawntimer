@@ -20,7 +20,6 @@ export class Create extends Command {
             .setDescription(this.description)
             .toJSON();
     }
-    // eslint-disable-next-line @typescript-eslint/require-await
     public async execute(interaction: CommandInteraction<CacheType>): Promise<unknown> {
         return this.checkPermission(interaction, 'editor').then(async () => {
             const channel = interaction.channel;
@@ -32,12 +31,10 @@ export class Create extends Command {
                 return interaction.reply({ ephemeral: true, content: 'Invalid channel' });
             }
             return Widget.create(interaction, guild, channel);
-        }).catch(async (msg) => {
-            await interaction.reply({
-                ephemeral: true,
-                content: msg?.toString()
-            }).catch(logger.error);
-        });
+        }).catch(async (msg) => interaction.reply({
+            ephemeral: true,
+            content: msg?.toString()
+        })).catch(logger.error);
 
 
     }
