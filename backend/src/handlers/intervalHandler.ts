@@ -12,11 +12,11 @@ export const startInterval = () => {
 		const [minutes, seconds] = [date.getMinutes(), date.getSeconds()];
 		const warEnd = seconds === 0 && WAR_START_TIMES_MINUTES.some((t) => t === minutes);
 		try {
-			RaidhelperIntegration.interval();
 			managers.forEach(async (manager) => {
 				const subscribers = await manager.populatedSubscribers();
 				manager.update(subscribers.map((subscriber) => ({ ...subscriber, warEnd })));
 			});
+			RaidhelperIntegration.interval();
 		} catch (e) {
 			logger.error('[FATAL] Something went wrong in the interval!', e);
 		}
