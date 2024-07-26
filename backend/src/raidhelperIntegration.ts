@@ -10,9 +10,7 @@ import Database from './db/database';
 import { formatEvents } from './util/formatEvents';
 import { RAIDHELPER_USER_ID } from './common/constant';
 
-const MAX_POLL_RETRIES = 20;
-const POLL_RETRY_NOTIFICATION_THRESHOLD = 3;
-const RETRY_ATTEMPT_DUR = 1;
+const RETRY_ATTEMPT_DUR_MIN = 1;
 const RETRY_INTERVAL_SECONDS = 5;
 const GRACE_PERIOD_MINUTES = 20; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
 const pollingRetries: {
@@ -247,116 +245,112 @@ export class RaidhelperIntegration {
     }
     public static async interval(client: Client): Promise<void> {
         const date = new Date();
-        const [minutes, seconds] = [date.getMinutes(), date.getSeconds(), date.getHours()];
+        const seconds = date.getSeconds();
 
-        // TODO add logic for 10 minutes before each war that checks if any upcoming events have problematic channel permissions and sends a notification if that's the case
-        // Only run within the first RETRY_ATTEMPT_DUR after war begin and every RETRY_INTERVAL_SECONDS seconds
-        if (minutes >= 0 && minutes < RETRY_ATTEMPT_DUR ||
-            minutes >= 30 && minutes < 30 + RETRY_ATTEMPT_DUR &&
-            seconds % RETRY_INTERVAL_SECONDS === 0) {
+        // Only run interval every few seconds
+        if (seconds % RETRY_INTERVAL_SECONDS !== 0) return;
 
-            try {
-                const dbGuilds = await Database.getAllGuilds();
-                // Get guilds with an API Key from DB and filter out those with events starting soon
-                let guilds = dbGuilds
-                    .map((dbGuild) => ({
-                        db: dbGuild,
-                        client: client.guilds.cache.find((clientGuild) => clientGuild.id === dbGuild.id)
-                    }));
+        try {
+            const dbGuilds = await Database.getAllGuilds();
+            // Get guilds with an API Key from DB and filter out those with events starting soon
+            let guilds = dbGuilds
+                .map((dbGuild) => ({
+                    db: dbGuild,
+                    client: client.guilds.cache.find((clientGuild) => clientGuild.id === dbGuild.id)
+                }));
 
-                // Get guilds with an API Key from DB and filter out those with events starting soon
-                guilds = guilds.filter((guild) =>
-                    guild.db.raidHelper.events.find((event) => {
-                        // Get the actual time when the war starts to calculate when to join
-                        const warStartTime = event.startTimeUnix + (1800 - (event.startTimeUnix % 1800))
-                        // Past events = negative diff, Future events = positive diff
-                        const diff = warStartTime * 1000 - Date.now();
-                        const diffSeconds = diff / 1000;
-                        const diffMinutes = diffSeconds / 60;
+            // Get guilds with an API Key from DB and filter out those with events starting soon
+            guilds = guilds.filter((guild) =>
+                guild.db.raidHelper.events.find((event) => {
+                    // Get the actual time when the war starts to calculate when to join
+                    const warStartTime = event.startTimeUnix + (1800 - (event.startTimeUnix % 1800))
+                    // Past events = negative diff, Future events = positive diff
+                    const diff = warStartTime * 1000 - Date.now();
+                    const diffSeconds = diff / 1000;
+                    const diffMinutes = diffSeconds / 60;
 
-                        const isWithinFutureThreshold = diffSeconds < 30;
-                        const isWithinPastThreshold = diffMinutes > GRACE_PERIOD_MINUTES * -1;
+                    const isWithinFutureThreshold = diffSeconds <= 30;
+                    const isWithinPastThreshold = diffMinutes >= RETRY_ATTEMPT_DUR_MIN * -1;
 
-                        return isWithinFutureThreshold && isWithinPastThreshold;
-                    }));
+                    return isWithinFutureThreshold && isWithinPastThreshold;
+                }));
 
-                // for each guild find the closest event and attempt to start the widget and voice
-                for (const guild of guilds) {
-                    if (!guild.client) return;
-                    if (!guild.db.raidHelper.enabled && !guild.db.raidHelper.widget) return;
-                    const event = guild.db.raidHelper.events.reduce((lowest, current) =>
-                        Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
+            // for each guild find the closest event and attempt to start the widget and voice
+            for (const guild of guilds) {
+                if (!guild.client) return;
+                if (!guild.db.raidHelper.enabled && !guild.db.raidHelper.widget) return;
+                const event = guild.db.raidHelper.events.reduce((lowest, current) =>
+                    Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
 
-                    // Try to find a widget
-                    const widget = await Widget.find(
+                // Try to find a widget
+                const widget = await Widget.find(
+                    guild.client,
+                    guild.db.widget.messageId,
+                    guild.db.widget.channelId
+                );
+
+
+                // Voice Start
+                try {
+                    // Connect to voice if not connected and auto-join is enabled
+                    if (guild.db.raidHelper.enabled && !audioManager.isConnected(guild.client, guild.db)) {
+                        let channel;
+                        if (event.voiceChannelId) {
+                            channel = await guild.client.channels.fetch(event.voiceChannelId);
+                        } else if (guild.db.raidHelper.defaultVoiceChannelId) {
+                            channel = await guild.client.channels.fetch(guild.db.raidHelper.defaultVoiceChannelId);
+                        }
+
+
+                        if (!channel) throw new Error('No voice channel specified in event and no default voice channel set');
+                        if (!channel.isVoiceBased()) throw new Error(`${channel} is not a voice channel.`);
+
+                        await (widget ?
+                            widget.toggleVoice({
+                                dbGuild: guild.db,
+                                channel
+                            }) : audioManager.connect(channel, guild.db));
+                        logger.info(`[${guild.db.name}] Joined voice via raidhelper integration`);
+                    }
+                } catch (e) {
+                    await NotificationHandler.sendNotification(
                         guild.client,
-                        guild.db.widget.messageId,
-                        guild.db.widget.channelId
-                    );
-
-
-                    // Voice Start
-                    try {
-                        // Connect to voice if not connected and auto-join is enabled
-                        if (guild.db.raidHelper.enabled && !audioManager.isConnected(guild.client, guild.db)) {
-                            let channel;
-                            if (event.voiceChannelId) {
-                                channel = await guild.client.channels.fetch(event.voiceChannelId);
-                            } else if (guild.db.raidHelper.defaultVoiceChannelId) {
-                                channel = await guild.client.channels.fetch(guild.db.raidHelper.defaultVoiceChannelId);
-                            }
-
-
-                            if (!channel) throw new Error('No voice channel specified in event and no default voice channel set');
-                            if (!channel.isVoiceBased()) throw new Error(`${channel} is not a voice channel.`);
-
-                            await (widget ?
-                                widget.toggleVoice({
-                                    dbGuild: guild.db,
-                                    channel
-                                }) : audioManager.connect(channel, guild.db));
-                            logger.info(`[${guild.db.name}] Joined voice via raidhelper integration`);
-                        }
-                    } catch (e) {
-                        await NotificationHandler.sendNotification(
-                            guild.client,
-                            guild.db,
-                            `Voice Error`,
-                            `Error while attempting to join channel\nfor scheduled event **${event.title}**\n\n${(e instanceof Error ? e.message : e?.toString?.()) || 'Unknown Error'}`
-                        ).catch(logger.error);
-                    }
-
-                    // Widget Start
-                    try {
-                        // Attempt to start widget if auto-widget is enabled
-                        if (guild.db.raidHelper.widget) {
-                            if (widget) {
-                                if (widget.getTextState() || widget.getResettingState()) return; // It's already on or currently resetting
-                                await widget.toggleText(true);
-                                logger.info(`[${guild.db.name}] Started widget via raidhelper integration`);
-
-                            } else {
-                                await NotificationHandler.sendNotification(
-                                    guild.client,
-                                    guild.db,
-                                    `Raidhelper Integration`,
-                                    `Tried to enable text-widget for scheduled event\n**${event.title}**\n\n**Auto-Widget is enabled but I can't find a widget to enable.**`,
-                                    { color: Colors.DarkOrange }
-                                ).catch(logger.error);
-                            }
-                        }
-                    } catch (e) {
-                        await NotificationHandler.sendNotification(
-                            guild.client,
-                            guild.db,
-                            `Widget Error`,
-                            `Error while attempting to enable text-widget\nfor scheduled event **${event.title}**\n\n${(e instanceof Error ? e.message : e?.toString?.()) || 'Unknown Error'}`
-                        ).catch(logger.error);
-                    }
+                        guild.db,
+                        `Voice Error`,
+                        `Error while attempting to join channel\nfor scheduled event **${event.title}**\n\n${(e instanceof Error ? e.message : e?.toString?.()) || 'Unknown Error'}`
+                    ).catch(logger.error);
                 }
-            } catch (e) {
-                logger.error('Error in raidhelper integration interval. ' + (e instanceof Error ? e.message : e?.toString?.()) || 'Unknown Error');
+
+                // Widget Start
+                try {
+                    // Attempt to start widget if auto-widget is enabled
+                    if (guild.db.raidHelper.widget) {
+                        if (widget) {
+                            if (widget.getTextState() || widget.getResettingState()) return; // It's already on or currently resetting
+                            await widget.toggleText(true);
+                            logger.info(`[${guild.db.name}] Started widget via raidhelper integration`);
+
+                        } else {
+                            await NotificationHandler.sendNotification(
+                                guild.client,
+                                guild.db,
+                                `Raidhelper Integration`,
+                                `Tried to enable text-widget for scheduled event\n**${event.title}**\n\n**Auto-Widget is enabled but I can't find a widget to enable.**`,
+                                { color: Colors.DarkOrange }
+                            ).catch(logger.error);
+                        }
+                    }
+                } catch (e) {
+                    await NotificationHandler.sendNotification(
+                        guild.client,
+                        guild.db,
+                        `Widget Error`,
+                        `Error while attempting to enable text-widget\nfor scheduled event **${event.title}**\n\n${(e instanceof Error ? e.message : e?.toString?.()) || 'Unknown Error'}`
+                    ).catch(logger.error);
+                }
             }
+        } catch (e) {
+            logger.error('Error in raidhelper integration interval. ' + (e instanceof Error ? e.message : e?.toString?.()) || 'Unknown Error');
         }
     }
 
