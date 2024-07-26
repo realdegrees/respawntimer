@@ -35,6 +35,7 @@ export class NotificationHandler {
                 for (const dbGuild of dbGuilds) {
                     await client.guilds.fetch(dbGuild.id)
                         .then((guild) => dbGuild.notificationChannelId ? guild.channels.fetch(dbGuild.notificationChannelId) : undefined)
+                        .catch(() => undefined)
                         .then(async (channel) => {
                             if (!channel || !channel.isTextBased()) {
                                 dbGuild.notificationChannelId = undefined;
@@ -42,7 +43,7 @@ export class NotificationHandler {
                             } else {
                                 return channel.send({
                                     embeds: message.embeds.map((embed) => EmbedBuilder.from(embed).setTimestamp())
-                                })
+                                });
                             }
                         })
                         .then(() => {
