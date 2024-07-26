@@ -29,7 +29,7 @@ export abstract class Setting {
         this.footer = footer;
         this.settings = settings;
     }
-    public async send(interaction: RepliableInteraction, guild: GuildData): Promise<InteractionResponse<boolean>> {
+    public async send(interaction: RepliableInteraction, guild: GuildData, includeDescription = true): Promise<InteractionResponse<boolean>> {
         const settingsEmbed = new EmbedBuilder()
             .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: this.title })
             .setThumbnail('https://cdn.discordapp.com/avatars/993116789284286484/c5d1f8c2507c7f2a56a2a330109e66d2?size=1024')
@@ -47,18 +47,11 @@ export abstract class Setting {
 
         return interaction.reply({
             ephemeral: true,
-            embeds: [
+            embeds: includeDescription ? [
                 settingsEmbed,
                 currentSettingsEmbed
-            ],
-            components: [
-                ...this.settings,
-                new ActionRowBuilder<ButtonBuilder>()
-                    .addComponents(new ButtonBuilder({
-                        custom_id: this.getCustomId('', []),
-                        label: 'Done',
-                        style: ButtonStyle.Success
-                    }))] as ActionRowBuilder<any>[]
+            ] : [currentSettingsEmbed],
+            components: this.settings as ActionRowBuilder<any>[]
         });
     }
     public getCustomId(id: string, args: string[]): string {

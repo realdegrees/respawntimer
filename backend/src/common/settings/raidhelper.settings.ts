@@ -12,7 +12,8 @@ export enum ERaidhelperSettingsOptions {
 export class RaidhelperSettings extends Setting {
 
     public async getCurrentSettings(guildData: GuildData, guild: Guild): Promise<string> {
-        return `**Raidhelper API Key**  
+        return `**Raidhelper API Key** 
+        *[Click to reveal]*   
         ${guildData.raidHelper.apiKey ? '||' + guildData.raidHelper.apiKey + '||' : 'Not set'}\n
         **Default Voice Channel**  
         ${guildData.raidHelper.defaultVoiceChannelId ?

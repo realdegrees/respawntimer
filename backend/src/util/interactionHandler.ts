@@ -180,7 +180,7 @@ export class InteractionHandler {
                 case ESettingsID.RAIDHELPER:
                     if (args[0] === ERaidhelperSettingsOptions.API_KEY) {
                         if (interaction.isButton()) {
-                            (setting as RaidhelperSettings).showModal(interaction);
+                            await (setting as RaidhelperSettings).showModal(interaction);
                         } else if (interaction.isModalSubmit() && setting) {
                             dbGuild.raidHelper.apiKey = interaction.fields
                                 .getTextInputValue(
@@ -198,10 +198,10 @@ export class InteractionHandler {
                     await interaction.deferUpdate().then(() => interaction.deleteReply());
                     return;
             }
-            dbGuild.save()
+            await dbGuild.save()
                 .then(() => {
-                    if (!interaction.deferred) {
-                        return interaction.deferUpdate();
+                    if (!interaction.deferred && !interaction.replied) {
+                        setting?.send(interaction, dbGuild, false);
                     }
                 })
                 .catch((e) => logger.error(e));
