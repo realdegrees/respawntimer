@@ -397,7 +397,7 @@ export class Widget {
                                         .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
                                         .setThumbnail('https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png')
                                         .setTitle('Discord')
-                                        .setURL('https://discord.gg/AzHDPVrBfn')
+                                        .setURL('https://discord.gg/tcvd8CsA4N')
                                         .setDescription('Join the discord to get assistance, discuss the bot or suggest new features'),
                                     new EmbedBuilder()
                                         .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
