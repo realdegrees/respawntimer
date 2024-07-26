@@ -364,7 +364,7 @@ export class RaidhelperIntegration {
 						dbGuild,
 						`Voice Error`,
 						`Error while attempting to join channel\nfor scheduled event **${event.title}**\n\n${
-							(e instanceof Error ? e.message : e?.toString?.()) || 'Unknown Error'
+							(e instanceof Error ? e.message : String(e)) || 'Unknown Error'
 						}`
 					).catch(logger.error);
 				}
