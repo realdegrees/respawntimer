@@ -7,3 +7,7 @@ export const formatTime = (date: Date): string => {
 
     return hours + ':' + minutes + ' ' + month + ' ' + day;
 };
+export const roundUpHalfHourUnix = (unixTimeStamp: number): number => {
+    const remainder = unixTimeStamp % 1800;
+    return remainder === 0 ? unixTimeStamp : unixTimeStamp + (1800 - remainder);
+}

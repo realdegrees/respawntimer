@@ -9,6 +9,7 @@ import { DBGuild } from './common/types/dbGuild';
 import Database from './db/database';
 import { formatEvents } from './util/formatEvents';
 import { RAIDHELPER_USER_ID } from './common/constant';
+import { roundUpHalfHourUnix } from './util/formatTime';
 
 const RETRY_ATTEMPT_DUR_MIN = 1;
 const RETRY_INTERVAL_SECONDS = 5;
@@ -262,15 +263,14 @@ export class RaidhelperIntegration {
             // Get guilds with an API Key from DB and filter out those with events starting soon
             guilds = guilds.filter((guild) =>
                 guild.db.raidHelper.events.find((event) => {
-                    // Get the actual time when the war starts to calculate when to join
-                    const warStartTime = event.startTimeUnix + (1800 - (event.startTimeUnix % 1800))
+                    const warStartTime = roundUpHalfHourUnix(event.startTimeUnix);
                     // Past events = negative diff, Future events = positive diff
                     const diff = warStartTime * 1000 - Date.now();
                     const diffSeconds = diff / 1000;
                     const diffMinutes = diffSeconds / 60;
 
-                    const isWithinFutureThreshold = diffSeconds <= 30;
-                    const isWithinPastThreshold = diffMinutes >= RETRY_ATTEMPT_DUR_MIN * -1 && diffMinutes <= 0;
+                    const isWithinFutureThreshold = diffSeconds >= 0 && diffSeconds <= 30;
+                    const isWithinPastThreshold = diffMinutes <= 0 && diffMinutes >= RETRY_ATTEMPT_DUR_MIN * -1;
 
                     return isWithinFutureThreshold || isWithinPastThreshold;
                 }));
