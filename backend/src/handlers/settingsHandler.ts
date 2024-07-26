@@ -10,7 +10,7 @@ import { EInteractionType } from "../common/types/interactionType";
 import { BaseSetting } from "../common/settings/base.setting";
 import Database from "../db/database";
 import logger from "../../lib/logger";
-import { Widget } from "../common/widget";
+import { Widget } from "../widget";
 import { setTimeout } from "timers/promises";
 import { SettingsPostInteractAction } from "../common/types/settingsPostInteractActions";
 import { DBGuild } from "../common/types/dbGuild";
@@ -81,7 +81,7 @@ export class SettingsHandler {
                         // Delete reply, catch into nothing because it doesn't matter
                         await settingInteraction?.deleteReply().catch(() => { });
                         settingInteraction = undefined;
-                        await setTimeout(800); // artificial timeout to make switching options look less janky
+                        await setTimeout(600); // artificial timeout to make switching options look less janky
                     }
                     const message = await setting.send(
                         interaction,

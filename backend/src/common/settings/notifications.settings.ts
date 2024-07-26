@@ -6,7 +6,7 @@ import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
 import logger from '../../../lib/logger';
 import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, debug } from '../constant';
-import { Widget } from '../widget';
+import { Widget } from '../../widget';
 import { NotificationHandler, UPDATE_SOURCE_SERVER_ID } from '../../handlers/notificationHandler';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 

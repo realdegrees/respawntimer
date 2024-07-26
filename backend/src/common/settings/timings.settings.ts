@@ -9,7 +9,7 @@ import { string } from 'yargs';
 import textManager from '../../util/textManager';
 import audioManager from '../../util/audioManager';
 import logger from '../../../lib/logger';
-import { Widget } from '../widget';
+import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 import { setTimeout } from 'timers/promises';
 
@@ -172,6 +172,10 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
      * @param time an array of single time values
      */
     public static convertToSeconds(time?: string[]): number[] | undefined;
+    /**
+     * @param time 
+     * @returns An array of numbers in DESCENDING order or undefined
+     */
     public static convertToSeconds(time?: string[] | string): number[] | undefined {
         const parse = (s: string): number => {
             const [minutes, seconds] = s.split(':').map((v) => Number.parseInt(v));
@@ -179,7 +183,7 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
         };
         if (!time) return undefined;
         else if (typeof time === 'string') return time.split(',').map(parse).sort((a, b) => a - b).reverse();
-        else if (time.length > 0) return time.map(parse);
+        else if (time.length > 0) return time.map(parse).sort((a, b) => a - b).reverse();
         else return undefined;
     }
     public static sort(text: string): string[] {
@@ -195,7 +199,15 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
         return TimingsSettings.sort(text).sort().toString() === [...TimingsSettings.DEFAULT].sort().toString();
     }
 
+    /**
+     * 
+     * @param timers 
+     * @returns 
+     */
     public static convertToRespawnData(timers: number[]): WarInfo {
+        // Sort descending
+        timers = timers.sort((a, b) => a - b).reverse();
+
         const start = new Date();
         start.setMinutes(start.getMinutes() >= 30 ? 30 : 0);
         start.setSeconds(0);
@@ -213,19 +225,17 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
         const duration = current ? prev ? prev - current : 30 * 60 - current : -1;
         const durationNext = next && current ? current - next : -1;
         const remainingRespawns = current ? timers.length - currentIndex : 0;
-        //const timeUntilRespawn = clamp(timeLeftTotalSeconds - prev, 0, Infinity);
         const timeUntilRespawn = current ?
-            timeLeftTotalSeconds - current === duration ?
-                0 :
-                timeLeftTotalSeconds - current :
-            -1;
+            timeLeftTotalSeconds - current === duration ? 0 : timeLeftTotalSeconds - current
+            : -1;
 
         return {
             respawn: {
                 duration,
                 durationNext,
                 timeUntilRespawn,
-                remainingRespawns
+                remainingRespawns,
+                previousTimestamp: prev
             },
             war: {
                 timeLeftSeconds: timeLeftTotalSeconds

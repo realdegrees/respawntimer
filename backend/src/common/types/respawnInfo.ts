@@ -4,6 +4,7 @@ export interface WarInfo {
         duration: number;
         durationNext: number;
         remainingRespawns: number;
+        previousTimestamp?: number;
     };
     war: {
         timeLeftSeconds: number;

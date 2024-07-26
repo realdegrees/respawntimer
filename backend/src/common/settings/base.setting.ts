@@ -7,7 +7,7 @@ import { EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SP
 import { EInteractionType } from '../types/interactionType';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
-import { Widget } from '../widget';
+import { Widget } from '../../widget';
 import logger from '../../../lib/logger';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 

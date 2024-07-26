@@ -14,30 +14,25 @@ export class Command {
         throw new Error('Not implemented');
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<unknown> {
+    public execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<void> {
         throw new Error('Not implemented');
     }
-    // eslint-disable-next-line max-len
+    /**
+     * 
+     * @param interaction 
+     * @param permitType 
+     * @returns 
+     * @throws {Error}
+     */
     protected async checkPermission(interaction: CommandInteraction<CacheType>, permitType: 'editor' | 'assistant'): Promise<boolean> {
         if (!interaction.guild) return Promise.reject();
 
-        // checks if guild exists in db, creates document if not
-        return Database.getGuild(interaction.guild).then((dbGuild) => {
-            if (!interaction.guild) return Promise.reject('Not a guild interaction. This should not happen.');
+        const dbGuild = await Database.getGuild(interaction.guild);
+        const member = await interaction.guild.members.fetch(interaction.user);
+        const roleIDs = permitType === 'editor' ? dbGuild.editorRoleIDs : [...dbGuild.editorRoleIDs, ...dbGuild.assistantRoleIDs];
 
-            const roleIDs = permitType === 'editor' ? dbGuild.editorRoleIDs : [...dbGuild.editorRoleIDs, ...dbGuild.assistantRoleIDs];
-            return interaction.user.id === process.env['OWNER_ID'] || interaction.guild.members.fetch(interaction.user)
-                .then((member) => {
-                    if (
-                        !member.permissions.has('Administrator') &&
-                        !member.roles.cache.some((role) => roleIDs.includes(role.id))
-                    ) {
-                        // eslint-disable-next-line max-len
-                        return Promise.reject('You must have ' + permitType + ' permissions to use this command!\nAsk an administrator or editor to adjust the bot `/settings`');
-                    } else {
-                        return true;
-                    }
-                }).catch((reason) => Promise.reject(reason || 'Unable to fetch server members in order to complete permission check. Try again in a few minutes.'));
-        });
+        return interaction.user.id === process.env['OWNER_ID'] ||
+            member.permissions.has('Administrator') ||
+            member.roles.cache.some((role) => roleIDs.includes(role.id));
     }
 }

@@ -3,7 +3,7 @@ import { ESettingsID, BaseSetting } from './base.setting';
 import audioManager, { Voices } from '../../util/audioManager';
 import { DBGuild } from '../types/dbGuild';
 import logger from '../../../lib/logger';
-import { Widget } from '../widget';
+import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 
 export enum EVoiceSettingsOptions {

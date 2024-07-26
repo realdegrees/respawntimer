@@ -9,16 +9,16 @@ import {
     Message, PartialMessage, TextBasedChannel, TextChannel, VoiceBasedChannel
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
-import logger from '../../lib/logger';
-import audioManager from '../util/audioManager';
-import textManager from '../util/textManager';
-import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './constant';
-import { EInteractionType } from './types/interactionType';
-import { DBGuild } from './types/dbGuild';
-import Database from '../db/database';
-import { SettingsHandler } from '../handlers/settingsHandler';
-import { ECollectorStopReason } from './types/collectorStopReason';
-import { userHasRole } from '../util/permissions';
+import logger from '../lib/logger';
+import audioManager from './util/audioManager';
+import textManager from './util/textManager';
+import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './common/constant';
+import { EInteractionType } from './common/types/interactionType';
+import { DBGuild } from './common/types/dbGuild';
+import Database from './db/database';
+import { SettingsHandler } from './handlers/settingsHandler';
+import { ECollectorStopReason } from './common/types/collectorStopReason';
+import { userHasRole } from './util/permissions';
 
 export enum EWidgetButtonID {
     TEXT = 'text',
@@ -107,10 +107,10 @@ export class Widget {
                 if (!clientGuild) {
                     throw new Error('Unable to find guild while initializing widget')
                 }
-                const widget = await Widget.find(clientGuild, dbGuild.widget.channelId, dbGuild.widget.messageId, dbGuild);
+                const widget = await Widget.find(clientGuild, dbGuild.widget.messageId, dbGuild.widget.channelId, dbGuild);
                 await widget?.update({ force: true });
                 widget?.startListening();
-            } catch(e) {
+            } catch (e) {
                 logger.error(`[${dbGuild.name}] Error while trying to initialize widget: ${e?.toString?.() || 'Unknown'}`);
                 continue;
             }
@@ -121,73 +121,52 @@ export class Widget {
      * @param interaction The interaction the widget was created from (DO NOT DEFER OR REPLY THIS INTERACTION)
      * @param guild 
      * @param channel 
+     * @throws {Error}
      */
     public static async create(
         interaction: CommandInteraction<CacheType>,
         channel: GuildTextBasedChannel
     ): Promise<void> {
-        await interaction.deferReply({ ephemeral: true }).catch(logger.error);
-        try {
-            const guild = channel.guild;
-            // Check if guild exists in the database, create document if not
-            const dbGuild = await Database.getGuild(guild);
+        const guild = channel.guild;
+        // Check if guild exists in the database, create document if not
+        const dbGuild = await Database.getGuild(guild);
 
-            // Check permissions of the user
-            const member = await guild.members.fetch(interaction.user);
-            if (
-                !(member.user.id === process.env['OWNER_ID']) &&
-                !member.permissions.has('Administrator') &&
-                !member.roles.cache.some((role) => dbGuild.editorRoleIDs.includes(role.id))
-            ) {
-                throw new Error('You must have editor permissions to use this command! Ask an administrator or editor to adjust the bot `/settings`');
-            }
-
-            // Delete existing widget message if it exists
-            if (dbGuild.widget.channelId && dbGuild.widget.messageId) {
-                const widget = await Widget.find(guild, dbGuild.widget.messageId, dbGuild.widget.channelId);
-                if (widget) {
-                    await widget.message.delete();
-                }
-            }
-
-            // Create and send the new widget message
-            const embed = await Widget.getEmbed(guild);
-            const message = await channel.send({ embeds: [embed] });
-
-            // Update dbGuild widget data
-            dbGuild.widget = {
-                channelId: message.channel.id,
-                messageId: message.id,
-            };
-            await dbGuild.save();
-
-            await new Promise<Widget>((res) => {
-                new Widget(
-                    message,
-                    guild,
-                    !dbGuild.hideWidgetButtons,
-                    res);
-            });
-
-            // Respond to the interaction
-            await interaction.editReply({
-                content: 'Widget Created ✅',
-            }).catch(logger.error);
-            await setTimeout(700);
-            await interaction.deleteReply()
-                .catch(logger.error);
-        } catch (error) {
-            // Handle errors or log them as needed
-            if (error instanceof Error) {
-                await interaction.editReply({
-                    content: error.message || 'An error occurred during widget creation',
-                }).catch(logger.error);
-                await setTimeout(700);
-                await interaction.deleteReply()
-                    .catch(logger.error);
-            }
-            logger.error(error?.toString?.() || 'Error creating widget');
+        // Check permissions of the user
+        const member = await guild.members.fetch(interaction.user);
+        if (
+            !(member.user.id === process.env['OWNER_ID']) &&
+            !member.permissions.has('Administrator') &&
+            !member.roles.cache.some((role) => dbGuild.editorRoleIDs.includes(role.id))
+        ) {
+            throw new Error('You must have editor permissions to use this command! Ask an administrator or editor to adjust the bot `/settings`');
         }
+
+        // Delete existing widget message if it exists
+        if (dbGuild.widget.channelId && dbGuild.widget.messageId) {
+            const widget = await Widget.find(guild, dbGuild.widget.messageId, dbGuild.widget.channelId);
+            if (widget) {
+                await widget.message.delete();
+            }
+        }
+
+        // Create and send the new widget message
+        const embed = await Widget.getEmbed(guild);
+        const message = await channel.send({ embeds: [embed] });
+
+        // Update dbGuild widget data
+        dbGuild.widget = {
+            channelId: message.channel.id,
+            messageId: message.id,
+        };
+        await dbGuild.save();
+
+        await new Promise<Widget>((res) => {
+            new Widget(
+                message,
+                guild,
+                !dbGuild.hideWidgetButtons,
+                res);
+        });
     }
 
     public static async find(
@@ -199,7 +178,7 @@ export class Widget {
         try {
             let widget: Widget | undefined;
             // first check if widget can be found in memory
-            widget = Widget.LIST.find((widget) => widget.getId() === (message?.id ?? messageId))
+            widget = Widget.LIST.find((widget) => widget.getId() === messageId)
             if (widget) return widget;
 
             // if it's not in memory try to find the original message and load it into memory as a widget instance
@@ -211,8 +190,8 @@ export class Widget {
             const dbGuild = dbGuildArg ?? await Database.getGuild(message.guild);
 
             // if the clicked message doesn't equal the message stored in the db we try to find the message corresponding to the stored data and delete it
-            const argMessageEqualsDbWidgetMessage = dbGuild.widget.channelId && dbGuild.widget.messageId && (message.channel.id !== dbGuild.widget.channelId || message.id !== dbGuild.widget.messageId);
-            if (!argMessageEqualsDbWidgetMessage) {
+            const argMessageIsNotDbMessage = dbGuild.widget.channelId && dbGuild.widget.messageId && (message.channel.id !== dbGuild.widget.channelId || message.id !== dbGuild.widget.messageId);
+            if (argMessageIsNotDbMessage) {
                 await this.deleteDbWidgetMessage(guild, messageId, channelId);
             }
             dbGuild.widget = {
@@ -226,7 +205,7 @@ export class Widget {
             });
         }
         catch (error) {
-            logger.error(error?.toString?.() || 'Error finding widget');
+            logger.debug('Unable to find widget ' + error?.toString?.());
             return undefined;
         }
     }
@@ -241,7 +220,7 @@ export class Widget {
             }
             return undefined;
         } catch (error) {
-            logger.error(error?.toString?.() || 'Error finding original widget message');
+            logger.debug('Message saved in DB not found ' + error?.toString?.());
             return undefined;
         }
     }
@@ -255,7 +234,7 @@ export class Widget {
                 await message.delete();
             }
         } catch (error) {
-            logger.error(error?.toString?.() || 'Error deleting old widget message');
+            logger.debug('Unable to delete old widget message ' + error?.toString?.());
         }
     }
     private static async getEmbed(guild: Guild, description?: string, title?: string): Promise<EmbedBuilder> {
@@ -347,11 +326,10 @@ export class Widget {
         } catch (e) {
             if (e instanceof DiscordAPIError && e.code === 429) {
                 logger.error('Error: ' + e.message);
+
+                const retryAfter = (e.requestBody.json as { retry_after?: number })?.retry_after ?? 500;
                 this.rateLimitExceeded = true;
-
-                const retryAfter = (e.requestBody.json as { retry_after: number }).retry_after;
                 await setTimeout(retryAfter);
-
                 this.rateLimitExceeded = false;
                 return Promise.resolve();
             } else {
@@ -515,7 +493,7 @@ export class Widget {
     public getId(): string {
         return this.message.id;
     }
-    public async recreateMessage(manual = false): Promise<void> {
+    public async recreateMessage(): Promise<void> {
         try {
             this.isResetting = true;
 
@@ -527,11 +505,9 @@ export class Widget {
                 components: [this.getButtons(true, true)],
                 embeds: [
                     EmbedBuilder.from(this.message.embeds[0])
-                        .setTitle(manual ? 'Reloading Widget' : 'Discord API Timeout')
+                        .setTitle('Discord API Timeout')
                         .setFooter({ text: 'Wartimer' })
-                        .setDescription(
-                            manual ? 'Resetting..' : `Resetting.. (${resetDurationSeconds}s) This only affects the widget.\nAudio announcements still work.`
-                        ),
+                        .setDescription(`Resetting.. (${resetDurationSeconds}s) This only affects the widget.\nAudio announcements still work.`),
                 ],
             });
             // Update the database with new message information
@@ -560,7 +536,7 @@ export class Widget {
             this.startListening();
 
             // Delay before further actions (setTimeout returns a Promise)
-            await setTimeout(manual ? 0 : resetDurationSeconds * 1000);
+            await setTimeout(resetDurationSeconds * 1000);
 
             // Reset flags and perform additional actions if needed
             this.isUpdating = 0;
@@ -569,9 +545,19 @@ export class Widget {
             if (!this.textState) {
                 await this.update({ force: true });
             }
-        } catch (error) {
+        } catch (e) {
             // Handle and log any errors that occur
-            logger.error(error?.toString?.() ?? 'Error during message recreation');
+            if (e instanceof DiscordAPIError && e.code === 429) {
+                logger.error('Error: ' + e.message);
+                const retryAfter = (e.requestBody.json as { retry_after?: number })?.retry_after ?? 500;
+                this.rateLimitExceeded = true;
+                await setTimeout(retryAfter);
+                this.rateLimitExceeded = false;
+                this.recreateMessage();
+            } else {
+                // Handle other errors or log them as needed
+                logger.error(e?.toString?.() || 'Error during message recreation');
+            }
         }
     }
     //endregion
