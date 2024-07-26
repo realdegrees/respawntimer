@@ -15,7 +15,7 @@ export class CommandSet extends Command {
             .setDescription(this.description)
             .addIntegerOption((option) => option
                 .setName('delay')
-                .setDescription('Changes the update interval of the respawn timer (Default: 5)')
+                .setDescription('Changes the update interval of the respawn timer (Default: 1)')
                 .setRequired(false))
             .toJSON();
     }
