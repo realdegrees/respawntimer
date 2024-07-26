@@ -109,7 +109,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                 const voiceChannelPermissions = voiceChannel && voiceChannel.isVoiceBased() ? await checkChannelPermissions(voiceChannel, ['ViewChannel', 'Connect', 'Speak'])
                     .then(() => '')
                     .catch(() => `⚠️`) : '';
-                return `- 📝  ${event.title}  ${time}${voiceChannel ? `  🔗 ${voiceChannel} ${voiceChannelPermissions}` : ''}`;
+                return `- 📝  ${event.title.length > 20 ? `${event.title.slice(19)}..` : event.title}  ${time}${voiceChannel ? `  🔗 ${voiceChannel} ${voiceChannelPermissions}` : ''}`;
             }))).join('\n') : '*None*';
 
         const apiKeyValidText = apiKey ?
