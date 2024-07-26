@@ -15,23 +15,25 @@ I will maintain this bot as long as I actively play the game.
 # Features
 
 ## ✒️ Widget
-![Widget Showcase GIF](https://i.imgur.com/kJ6ssqz.gif)
+![Widget Showcase GIF](https://i.imgur.com/cpi0L8O.png)
+![Widget Showcase GIF](https://i.imgur.com/worHkbh.gif)
 
 Create a text widget with `/create` that allows full control over the bot and provides quick access to the settings as well.  
-The widget shows important information about upcoming respawns, amount of remaining respawns and the duration of the current next respawn duration. Since the audio announcements only come at intervals of *10 seconds* *(+ a full countdown from 5s)* it can be useful to have the widget on your second monitor at a glance.
+
+The widget shows important information about upcoming respawns, amount of remaining respawns and the duration of the current next respawn duration. While the widget is not active it will display information about the next scheduled event *if* the Raidhelper Integration is enabled.
 
 The text widget is just for convenience, if you only want to setup the raidhelper integration for example you can use `/settings` for the setup without ever creating a widget.
 ## 📌 Raidhelper Integration
-![Raidhelper Integration Showcase](https://i.imgur.com/kjyS1sP.png)
+![Raidhelper Integration Showcase](https://i.imgur.com/0mO6RTW.png)
 
 You can connect [Raidhelper](https://raid-helper.dev/) by using `/apikey show` to get your API key and then set the key within the Respawn Timer Bot settings. By default the bot will then scan for new Raidhelper events every 5 minutes and schedule them if **Auto-Join** is enabled.
 
 The bot will then automatically join the voice channel that is specified in the Raidhelper Event settings - or the **Default Voice Channel** if the event doesn't have a voice channel option - 5 seconds before the war begins.
 ## 📝 Customizable Respawn Timestamps
-![Custom Timestamp Showcase](https://i.imgur.com/iVCfaTe.png)  
+![Custom Timestamp Showcase](https://i.imgur.com/66k3KAc.png)  
 
 *Customized Timestamps are highlighted*   
-![Custom Timestamp Highlights Showcase](https://i.imgur.com/wirhMt9.png)  
+![Custom Timestamp Highlights Showcase](https://i.imgur.com/0fohut1.png)  
 
 By default the voice announcements use a set of timestamps that have been field tested by multiple companies over hundreds of wars. Over the course of the development of this bot I have reviewed and compared the timestamps with dozens of VoDs and can confirm that the announcements are always correct.
 
@@ -41,18 +43,15 @@ By default the voice announcements use a set of timestamps that have been field 
 dsfdsfdfs
 
 ## 🔊 Voice Selection
-The bot currently offers several sounds for audio announcements
-
-* Generic Male Voice
-* Generic Female Voice
-* Material UI Sounds *(Non-intrusive audio cues)*
-* Rocket League Countdown *(What a save!)*
-
+The bot currently offers several unique voices for audio announcements.  
 They can be simply be changed with a drop-down menu in the settings even while the bot is already in your voice channel.
 ## 🔒 Permissions
-![Permission Showcase](https://i.imgur.com/t8s4Fdp.png)
+![Permission Showcase](https://i.imgur.com/uL5PB5t.png)
 
 You can set **Editor** and **Assistant** roles. **Editor** roles have full access to the bot and can edit the settings while **Assistant** roles can only use the buttons on the widget to toggle the text and voice announcements.
+
+## 🔔 Notifications
+Set a dedicated notification channel in the **Notification Settings** to get notfied when the bot encounters problems like missing permissions or when events get de-/scheduled. You will also receive important app updates here.
 # 🐋 Deployment - Docker
 `docker run -d --name wartimer -e DISCORD_CLIENT_TOKEN='<Token>' -e DISCORD_CLIENT_ID='<ID>' wartimer`
 
