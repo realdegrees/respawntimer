@@ -258,11 +258,12 @@ export class Widget {
         }
     }
     private async checkPermission(interaction: ButtonInteraction): Promise<boolean> {
-        return this.managerRoles.length === 0 || (await this.guild.members
-            .fetch(interaction.user)).roles.cache
+        const user = await this.guild.members.fetch(interaction.user);
+        return this.managerRoles.length === 0 || user.roles.cache
             .some((userRole) => this.managerRoles
                 .map((role) => role.id)
-                .includes(userRole.id));
+                .includes(userRole.id)) ||
+            user.permissions.has('Administrator');
     }
 
     private async getConnection(interaction: ButtonInteraction): Promise<VoiceConnection> {
