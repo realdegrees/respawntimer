@@ -81,7 +81,7 @@ export class SettingsHandler {
                         return;
                     }
 
-                    const dbGuild = await Database.getGuild(interaction.guild);
+                    const dbGuild = await Database.getGuild(interaction.guild.id);
                     if (settingInteraction) {
                         settingCollector?.stop(ECollectorStopReason.DISPOSE);
                         // Delete reply, catch into nothing because it doesn't matter
@@ -104,19 +104,14 @@ export class SettingsHandler {
                                 const [, , interactionId, interactionOption] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
                                 logger.info(`[${guild.name}] ${interactionOption} interaction`);
 
-                                const dbGuild = await Database.getGuild(interaction.guild);
-                                const widget = await Widget.find(
-                                    interaction.guild,
-                                    dbGuild.widget.messageId,
-                                    dbGuild.widget.channelId
-                                );
+                                const dbGuild = await Database.getGuild(interaction.guild.id);
+                                const widget = await Widget.find(dbGuild);
                                 const setting: BaseSetting | undefined = this.getSettingById(interactionId, settings);
                                 const postInteractActions = await setting?.onInteract(dbGuild, interaction, widget, interactionOption);
 
                                 await this.handlePostInteractActions(
                                     postInteractActions,
                                     dbGuild,
-                                    guild,
                                     widget,
                                     settingInteraction,
                                     setting
@@ -169,7 +164,6 @@ export class SettingsHandler {
     private static async handlePostInteractActions(
         postInteractActions: SettingsPostInteractAction[] | undefined,
         dbGuild: DBGuild,
-        guild: Guild,
         widget?: Widget,
         settingInteraction?: AnySelectMenuInteraction | ButtonInteraction,
         setting?: BaseSetting
@@ -196,7 +190,7 @@ export class SettingsHandler {
             }
         }
         if (postInteractActions?.includes('startEventPolling')) {
-            RaidhelperIntegration.start(guild, dbGuild);
+            RaidhelperIntegration.start(dbGuild);
         }
     }
 }

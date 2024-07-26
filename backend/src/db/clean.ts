@@ -33,7 +33,7 @@ export const cleanGuilds = async (client: Client, dbGuilds: DBGuild[], maxInacti
                 logger.info(`[${dbGuild.name}] Last Activity ${(inactiveDurationDays * 24).toFixed(2)} hours ago`);
                 if (inactiveDurationDays > maxInactiveDays) {
                     const guild = await clientGuild.fetch();
-                    await NotificationHandler.sendNotification(guild, dbGuild,
+                    await NotificationHandler.sendNotification(dbGuild,
                         'Data Deletion',
                         'The bot has been inactive for a month on this server.\nAll saved data will be deleted, you can still use the bot at any time but will have to redo any settings.',
                         { color: Colors.DarkRed }

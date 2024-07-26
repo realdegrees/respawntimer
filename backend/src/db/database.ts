@@ -5,6 +5,7 @@ import { Document } from 'mongoose';
 import { Guild } from 'discord.js';
 import { GuildData, GuildModel } from './guild.schema';
 import { DBGuild } from '../common/types/dbGuild';
+import Bot from '../bot';
 
 let instance: Database | undefined;
 class Database {
@@ -36,13 +37,14 @@ class Database {
         return GuildModel.findById(guildId)
             .then((obj) => !!obj);
     }
-    public static async getGuild(guild: Guild): Promise<DBGuild> {
-        return GuildModel.findById(guild.id).then((obj) => {
+    public static async getGuild(id: string): Promise<DBGuild> {
+        return GuildModel.findById(id).then(async (obj) => {
             if (obj) {
                 obj.lastActivity = new Date();
-                obj.name = guild.name;
+                obj.name = Bot.client.guilds.cache.find((g) => g.id === id)?.name ?? obj.name;
                 return obj;
             } else {
+                const guild = Bot.client.guilds.cache.find((g) => g.id === id) ?? await Bot.client.guilds.fetch(id);
                 return new GuildModel({
                     _id: guild.id,
                     name: guild.name,

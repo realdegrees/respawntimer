@@ -30,7 +30,7 @@ export class Settings extends Command {
         if (!interaction.guild) {
             throw new Error('This command can only be run on a server.');
         }
-        const dbGuild = await Database.getGuild(interaction.guild);
+        const dbGuild = await Database.getGuild(interaction.guild.id);
         const hasPermission = await userHasRole(
             interaction.guild!,
             interaction.user,

@@ -27,7 +27,7 @@ export class Command {
     protected async checkPermission(interaction: CommandInteraction<CacheType>, permitType: 'editor' | 'assistant'): Promise<boolean> {
         if (!interaction.guild) return Promise.reject();
 
-        const dbGuild = await Database.getGuild(interaction.guild);
+        const dbGuild = await Database.getGuild(interaction.guild.id);
         const member = await interaction.guild.members.fetch(interaction.user);
         const roleIDs = permitType === 'editor' ? dbGuild.editorRoleIDs : [...dbGuild.editorRoleIDs, ...dbGuild.assistantRoleIDs];
 

@@ -48,11 +48,10 @@ const logStats = (guildsDb: DBGuild[]): void => {
 Promise.resolve()
   .then(() => Database.init())
   .then(() => Bot.init())
-  .then((bot) => {
-    logger.info("Invite | " + bot.user?.client.generateInvite(INVITE_SETTINGS));
-    return bot;
-  })
-  .then(async (bot) => {
+  .then(async () => {
+    // Log invite link
+    logger.info("Invite | " + Bot.client.generateInvite(INVITE_SETTINGS));
+
     // Remove discord servers from DB taht have been inactive or where bot is not a member anymore
     let dbGuilds = await Database.getAllGuilds();
 
@@ -66,19 +65,18 @@ Promise.resolve()
     dbGuilds = await Database.getAllGuilds();
     for (const dbGuild of dbGuilds) {
       if (dbGuild.raidHelper.apiKey) {
-        const guild = await bot.client.guilds.fetch(dbGuild.id);
-        if (guild) RaidhelperIntegration.start(guild, dbGuild);
+        RaidhelperIntegration.start(dbGuild);
         await setTimeout(100);
       }
     }
-    RaidhelperIntegration.startRaidhelperMessageCollector(bot.client);
+    RaidhelperIntegration.startRaidhelperMessageCollector();
 
     // Start respawn interval
-    RespawnInterval.startInterval(bot.client);
-    await NotificationHandler.startListening(bot.client);
+    RespawnInterval.startInterval();
+    await NotificationHandler.startListening();
 
     // Load existing widgets
-    await Widget.loadExisting(bot.client);
+    //await Widget.loadExisting();
   })
   .catch((error) => {
     logger.error("Unable to start!");

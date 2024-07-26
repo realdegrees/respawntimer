@@ -51,7 +51,6 @@ export class DevSettings extends BaseSetting<ButtonBuilder> {
                 await interaction.deferUpdate();
                 await widget?.recreateMessage();
                 return [];
-                break;
             case EDevSettingsOptions.FORCE_RATE_LIMIT:
                 if (!widget) {
                     await interaction.reply({ ephemeral: true, content: 'Need a widget to do that' });
@@ -66,7 +65,6 @@ export class DevSettings extends BaseSetting<ButtonBuilder> {
                 ));
                 await message?.delete();
                 return [];
-                break;
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
         }
     }
