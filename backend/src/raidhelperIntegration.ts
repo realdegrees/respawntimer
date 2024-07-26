@@ -14,7 +14,7 @@ import Bot from './bot';
 import textManager from './handlers/textManager';
 import { getEventVoiceChannel } from './util/discord';
 
-const POLL_INTERVAL_MINUTES = .5;
+const POLL_INTERVAL_MINUTES = 8;
 const GRACE_PERIOD_MINUTES = 20; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
 
 const activePollIntervals: Partial<
