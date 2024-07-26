@@ -5,6 +5,8 @@ import Database from '../../db/database';
 import logger from '../../../lib/logger';
 import { Widget } from '../widget';
 import { WidgetHandler } from '../../widgetHandler';
+import { UPDATE_SOURCE_SERVER_ID } from '../../notificationHandler';
+import { debug } from '../constant';
 
 export enum EMiscSettingsOptions {
     CLEAR = 'clear',
@@ -25,7 +27,7 @@ export class MiscSettings extends BaseSetting<ButtonBuilder> {
             ButtonStyle.Secondary
         );
     }
-    
+
     // ! dbGuild can be an empty object here 
     public async getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const clear = new ButtonBuilder()
@@ -72,6 +74,7 @@ export class MiscSettings extends BaseSetting<ButtonBuilder> {
                 usersWaitingForClearConfirm.push(interaction.user.id);
                 return this.send(interaction, dbGuild, { update: true });
             case EMiscSettingsOptions.CLEAR_CONFIRM:
+                if (interaction.guild.id === UPDATE_SOURCE_SERVER_ID && !debug) return Promise.reject('Data cannot be deleted on this server.');
                 return Database.deleteGuild(interaction.guild.id)
                     .then(() => logger.info('[' + interaction.guild!.name + '] Data Deleted'))
                     .then(async () => {

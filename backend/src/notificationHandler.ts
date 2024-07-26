@@ -12,13 +12,13 @@ type NotificationResponse = {
 
 const DUPLICATE_PROTECTION_STRENGTH = 3; // How many previous notifications should be checked for duplicates
 const notificationMap: { guildId: string; notifications: string[]; logs: string[] }[] = [];
-const sourceServerId = '979269592360837120'; // Wartimer Development Server
-const sourceChannelId = '1151202146268741682'; // Wartimer Development Server Update Channel
+export const UPDATE_SOURCE_SERVER_ID = '979269592360837120'; // Wartimer Development Server
+export const UPDATE_SOURCE_CHANNEL_ID = '1151202146268741682'; // Wartimer Development Server Update Channel
 
 export class NotificationHandler {
     public constructor(client: Client) {
         client.on('messageCreate', (message) => {
-            if (message.channel.id === sourceChannelId && message.guild?.id === sourceServerId) {
+            if (message.channel.id === UPDATE_SOURCE_CHANNEL_ID && message.guild?.id === UPDATE_SOURCE_SERVER_ID) {
                 message.fetch().then(async (message) => {
                     const dbGuilds = await Database.queryGuilds({
                         'notificationChannelId': { $regex: /\d+/ }
