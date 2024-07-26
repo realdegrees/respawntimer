@@ -21,13 +21,13 @@ export class Command {
         if (!interaction.guild) {
             return Promise.reject();
         }
-
         // checks if guild exists in db, creates document if not
         const dbGuild = await DBGuild.findById(interaction.guild.id).then((obj) => obj ?? new DBGuild({
             _id: interaction.guild?.id,
             name: interaction.guild?.name,
             assistantRoleIDs: [],
-            editorRoleIDs: []
+            editorRoleIDs: [],
+            voice: 'female'
         }).save());
         // eslint-disable-next-line max-len
         const roleIDs = permitType === 'editor' ? dbGuild.editorRoleIDs : [...dbGuild.editorRoleIDs, ...dbGuild.assistantRoleIDs];
