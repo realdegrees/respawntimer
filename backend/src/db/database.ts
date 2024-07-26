@@ -9,7 +9,7 @@ import { DBGuild } from '../common/types/dbGuild';
 let instance: Database | undefined;
 class Database {
     private constructor() { }
-    public static init(): Promise<void> {
+    public static async init(): Promise<void> {
         const mongoUser = process.env['MONGO_USER'];
         const mongoPass = process.env['MONGO_PASS'];
         const mongoHost = process.env['MONGO_HOST'] ?? 'mongo';
@@ -36,10 +36,10 @@ class Database {
         return GuildModel.findById(guildId)
             .then((obj) => !!obj);
     }
-    public static async getGuild(guild: Guild): Promise<Document<unknown, object, GuildData> & GuildData & Required<{ _id: string }>> {
+    public static async getGuild(guild: Guild): Promise<DBGuild> {
         return GuildModel.findById(guild.id).then((obj) => {
             if (obj) {
-                obj.lastActivityTimestamp = Date.now();
+                obj.lastActivity = new Date();
                 obj.name = guild.name;
                 return obj;
             } else {
@@ -49,7 +49,7 @@ class Database {
                     assistantRoleIDs: [],
                     editorRoleIDs: [],
                     voice: 'female',
-                    lastActivityTimestamp: Date.now(),
+                    lastActivity: new Date(),
                     raidHelper: {
                         events: []
                     }

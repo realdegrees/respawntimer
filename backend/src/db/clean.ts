@@ -11,15 +11,15 @@ export const cleanGuilds = async (client: Client, guilds: DBGuild[]): Promise<st
     return client.guilds.fetch().then((clientGuilds) => Promise.all(guilds.map(async (dbGuild) => {
         const guild = clientGuilds.find((guild) => guild.id === dbGuild.id);
         if (guild) {
-            if (dbGuild.lastActivityTimestamp) {
-                const inactiveDurationDays = (Date.now() - dbGuild.lastActivityTimestamp) / 1000 / 60 / 60 / 24;
+            if (dbGuild.lastActivity) {
+                const inactiveDurationDays = (Date.now() - dbGuild.lastActivity.getTime()) / 1000 / 60 / 60 / 24;
                 logger.info(`[${dbGuild.name}] Last Activity ${(inactiveDurationDays * 24).toFixed(2)} hours ago`);
                 if (inactiveDurationDays > 31) {
                     await guild.fetch().then((guild) =>
-                        NotificationHandler.sendNotification(guild,
+                        NotificationHandler.sendNotification(guild, dbGuild,
                             'Data Deletion',
                             'The bot has been inactive for a month on this server.\nAll saved data will be deleted, you can still use the bot at any time but will have to redo any settings.',
-                            Colors.DarkRed
+                            { color: Colors.DarkRed }
                         ))
 
                     return Database.deleteGuild(dbGuild.id).then(() => `${dbGuild.name} (Inactive ${inactiveDurationDays}d)`);

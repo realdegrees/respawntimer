@@ -9,7 +9,7 @@ import logger from '../../lib/logger';
 import { timers } from '../common/timer';
 import { Guild, VoiceBasedChannel } from 'discord.js';
 import { Widget } from '../common/widget';
-import { checkChannelPermissions } from './checkChannelPermissions';
+import { checkChannelPermissions } from './permissions';
 import { TimingsSettings } from '../common/settings/timings.settings';
 import { DBGuild } from '../common/types/dbGuild';
 import { WarInfo } from '../common/types';
@@ -205,7 +205,7 @@ class AudioManager {
         });
     }
     public async disconnect(guild: Guild, dbGuild: DBGuild): Promise<void> {
-        return Widget.get({
+        return Widget.find({
             guild,
             messageId: dbGuild.widget.messageId,
             channelId: dbGuild.widget.channelId
@@ -226,7 +226,7 @@ class AudioManager {
         return this.getConnection(channel)
             .then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
                 Database.getGuild(channel.guild)
-                    .then((dbGuild) => Widget.get({
+                    .then((dbGuild) => Widget.find({
                         guild: channel.guild,
                         messageId: dbGuild.widget.messageId,
                         channelId: dbGuild.widget.channelId

@@ -1,6 +1,7 @@
 import { Schema, model } from 'mongoose';
 import { RaidhelperSettingData } from '../common/types';
 import { Voices } from '../util/audioManager';
+import { number } from 'yargs';
 
 export interface GuildData {
     _id: string;
@@ -10,7 +11,7 @@ export interface GuildData {
     voice: Voices;
     raidHelper: RaidhelperSettingData;
     notificationChannelId?: string;
-    lastActivityTimestamp?: number;
+    lastActivity: Date;
     hideWidgetButtons?: boolean;
     widget: {
         channelId?: string;
@@ -27,12 +28,13 @@ export const GuildModel = model<GuildData>('Guild', new Schema<GuildData>({
     voice: String,
     notificationChannelId: String,
     customTimings: String,
-    lastActivityTimestamp: Number,
+    lastActivity: Date,
     hideWidgetButtons: Boolean,
     raidHelper: {
         enabled: Boolean,
         widget: Boolean,
         apiKey: String,
+        lastManualRefresh: Date,
         apiKeyValid: Boolean,
         defaultVoiceChannelId: String,
         eventChannelId: String,

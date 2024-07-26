@@ -1,3 +1,3 @@
 export enum ECollectorStopReason {
-    DISPOSE = 'dispose'
+    DISPOSE = 'dispose',
 }

@@ -5,9 +5,7 @@ import logger from '../lib/logger';
 import { Create } from './commands/create';
 import { Settings } from './commands/settings';
 import { Command } from './commands/command';
-import { InteractionHandler } from './handlers/interactionHandler';
 import { NotificationHandler } from './handlers/notificationHandler';
-import { WidgetHandler } from './handlers/widgetHandler';
 import { Invite } from './commands/invite';
 import Database from './db/database';
 
@@ -19,17 +17,11 @@ import Database from './db/database';
  */
 class Bot {
     public readonly user: User | null;
-    public interactionHandler;
-    public notificationHandler;
-    public widgetHandler;
     private constructor(
         public client: Client,
         commands: Command[]
     ) {
         this.user = this.client.user;
-        this.interactionHandler = new InteractionHandler(client);
-        this.notificationHandler = new NotificationHandler(client);
-        this.widgetHandler = new WidgetHandler(client);
         this.client.user?.setActivity({ name: 'New World', type: ActivityType.Playing });
         this.client.on('interactionCreate', (interaction) => {
             if (!interaction.isCommand() || !interaction.guild) return;

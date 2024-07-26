@@ -9,7 +9,7 @@ const settings = {
     barIconEmpty: '○'
 };
 
-
+// TODO: make textmanager static along with voicemanager
 type Subscriber = {
     timeStamp: number;
     msgId: string;
@@ -142,12 +142,6 @@ class TextManager {
             subscriber.onUnsubscribe();
         }
         return true;
-    }
-    public updateSubscription(oldMsgId: string, newMsgId: string): void {
-        const sub = this.subscribers.find((s) => s.msgId === oldMsgId);
-        if (sub) {
-            sub.msgId = newMsgId;
-        }
     }
 }
 export default new TextManager();

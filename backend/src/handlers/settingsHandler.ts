@@ -1,4 +1,4 @@
-import { ButtonInteraction, CacheType, CommandInteraction, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ComponentType, AnySelectMenuInteraction, InteractionCollector, ModalSubmitInteraction, ChannelSelectMenuInteraction, MentionableSelectMenuInteraction, RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction } from "discord.js";
+import { ButtonInteraction, CacheType, CommandInteraction, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ComponentType, AnySelectMenuInteraction, InteractionCollector, ModalSubmitInteraction, ChannelSelectMenuInteraction, MentionableSelectMenuInteraction, RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction, Guild } from "discord.js";
 import { WARTIMER_ICON_LINK, EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from "../common/constant";
 import { MiscSettings } from "../common/settings/misc.settings";
 import { NotificationSettings } from "../common/settings/notifications.settings";
@@ -12,10 +12,10 @@ import Database from "../db/database";
 import logger from "../../lib/logger";
 import { Widget } from "../common/widget";
 import { setTimeout } from "timers/promises";
-import { WidgetHandler } from "./widgetHandler";
 import { SettingsPostInteractAction } from "../common/types/settingsPostInteractActions";
 import { DBGuild } from "../common/types/dbGuild";
 import { ECollectorStopReason } from "../common/types/collectorStopReason";
+import { error } from "console";
 
 const settingsEmbed = new EmbedBuilder()
     .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: 'Settings' })
@@ -76,10 +76,11 @@ export class SettingsHandler {
 
                     const dbGuild = await Database.getGuild(interaction.guild);
                     if (settingInteraction) {
+                        settingCollector?.stop(ECollectorStopReason.DISPOSE);
                         // Delete reply, catch into nothing because it doesn't matter
                         await settingInteraction?.deleteReply().catch(() => { });
-                        settingCollector?.stop(ECollectorStopReason.DISPOSE);
                         settingInteraction = undefined;
+                        await setTimeout(800); // artificial timeout to make switching options look less janky
                     }
                     const message = await setting.send(
                         interaction,
@@ -94,9 +95,10 @@ export class SettingsHandler {
                                     await interaction.reply({ ephemeral: true, content: 'Unable to process request' });
                                     return;
                                 }
-                                let dbGuild = await Database.getGuild(interaction.guild);
                                 const [, , interactionId, interactionOption] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
-                                const widget = await Widget.get({
+
+                                const dbGuild = await Database.getGuild(interaction.guild);
+                                const widget = await Widget.find({
                                     channelId: dbGuild.widget.channelId,
                                     messageId: dbGuild.widget.messageId,
                                     guild: interaction.guild
@@ -107,14 +109,12 @@ export class SettingsHandler {
                                 await this.handlePostInteractActions(
                                     postInteractActions,
                                     dbGuild,
+                                    guild,
                                     widget,
                                     settingInteraction,
                                     setting
                                 )
-
-                                if (postInteractActions && postInteractActions.length > 0) {
-                                    await interaction.deferUpdate().catch();
-                                }
+                                await interaction.deferUpdate().catch(() => { });
                             } catch (e) {
                                 interaction.reply({
                                     ephemeral: true,
@@ -122,13 +122,13 @@ export class SettingsHandler {
                                 })
                                     .then(() => setTimeout(1000 * 20))
                                     .then(() => interaction.deleteReply())
-                                    .catch(logger.error);
+                                    .catch((err) => logger.error(`${err?.toString?.()} | Tried logging original error: ${e?.toString?.() || 'Unknown'}`));
                             }
                         })
                         .on('end', async (interaction, reason: ECollectorStopReason) => {
-                            if(reason === ECollectorStopReason.DISPOSE) return;
+                            if (reason === ECollectorStopReason.DISPOSE) return;
                             // Delete reply, catch into nothing because it doesn't matter
-                            await settingInteraction?.deleteReply().catch(() => {});
+                            await settingInteraction?.deleteReply().catch(() => { });
                             settingInteraction = undefined;
                         });
                     if (settingInteraction) await interaction.deferUpdate();
@@ -140,11 +140,11 @@ export class SettingsHandler {
                     })
                         .then(() => setTimeout(1000 * 20))
                         .then(() => interaction.deleteReply())
-                        .catch(logger.error);
+                        .catch((err) => logger.error(`${err?.toString?.()} | Tried logging original error: ${e?.toString?.() || 'Unknown'}`));
                 }
             })
             .on('end', async () => {
-                await interaction.deleteReply().catch(() => {});
+                await interaction.deleteReply().catch(() => { });
                 settingInteraction = undefined;
             });
     }
@@ -160,6 +160,7 @@ export class SettingsHandler {
     private static async handlePostInteractActions(
         postInteractActions: SettingsPostInteractAction[] | undefined,
         dbGuild: DBGuild,
+        guild: Guild,
         widget?: Widget,
         settingInteraction?: AnySelectMenuInteraction | ButtonInteraction,
         setting?: BaseSetting
@@ -176,8 +177,7 @@ export class SettingsHandler {
             await Database.deleteGuild(dbGuild.id);
             logger.debug('Guild exists: ' + await Database.hasGuild(dbGuild.id))
             if (widget) {
-                WidgetHandler.removeWidgetFromMemory(widget.getId());
-                await widget.update({ force: true });
+                await widget.delete();
             }
         }
         if (postInteractActions?.includes('update')) {

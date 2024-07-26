@@ -1,6 +1,6 @@
 import { Client } from 'discord.js';
 import audioManager from '../util/audioManager';
-import raidhelperIntegration from '../raidhelperIntegration';
+import raidhelperIntegration, { RaidhelperIntegration } from '../raidhelperIntegration';
 import textManager from '../util/textManager';
 
 
@@ -10,7 +10,7 @@ export class RespawnInterval {
         setInterval(() => {
             audioManager.interval();
             textManager.interval();
-            raidhelperIntegration.interval(client);
+            RaidhelperIntegration.interval(client);
         }, 1000);
     }
 }

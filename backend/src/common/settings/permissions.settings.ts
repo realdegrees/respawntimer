@@ -4,8 +4,8 @@ import { ESettingsID, BaseSetting } from './base.setting';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
 import { Widget } from '../widget';
-import { InteractionHandler } from '../../handlers/interactionHandler';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
+import { userHasRole } from '../../util/permissions';
 
 export enum EPermissionSettingsOptions {
     EDITOR = 'Editor',
@@ -69,7 +69,7 @@ export class PermissionSettings extends BaseSetting<RoleSelectMenuBuilder> {
         const roleIds = interaction.roles.map((role) => role.id);
         switch (option) {
             case EPermissionSettingsOptions.EDITOR:
-                const perm = await InteractionHandler.checkPermission(interaction.guild, interaction.user, roleIds)
+                const perm = await userHasRole(interaction.guild, interaction.user, roleIds)
                 perm ?
                     dbGuild.editorRoleIDs = roleIds :
                     Promise.reject('Unable to complete request. This action would remove your editor permissions!');
