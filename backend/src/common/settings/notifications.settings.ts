@@ -28,8 +28,15 @@ export class NotificationSettings extends BaseSetting<StringSelectMenuBuilder> {
             ''
         );
     }
-    public async getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
-        const channelSelectMenu = await new AdvancedChannelSelectMenuBuilder(interaction.guild!, interaction.user)
+	public async getSettingsRows(
+		dbGuild: DBGuild,
+		interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction
+	) {
+		const channelSelectMenu = await new AdvancedChannelSelectMenuBuilder(
+			interaction.guild!,
+			interaction.user,
+			{ allowUnset: true }
+		)
             .setCustomId(this.getCustomId(this.id, [ENotificationSettingsOptions.UPDATE_CHANNEL]))
             .setChannelType(ChannelType.GuildText)
             .setChannelCache(this.channelSelectCache)

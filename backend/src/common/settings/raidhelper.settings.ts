@@ -58,7 +58,11 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
             style: dbGuild.raidHelper.widget ? ButtonStyle.Danger : ButtonStyle.Success
         });
 
-        const textChannelSelectMenu = await new AdvancedChannelSelectMenuBuilder(interaction.guild!, interaction.user)
+		const textChannelSelectMenu = await new AdvancedChannelSelectMenuBuilder(
+			interaction.guild!,
+			interaction.user,
+			{ allowUnset: true }
+		)
             .setCustomId(this.getCustomId(this.id, [ERaidhelperSettingsOptions.EVENT_CHANNEL]))
             .setChannelType(ChannelType.GuildText)
             .setChannelCache(this.textChannelSelectCache)
@@ -66,7 +70,11 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
             .setPlaceholder('Event Channel')
             .build();
 
-        const voiceChannelSelectMenu = await new AdvancedChannelSelectMenuBuilder(interaction.guild!, interaction.user)
+		const voiceChannelSelectMenu = await new AdvancedChannelSelectMenuBuilder(
+			interaction.guild!,
+			interaction.user,
+			{ allowUnset: true }
+		)
             .setCustomId(this.getCustomId(this.id, [ERaidhelperSettingsOptions.DEFAULT_CHANNEL]))
             .setChannelType(ChannelType.GuildVoice)
             .setChannelCache(this.voiceChannelSelectCache)
