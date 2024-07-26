@@ -41,6 +41,7 @@ export const GuildModel = model<GuildData>('Guild', new Schema<GuildData>({
             id: String,
             title: String,
             startTimeUnix: Number,
+            lastUpdatedUnix: Number,
             voiceChannelId: String
         }]
     },
