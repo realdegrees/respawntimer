@@ -29,6 +29,7 @@ export class RaidhelperIntegration {
                         .catch((reason) => {
                             if (reason === API_KEY_RATE_LIMIT_MESSAGE) {
                                 dbGuild.raidHelper.apiKey = API_KEY_RATE_LIMIT_MESSAGE;
+                                dbGuild.raidHelper.apiKeyValid = false;
                             }
                             return [] as ScheduledEvent[];
                         }).then(async (events) => {
@@ -70,7 +71,7 @@ export class RaidhelperIntegration {
                             }
 
 
-
+                            dbGuild.raidHelper.apiKeyValid = !!dbGuild.raidHelper.apiKey && dbGuild.raidHelper.apiKey !== API_KEY_RATE_LIMIT_MESSAGE;
                             dbGuild.raidHelper.events = events;
                             return dbGuild.save().then(() => {
                                 if (guild) {
@@ -186,6 +187,7 @@ export class RaidhelperIntegration {
                 postedEvents?: ScheduledEvent[];
             }) => Promise.all(data.postedEvents?.map((event) =>
                 fetch(`https://raid-helper.dev/api/v2/events/${event.id}`, { headers: header })
+                    .then((res) => res.ok ? res : Promise.reject(API_KEY_RATE_LIMIT_MESSAGE))
                     .then((res) => res.json())
                     .then((event: RaidhelperAPIEvent) => ({ // Need to map to new object so the entire event object doesn't get saved to databse
                         id: event.id,

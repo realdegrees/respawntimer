@@ -33,6 +33,7 @@ export const GuildModel = model<GuildData>('Guild', new Schema<GuildData>({
         enabled: Boolean,
         widget: Boolean,
         apiKey: String,
+        apiKeyValid: Boolean,
         defaultVoiceChannelId: String,
         eventChannelId: String,
         events: [{

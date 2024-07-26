@@ -246,7 +246,7 @@ export class Widget {
         const embed = new EmbedBuilder();
         if (!options?.description) {
             const nextWar = await Database.getGuild(this.guild).then((dbGuild) => {
-                embed.setFooter({ text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKey ? 'Enabled' : 'Disabled'}` });
+                embed.setFooter({ text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKeyValid ? 'Enabled' : 'Disabled'}` });
                 const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
                     Math.abs(current.startTime * 1000 - Date.now()) < Math.abs(lowest.startTime * 1000 - Date.now()) ? current : lowest);
                 return `On Standby for **${event.title}**\n*at* <t:${event.startTime}:t> *on* <t:${event.startTime}:d>`;
