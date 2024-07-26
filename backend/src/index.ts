@@ -72,6 +72,7 @@ Promise.resolve()
         await setTimeout(100);
       }
     }
+    RaidhelperIntegration.startRaidhelperMessageCollector(bot.client);
 
     // Start respawn interval
     RespawnInterval.startInterval(bot.client);
