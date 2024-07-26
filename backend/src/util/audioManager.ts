@@ -204,8 +204,8 @@ class AudioManager {
             timings
         });
     }
-    public disconnect(guild: Guild, dbGuild: DBGuild): void {
-        Widget.get({
+    public async disconnect(guild: Guild, dbGuild: DBGuild): Promise<void> {
+        return Widget.get({
             guild,
             messageId: dbGuild.widget.messageId,
             channelId: dbGuild.widget.channelId

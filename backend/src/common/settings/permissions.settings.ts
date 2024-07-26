@@ -4,6 +4,7 @@ import { ESettingsID, BaseSetting } from './base.setting';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
 import { Widget } from '../widget';
+import { InteractionHandler } from '../../interactionHandler';
 
 export enum EPermissionSettingsOptions {
     EDITOR = 'Editor',
@@ -21,7 +22,7 @@ export class PermissionSettings extends BaseSetting<RoleSelectMenuBuilder> {
             'If neither Editor nor Assistant roles have been set anyone can control the bot via the widget and settings can only be changed by administrators.'
         );
     }
-    public getSettingsRows() {
+    public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const assistantRoles = new RoleSelectMenuBuilder()
             .setCustomId(this.getCustomId(this.id, [EPermissionSettingsOptions.ASSISTANT]))
             .setMinValues(0)
@@ -66,13 +67,19 @@ export class PermissionSettings extends BaseSetting<RoleSelectMenuBuilder> {
         switch (option) {
             case EPermissionSettingsOptions.EDITOR:
                 if (!interaction.isRoleSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                dbGuild.editorRoleIDs = interaction.roles.map((role) => role.id);
-                break;
+                if (!interaction.guild) return Promise.reject('Unable to retrieve server data, please try again in a few minutes');
+                const roleIds = interaction.roles.map((role) => role.id);
+                return InteractionHandler.checkPermission(interaction.guild, interaction.user, roleIds)
+                    .then((perm) => perm ?
+                        dbGuild.editorRoleIDs = roleIds :
+                        Promise.reject('Unable to complete request. This action would remove your own editor permissions!'))
+                    .then(() => dbGuild.save())
+                    .then(() => this.send(interaction, dbGuild, { update: true }));
             case EPermissionSettingsOptions.ASSISTANT:
                 if (!interaction.isRoleSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
                 dbGuild.assistantRoleIDs = interaction.roles.map((role) => role.id);
-                break;
+                return dbGuild.save().then(() => this.send(interaction, dbGuild, { update: true }));
         }
-        return dbGuild.save().then(() => this.send(interaction, dbGuild, { update: true }));
+
     }
 }

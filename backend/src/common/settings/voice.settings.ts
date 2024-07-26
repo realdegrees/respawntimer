@@ -19,7 +19,7 @@ export class VoiceSettings extends BaseSetting<StringSelectMenuBuilder> {
             ''
         );
     }
-    public getSettingsRows(dbGuild: DBGuild) {
+    public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const voice = new StringSelectMenuBuilder()
             .setCustomId(this.getCustomId(this.id, [EVoiceSettingsOptions.VOICE]))
             .setPlaceholder(dbGuild.voice.split(' ').map((voice) => voice.charAt(0).toUpperCase() + voice.slice(1)).join(' '))

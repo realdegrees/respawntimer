@@ -7,6 +7,7 @@ import { RespawnInterval } from './common/respawnInterval';
 import Database from './db/database';
 import { DBGuild } from './common/types/dbGuild';
 import { cleanGuilds } from './db/clean';
+import { INVITE_SETTINGS } from './commands/invite';
 install();
 config();
 
@@ -22,13 +23,7 @@ Promise.resolve()
     .then(() => Database.init())
     .then(() => Bot.init())
     .then((bot) => {
-        logger.info('Invite | ' + bot.user?.client.generateInvite({
-            scopes: [OAuth2Scopes.Bot, OAuth2Scopes.ApplicationsCommands],
-            permissions: [
-                PermissionFlagsBits.SendMessages,
-                PermissionFlagsBits.Speak,
-                PermissionFlagsBits.ViewChannel]
-        }));
+        logger.info('Invite | ' + bot.user?.client.generateInvite(INVITE_SETTINGS));
         return bot;
     })
     .then((bot) => {

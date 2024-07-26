@@ -8,9 +8,10 @@ import { WidgetHandler } from '../../widgetHandler';
 
 export enum EMiscSettingsOptions {
     CLEAR = 'clear',
+    CLEAR_CONFIRM = 'clearconfirm',
     TOGGLE_WIDGET_BUTTONS = 'togglewidgetbuttons'
 }
-
+const usersWaitingForClearConfirm: string[] = [];
 export class MiscSettings extends BaseSetting<ButtonBuilder> {
     public constructor() {
         super(ESettingsID.MISC,
@@ -24,24 +25,39 @@ export class MiscSettings extends BaseSetting<ButtonBuilder> {
             ButtonStyle.Secondary
         );
     }
-    public getSettingsRows() {
+    
+    // ! dbGuild can be an empty object here 
+    public async getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
         const clear = new ButtonBuilder()
             .setCustomId(this.getCustomId(this.id, [EMiscSettingsOptions.CLEAR]))
             .setLabel('Clear Saved Data')
             .setStyle(ButtonStyle.Danger);
+
+        if (!!usersWaitingForClearConfirm.find((userId) => userId === interaction.user.id) || !(await Database.hasGuild(dbGuild.id))) {
+            clear.setDisabled(true);
+        }
+        const confirmClear = new ButtonBuilder()
+            .setCustomId(this.getCustomId(this.id, [EMiscSettingsOptions.CLEAR_CONFIRM]))
+            .setLabel('Confirm')
+            .setStyle(ButtonStyle.Success);
         const toggleWidgetButtons = new ButtonBuilder()
             .setCustomId(this.getCustomId(this.id, [EMiscSettingsOptions.TOGGLE_WIDGET_BUTTONS]))
             .setLabel('Toggle Text-Widget Buttons')
             .setStyle(ButtonStyle.Primary);
 
-        const row = new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(toggleWidgetButtons)
+        const optionsRow = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(toggleWidgetButtons);
+        const delRow = new ActionRowBuilder<ButtonBuilder>()
             .addComponents(clear);
-        return Promise.resolve([row]);
+
+        if (!!usersWaitingForClearConfirm.find((userId) => userId === interaction.user.id)) {
+            delRow.addComponents(confirmClear);
+        }
+        return Promise.resolve([optionsRow, delRow]);
     }
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    public async getCurrentSettings(guildData: DBGuild) {
-        return Promise.resolve(`**Text Widget Buttons**\n${guildData.hideWidgetButtons ? 'Hidden' : 'Shown'}`);
+    // ! dbGuild can be an empty object here 
+    public async getCurrentSettings(dbGuild: DBGuild) {
+        return Promise.resolve(`**Text Widget Buttons**\n${dbGuild.hideWidgetButtons ? 'Hidden' : 'Shown'}`);
     }
     public async onInteract(
         dbGuild: DBGuild,
@@ -53,15 +69,23 @@ export class MiscSettings extends BaseSetting<ButtonBuilder> {
         if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
         switch (option) {
             case EMiscSettingsOptions.CLEAR:
-                // eslint-disable-next-line no-case-declarations
+                usersWaitingForClearConfirm.push(interaction.user.id);
+                return this.send(interaction, dbGuild, { update: true });
+            case EMiscSettingsOptions.CLEAR_CONFIRM:
                 return Database.deleteGuild(interaction.guild.id)
-                    .then(() => interaction.reply({ ephemeral: true, content: 'Data deleted ✅' }))
                     .then(() => logger.info('[' + interaction.guild!.name + '] Data Deleted'))
-                    .then(() => {
-                        if (widget && !widget.textState) {
-                            WidgetHandler.removeWidgetFromMemory(widget.getId());
-                            widget.update({ force: true });
+                    .then(async () => {
+                        const userWaitingForClearIndex = usersWaitingForClearConfirm.findIndex((userId) => userId === interaction.user.id);
+                        if (userWaitingForClearIndex !== -1) {
+                            usersWaitingForClearConfirm.splice(userWaitingForClearIndex, 1);
                         }
+
+                        return this.send(interaction, {} as DBGuild, { update: true }).then(() => {
+                            if (widget && !widget.textState) {
+                                WidgetHandler.removeWidgetFromMemory(widget.getId());
+                                return widget.update({ force: true });
+                            }
+                        });
                     });
             case EMiscSettingsOptions.TOGGLE_WIDGET_BUTTONS:
                 dbGuild.hideWidgetButtons = !dbGuild.hideWidgetButtons;

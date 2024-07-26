@@ -35,13 +35,14 @@ export const SETTINGS_LIST = [
 
 export class Settings extends Command {
     public constructor(protected client: Client) {
-        super('settings', 'Change Bot Settings', client);
+        super('settings', 'Opens the settings', client);
     }
 
     public build(): RESTPostAPIApplicationCommandsJSONBody {
         return new SlashCommandBuilder()
             .setName(this.name)
             .setDescription(this.description)
+            .setDMPermission(false)
             .toJSON();
     }
     public async execute(interaction: CommandInteraction<CacheType>): Promise<unknown> {

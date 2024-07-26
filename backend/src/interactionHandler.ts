@@ -12,6 +12,7 @@ import { EInteractionType } from './common/types/interactionType';
 import { BaseSetting } from './common/settings/base.setting';
 import { DBGuild } from './common/types/dbGuild';
 import Database from './db/database';
+import { setTimeout } from 'timers/promises';
 
 const widgetButtonIds = {
     text: 'text',
@@ -38,7 +39,9 @@ export class InteractionHandler {
                 return;
             }
             this.onInteraction(interaction, interactionType, interactionId, interactionOption, interactionArgs)
-                .catch((e) => interaction.reply({ ephemeral: true, content: e?.toString() ?? 'Unknown Error' }))
+                .catch((err) => interaction.reply({ ephemeral: true, content: err?.toString?.() || 'Unknown Error' })
+                    .then(() => setTimeout(15000))
+                    .then(() => interaction.deleteReply()))
                 .catch(logger.error);
         });
     }
@@ -114,16 +117,13 @@ export class InteractionHandler {
         if (!widget) return Promise.reject('Unable to find widget for this interaction. This should not happen.');
         switch (id) {
             case widgetButtonIds.text:
-                return this.checkPermission(
+                return InteractionHandler.checkPermission(
                     interaction.guild!,
                     interaction.user,
                     dbGuild.editorRoleIDs
                 ).then(async (perm) => {
                     if (!perm) {
-                        return interaction.reply({
-                            ephemeral: true,
-                            content: 'You do not have permission to use this.'
-                        });
+                        return Promise.reject('You do not have permission to use this.');
                     } else {
                         return widget.toggleText({
                             dbGuild
@@ -131,17 +131,13 @@ export class InteractionHandler {
                     }
                 });
             case widgetButtonIds.voice:
-                return this.checkPermission(
+                return InteractionHandler.checkPermission(
                     interaction.guild!,
                     interaction.user,
                     dbGuild.editorRoleIDs
                 ).then(async (perm_1) => {
                     if (!perm_1) {
-                        return interaction.reply({
-                            ephemeral: true,
-                            content: 'You do not have permission to use this.'
-                        });
-
+                        return Promise.reject('You do not have permission to use this.');
                     } else {
                         return widget.toggleVoice({
                             dbGuild,
@@ -150,16 +146,13 @@ export class InteractionHandler {
                     }
                 });
             case widgetButtonIds.settings:
-                return this.checkPermission(
+                return InteractionHandler.checkPermission(
                     interaction.guild!,
                     interaction.user,
                     dbGuild.editorRoleIDs
                 ).then(async (perm_2) => {
                     if (!perm_2) {
-                        return interaction.reply({
-                            ephemeral: true,
-                            content: 'You do not have editor permissions.'
-                        });
+                        return Promise.reject('You do not have editor permissions.');
                     } else {
                         return openSettings(interaction as ButtonInteraction);
                     }
@@ -192,7 +185,7 @@ export class InteractionHandler {
         }
     }
 
-    private async checkPermission(guild: Guild, user: User, permittedRoleIDs: string[]): Promise<boolean> {
+    public static async checkPermission(guild: Guild, user: User, permittedRoleIDs: string[]): Promise<boolean> {
         return guild.members.fetch(user)
             .then((member) => permittedRoleIDs.length === 0 ||
                 member.roles.cache.some((userRole) => permittedRoleIDs.includes(userRole.id)) ||

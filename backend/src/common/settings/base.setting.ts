@@ -17,6 +17,8 @@ export enum ESettingsID {
     NOTIFICATIONS = 'notifications',
     TIMINGS = 'timings'
 }
+
+// TODO: instead of deleting old replies, save and edit the xisting one
 const openSettingsUserMap: {
     userId: string;
     deleteCallback: () => Promise<void>
@@ -35,9 +37,7 @@ export abstract class BaseSetting<
 
     public async send(
         interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
-        dbGuild: Document<unknown, object, GuildData> & GuildData & Required<{
-            _id: string;
-        }>,
+        dbGuild: DBGuild,
         options?: {
             removeDescription?: boolean;
             removeCurrentSettings?: boolean;
@@ -66,7 +66,7 @@ export abstract class BaseSetting<
         if (!options?.removeCurrentSettings && currentSettingsDesc) embeds.push(currentSettingsEmbed);
         if (options?.customEmbed) embeds.push(options.customEmbed);
 
-        const rows = await this.getSettingsRows(dbGuild);
+        const rows = await this.getSettingsRows(dbGuild, interaction);
         const content = {
             ephemeral: true,
             embeds: embeds,
@@ -91,7 +91,7 @@ export abstract class BaseSetting<
     public getCustomId(id: string, args: string[]): string {
         return [WARTIMER_INTERACTION_ID, EInteractionType.SETTING, id, ...args].join(WARTIMER_INTERACTION_SPLIT);
     }
-    public abstract getSettingsRows(dbGuild: DBGuild): Promise<ActionRowBuilder<MenuOptions>[]>;
+    public abstract getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction): Promise<ActionRowBuilder<MenuOptions>[]>;
     public abstract getCurrentSettings(dbGuild: DBGuild, guild?: Guild): Promise<string>;
     public abstract onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, widget: Widget | undefined, option: string): Promise<unknown>;
 }

@@ -1,6 +1,6 @@
 import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v9';
-import { Client, GatewayIntentBits, User } from 'discord.js';
+import { ActivityType, Client, GatewayIntentBits, Message, PresenceUpdateStatus, User } from 'discord.js';
 import logger from '../lib/logger';
 import { Create } from './commands/create';
 import { Settings } from './commands/settings';
@@ -8,6 +8,7 @@ import { Command } from './common/command';
 import { InteractionHandler } from './interactionHandler';
 import { NotificationHandler } from './notificationHandler';
 import { WidgetHandler } from './widgetHandler';
+import { Invite } from './commands/invite';
 
 
 /**
@@ -28,7 +29,7 @@ class Bot {
         this.interactionHandler = new InteractionHandler(client);
         this.notificationHandler = new NotificationHandler(client);
         this.widgetHandler = new WidgetHandler(client);
-        this.client.user?.setActivity({ name: '/create' });
+        this.client.user?.setActivity({ name: '/create & /settings', type: ActivityType.Listening, url: 'https://discord.com/api/oauth2/authorize?client_id=1081219969234260089&scope=bot+applications.commands&permissions=3148800' });
         this.client.on('interactionCreate', (interaction) => {
             if (!interaction.isCommand()) return;
             commands.find((command) => command.name === interaction.commandName)?.execute(interaction).catch(logger.error);
@@ -42,7 +43,8 @@ class Bot {
             const clientId = process.env['DISCORD_CLIENT_ID'];
             const commands = [
                 new Create(client),
-                new Settings(client)
+                new Settings(client),
+                new Invite(client),
             ];
 
             if (!token) {

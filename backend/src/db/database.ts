@@ -31,6 +31,10 @@ class Database {
         });
     }
 
+    public static async hasGuild(guildId: string): Promise<boolean> {
+        return GuildModel.findById(guildId)
+            .then((obj) => !!obj);
+    }
     public static async getGuild(guild: Guild): Promise<Document<unknown, object, GuildData> & GuildData & Required<{ _id: string }>> {
         return GuildModel.findById(guild.id).then((obj) => {
             if (obj) {
@@ -47,8 +51,7 @@ class Database {
                     lastActivityTimestamp: Date.now(),
                     raidHelper: {
                         events: []
-                    },
-                    widget: {}
+                    }
                 });
             }
         }).then((obj) => obj.save());
