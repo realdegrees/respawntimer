@@ -12,11 +12,12 @@ const settings = {
 let subscribers: {
     id: string;
     guildId: string;
-    cb: (title: string, description: string) => void;
+    cb: (title: string, description: string) => Promise<void>;
     onUnsubscribe: () => void;
 }[] = [];
 
 class IntervalText {
+    private unsubscribeQueue: string[] = [];
     public constructor() {
         setInterval(this.interval.bind(this), 1000);
     }
@@ -45,7 +46,7 @@ class IntervalText {
             // Plays last respawn sound
             audioplayer.playRespawnCount(0);
         }
-        for (const subscriber of subscribers) {
+        subscribers.forEach(async (subscriber) => {
             // Update delay > 10 seconds is decided by the settings, 
             // Under 10 seconds it's in 2s steps and under 5s it's 1s steps
             if (
@@ -55,8 +56,10 @@ class IntervalText {
             ) {
                 return;
             }
-            subscriber.cb(title, description);
-        }
+            await subscriber.cb(title, description);
+            this.unsubscribeQueue.forEach((id) => this.unsubscribe(id));
+            this.unsubscribeQueue = [];
+        });
     }
     private getBar(timeTotal: number, timeLeft: number): string {
         const progress = Math.round(settings.barWidth * ((timeTotal - timeLeft) / timeTotal));
@@ -74,7 +77,7 @@ class IntervalText {
     public subscribe(
         id: string,
         guildId: string,
-        cb: (title: string, description: string) => void,
+        cb: (title: string, description: string) => Promise<void>,
         onUnsubscribe: () => void
     ): (() => void) | undefined {
         if (subscribers.find((s) => s.id === id)) {
@@ -82,7 +85,7 @@ class IntervalText {
         }
         const existingGuildSubscriber = subscribers.find((s) => s.guildId === guildId);
         if (existingGuildSubscriber) {
-            this.unsubscribe(existingGuildSubscriber.id);
+            this.unsubscribeQueue.push(existingGuildSubscriber.id);
         }
 
         subscribers.push({
@@ -95,13 +98,15 @@ class IntervalText {
             this.unsubscribe(id);
         };
     }
-    public unsubscribe(id: string): boolean {
+    public unsubscribe(id: string, skipCallback = false): boolean {
         const subscriber = subscribers.find((subscriber) => subscriber.id === id);
         if (!subscriber) {
             return false;
         }
-        subscriber.onUnsubscribe();
         subscribers = subscribers.filter((subscriber) => subscriber.id !== id);
+        if (!skipCallback){
+            subscriber.onUnsubscribe();
+        }
         return true;
     }
 }
