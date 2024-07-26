@@ -111,9 +111,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
             `*None*`;
 
         // Scheduled Events
-        const events = await Database.getGuild(dbGuild.id)
-            .then(({raidHelper: {events}}) => events)
-            .catch(() => []);
+        const events = dbGuild.raidHelper.events;
 
         const scheduledEvents = events.length > 0 ? await formatEvents(guild, ...events) : ['*None*'];
         const eventChannelPermissionInfo = scheduledEvents.includes('⚠️') ? ' ≫ *Missing Some Permissions*' : '';

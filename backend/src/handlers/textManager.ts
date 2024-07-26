@@ -1,3 +1,4 @@
+import logger from '../../lib/logger';
 import { TimingsSettings } from '../common/settings/timings.settings';
 import { WarInfo } from '../common/types';
 import Database from '../db/database';
@@ -17,16 +18,14 @@ class TextManager extends Manager {
 			async ({ time: { subscribedForMs }, warEnd, widget, dbGuild: { id, customTimings } }) => {
 				// If widget doesn't exist, unsubscribe
 				if (!widget) {
-					this.unsubscribe(id, 'No Widget');
+					this.unsubscribe(id, 'No Widget', widget);
 					return;
 				}
 
 				const minutesSubscribed = subscribedForMs / 1000 / 60;
 
 				if (widget.textState && warEnd && minutesSubscribed >= 15) {
-					this.unsubscribe(id, 'War End');
-					widget.textState = false;
-					await widget.update({ force: true });
+					this.unsubscribe(id, 'War End', widget);
 					return;
 				}
 
@@ -36,7 +35,7 @@ class TextManager extends Manager {
 							TimingsSettings.convertToSeconds(TimingsSettings.DEFAULT)!
 					  );
 				const description = this.getDescription(respawnData);
-				widget.update({ description });
+				await widget.update({ description });
 			}
 		);
 	}
@@ -50,9 +49,8 @@ class TextManager extends Manager {
 		
 		return super.subscribe(guildId);
 	}
-	public async unsubscribe(guildId: string, reason?: UnsubscribeReason | undefined): Promise<void> {
-		const dbGuild = await Database.getGuild(guildId);
-		const widget = await Widget.find(dbGuild);
+	public async unsubscribe(guildId: string, reason?: UnsubscribeReason | undefined, widget?: Widget): Promise<void> {
+		widget = widget ?? (await Widget.find(await Database.getGuild(guildId)));
 		if (widget) {
 			widget.textState = false;
 			widget.update({ force: true });

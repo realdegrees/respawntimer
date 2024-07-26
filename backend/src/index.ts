@@ -17,6 +17,8 @@ Promise.resolve()
 	.then(() => Database.init())
 	.then(() => Bot.init())
 	.then(async () => {
+		//TODO: on startup fetch all guilds and cleanup DB depending on error codes https://discord.com/developers/docs/topics/opcodes-and-status-codes
+		//TODO: add wrapper for channel.fetch, guild.fetch etc. that autoamtically cleans up DB entries depending on error codes
 		// Log invite link
 		logger.info('Invite | ' + Bot.client.generateInvite(INVITE_SETTINGS));
 
@@ -31,7 +33,7 @@ Promise.resolve()
 				await setTimeout(100);
 			}
 		}
-		
+
 		RaidhelperIntegration.startRaidhelperMessageCollector();
 		await NotificationHandler.startListening();
 

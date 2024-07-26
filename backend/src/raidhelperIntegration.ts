@@ -235,7 +235,7 @@ export class RaidhelperIntegration {
 				}
 			}
 		} catch (e) {
-			logger.error(`[${dbGuild.name}] Failed to send onFetchEventSucess notifications!`);
+			logger.error(`[${dbGuild.name}] Failed to send onFetchEventSucess notifications!`, e);
 		}
 	}
 	private static async onFetchEventError(dbGuild: DBGuild, message: string): Promise<void> {
@@ -253,10 +253,7 @@ export class RaidhelperIntegration {
 				await widget?.update({ force: true });
 			}
 		} catch (e) {
-			logger.error(
-				'Error while handling updateEventStatus error: ' +
-					(e instanceof Error ? e.message : e?.toString?.()) || 'Unknown'
-			);
+			logger.error(`[${dbGuild.name}] Failed to send onFetchEventError notifications!`, e);
 		}
 	}
 	/**
@@ -434,10 +431,7 @@ export class RaidhelperIntegration {
 				}
 			}
 		} catch (e) {
-			logger.error(
-				'Error in raidhelper integration interval. ' +
-					(e instanceof Error ? e.message : e?.toString?.()) || 'Unknown Error'
-			);
+			logger.error('Error in raidhelper integration interval. ', e);
 		}
 	}
 
