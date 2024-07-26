@@ -5,38 +5,63 @@
 If you don't want to deploy your own instance via docker or node or just want to test the bot you can use the public instance of the bot at the risk of it being down for a few minutes whenever I update it. I try to only update it at times when there are no wars in EU timezones.  
 I will maintain this bot as long as I actively play the game.
 
-# How to use
+# Features
 
-1. Use the `/create` command in any channel that the bot has read permissions in  
-  1.1 *(optional)* add options like managerroles or the target channel (for the widget)
-2. Use the play/stop button to start/stop text updates on the widget
-3. Use the speaker button to connect the bot to your current voice-channel  
-![https://imgur.com/xWCrxRi](https://i.imgur.com/xWCrxRi.png)
+## ✒️ Widget
+![Widget Showcase GIF](https://i.imgur.com/kJ6ssqz.gif)
 
-# Deployment - Docker
-`docker run -d --name wartimer -e DISCORD_CLIENT_TOKEN='<Token>' -e DISCORD_CLIENT_ID='<ID>' realdegrees/wartimer`
+Create a text widget with `/create` that allows full control over the bot and provides quick access to the settings as well.  
+The widget shows important information about upcoming respawns, amount of remaining respawns and the duration of the current next respawn duration. Since the audio announcements only come at intervals of *10 seconds* *(+ a full countdown from 5s)* it can be useful to have the widget on your second monitor at a glance.
+
+The text widget is just for convenience, if you only want to setup the raidhelper integration for example you can use `/settings` for the setup without ever creating a widget.
+## 📌 Raidhelper Integration
+![Raidhelper Integration Showcase](https://i.imgur.com/kjyS1sP.png)
+
+You can connect [Raidhelper](https://raid-helper.dev/) by using `/apikey show` to get your API key and then set the key within the Respawn Timer Bot settings. By default the bot will then scan for new Raidhelper events every 5 minutes and schedule them if **Auto-Join** is enabled.
+
+The bot will then automatically join the voice channel that is specified in the Raidhelper Event settings - or the **Default Voice Channel** if the event doesn't have a voice channel option - 5 seconds before the war begins.
+## 📝 Customizable Respawn Timestamps
+![Custom Timestamp Showcase](https://i.imgur.com/iVCfaTe.png)  
+
+*Customized Timestamps are highlighted*   
+![Custom Timestamp Highlights Showcase](https://i.imgur.com/wirhMt9.png)  
+
+By default the voice announcements use a set of timestamps that have been field tested by multiple companies over hundreds of wars. Over the course of the development of this bot I have reviewed and compared the timestamps with dozens of VoDs and can confirm that the announcements are always correct.
+
+
+
+*(New World has always had the issue that your respawn timer runs slower the less FPS you have in the death screen. This was especially apparent in the time period where frames dropped below 5-10 for almost everyone when entering the death screen. This can sometimes lead to the timer being off for someone who has low FPS. The majority of players will spawn at the exact timestamp though)*
+dsfdsfdfs
+
+## 🔊 Voice Selection
+The bot currently offers several sounds for audio announcements
+
+* Generic Male Voice
+* Generic Female Voice
+* Material UI Sounds *(Non-intrusive audio cues)*
+* Rocket League Countdown *(What a save!)*
+
+They can be simply be changed with a drop-down menu in the settings even while the bot is already in your voice channel.
+## 🔒 Permissions
+![Permission Showcase](https://i.imgur.com/t8s4Fdp.png)
+
+You can set **Editor** and **Assistant** roles. **Editor** roles have full access to the bot and can edit the settings while **Assistant** roles can only use the buttons on the widget to toggle the text and voice announcements.
+# 🐋 Deployment - Docker
+`docker run -d --name wartimer -e DISCORD_CLIENT_TOKEN='<Token>' -e DISCORD_CLIENT_ID='<ID>' wartimer`
 
 **OR**
 
-docker-compose.yml
-```yml
-version: "3.2"
-services:
-  wartimer:
-    container_name: wartimer
-    image: realdegrees/wartimer:latest
-    restart: unless-stopped
-    environment:
-      - DISCORD_CLIENT_TOKEN=<Token>
-      - DISCORD_CLIENT_ID=<ID>
-```
+[Use docker-compose](docker/docker-compose.example.yml)
+
 # Deployment - Node
 1. Clone the repo
 2. Run `npm install` in `backend`
 3. Create `.env` in `backend` with following content:
 ```
-DISCORD_CLIENT_TOKEN="<Token>"
-DISCORD_CLIENT_ID="<Token>"
+DISCORD_CLIENT_TOKEN="<token>"
+DISCORD_CLIENT_ID="<id>"
+OWNER_ID="<id>"
+TZ="Europe/Berlin"
 ```
 4. Run `npm run start:build`
 

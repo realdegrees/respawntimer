@@ -7,8 +7,10 @@ services:
     environment:
       - DISCORD_CLIENT_TOKEN=<token>
       - DISCORD_CLIENT_ID=<id>
+      - OWNER_ID<id> # Optional: The owner can interact with the bot on any server without requiring editor or assistant roles
+      - TZ=Europe/Berlin # Determines the timezone of scheduled raidhelper events
   mongo:
-    image: mongo
+    image: mongo:4.4.18
     restart: always
     volumes:
       - <localpath>:/data/db
