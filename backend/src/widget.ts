@@ -6,7 +6,7 @@ import {
     ButtonInteraction, ButtonStyle, CacheType, Client, CommandInteraction, ComponentType, DiscordAPIError, EmbedBuilder, EmbedField, Guild,
     GuildTextBasedChannel,
     InteractionCollector,
-    Message, PartialMessage, TextChannel, VoiceBasedChannel
+    Message, MessageFlags, PartialMessage, TextChannel, VoiceBasedChannel
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
 import logger from '../lib/logger';
@@ -494,6 +494,7 @@ export class Widget {
                         .setFooter({ text: 'Wartimer' })
                         .setDescription(`Resetting.. (${resetDurationSeconds}s) This only affects the widget.\nAudio announcements still work.`),
                 ],
+                flags: [ MessageFlags.SuppressNotifications ]
             }).catch(() => setTimeout(100).then(() => undefined));
         }
         // Update the database with new message information
