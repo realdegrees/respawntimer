@@ -20,6 +20,7 @@ export enum ETimingsSettingsOptions {
 }
 
 export class TimingsSettings extends BaseSetting<ButtonBuilder> {
+    private waitingForTimingsModal = false;
     public static DEFAULT = [
         '29:40', '29:20', '29:00', '28:40', '28:20',
         '28:00', '27:40', '27:20', '27:00', '26:40',
@@ -118,12 +119,18 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
             case ETimingsSettingsOptions.TIMINGS:
                 if (!interaction.isButton()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
                 await this.showModal(interaction, dbGuild.customTimings);
-                let modalInteraction;
-                try {
-                    modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 5 })
-                }catch(e){
+                if(this.waitingForTimingsModal){
                     return [];
                 }
+                let modalInteraction;
+                try {
+                    this.waitingForTimingsModal = true;
+                    modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 5 })
+                } catch (e) {
+                    this.waitingForTimingsModal = false;
+                    return [];
+                }
+                this.waitingForTimingsModal = false;
                 const timings = modalInteraction.fields
                     .getTextInputValue(
                         this.getCustomId(
