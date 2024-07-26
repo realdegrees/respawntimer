@@ -10,8 +10,10 @@ import logger from '../../lib/logger';
 import audioManager from '../util/audioManager';
 import textManager from '../util/textManager';
 import applicationSettings from './applicationSettings';
-import { default as DBGuild } from '../db/guild.schema';
+import { getGuild } from '../db/guild.schema';
 import { Voices } from './types';
+import { WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './constant';
+import { EInteractionType } from './types/interactionType';
 
 export const widgetButtonIds = {
     text: 'text',
@@ -35,7 +37,7 @@ export class Widget {
      * @param guild The guild where the interaction was executed
      * @param managerRole The role that was specified in the command
      */
-
+    // TODO: save widget message link in db, when new widget is created delete old -> This is so I can edit buttons on widgets without them being pressed
     public constructor(
         private message: Message,
         private guild: Guild,
@@ -67,13 +69,7 @@ export class Widget {
         channel: TextBasedChannel
     ): Promise<void> {
         // checks if guild exists in db, creates document if not
-        const dbGuild = await DBGuild.findById(guild.id).then((obj) => obj ?? new DBGuild({
-            _id: guild.id,
-            name: guild.name,
-            assistantRoleIDs: [],
-            editorRoleIDs: [],
-            voice: 'female'
-        }).save());
+        const dbGuild = await getGuild(guild);
 
         return guild.members.fetch(interaction.user)
             .then((member) => {
@@ -126,24 +122,27 @@ export class Widget {
             await this.update(undefined, undefined, true);
         }
     }
+    private getCustomId(buttonId: string): string {
+        return [WARTIMER_INTERACTION_ID, EInteractionType.WIDGET, buttonId].join(WARTIMER_INTERACTION_SPLIT);
+    }
     private getButtons(disableToggle = false, disableVoice = false): ActionRowBuilder<ButtonBuilder> {
         return new ActionRowBuilder<ButtonBuilder>()
             .addComponents(new ButtonBuilder()
-                .setCustomId(widgetButtonIds.text)
+                .setCustomId(this.getCustomId(widgetButtonIds.text))
                 .setLabel(this.textState ? '■' : '▶')
                 .setStyle(this.textState ? ButtonStyle.Danger : ButtonStyle.Success)
                 .setDisabled(disableToggle))
             .addComponents(new ButtonBuilder()
-                .setCustomId(widgetButtonIds.voice)
+                .setCustomId(this.getCustomId(widgetButtonIds.voice))
                 .setLabel(this.voiceState ? '🔇' : '🔊')
                 .setStyle(this.voiceState ? ButtonStyle.Danger : ButtonStyle.Success)
                 .setDisabled(disableVoice))
             .addComponents(new ButtonBuilder()
-                .setCustomId(widgetButtonIds.settings)
+                .setCustomId(this.getCustomId(widgetButtonIds.settings))
                 .setLabel('⚙️')
                 .setStyle(ButtonStyle.Primary))
             .addComponents(new ButtonBuilder()
-                .setCustomId(widgetButtonIds.info)
+                .setCustomId(this.getCustomId(widgetButtonIds.info))
                 .setLabel('ℹ️')
                 .setStyle(ButtonStyle.Secondary));
     }

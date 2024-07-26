@@ -1,7 +1,7 @@
 import { connect } from 'mongoose';
 import logger from '../../lib/logger';
 
-let instance: Database | undefined = undefined;
+let instance: Database | undefined;
 class Database {
     private constructor() { }
     public static init(): Promise<void> {
