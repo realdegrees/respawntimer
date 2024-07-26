@@ -1,6 +1,6 @@
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
 import { CacheType, Client, CommandInteraction } from 'discord.js';
-import { getGuild } from '../db/guild.schema';
+import Database from '../db/database';
 
 export class Command {
     public constructor(
@@ -21,7 +21,7 @@ export class Command {
         if (!interaction.guild) return Promise.reject();
 
         // checks if guild exists in db, creates document if not
-        return getGuild(interaction.guild).then((dbGuild) => {
+        return Database.getGuild(interaction.guild).then((dbGuild) => {
             if (!interaction.guild) return Promise.reject('Not a guild interaction. This should not happen.');
 
             const roleIDs = permitType === 'editor' ? dbGuild.editorRoleIDs : [...dbGuild.editorRoleIDs, ...dbGuild.assistantRoleIDs];

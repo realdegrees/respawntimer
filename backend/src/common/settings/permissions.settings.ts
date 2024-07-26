@@ -1,6 +1,6 @@
-import { ActionRowBuilder, Guild, RoleSelectMenuBuilder } from 'discord.js';
+import { ActionRowBuilder, AnySelectMenuInteraction, ButtonInteraction, CacheType, Guild, Interaction, MessageComponentInteraction, ModalSubmitInteraction, RoleSelectMenuBuilder, RoleSelectMenuInteraction } from 'discord.js';
 import { GuildData } from '../../db/guild.schema';
-import { ESettingsID, Setting } from './settings';
+import { ESettingsID, BaseSetting } from './base.setting';
 import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
 
@@ -9,9 +9,18 @@ export enum EPermissionSettingsOptions {
     ASSISTANT = 'Assistant'
 }
 
-export class PermissionSettings extends Setting {
+export class PermissionSettings extends BaseSetting<RoleSelectMenuBuilder> {
+    
+    
     public constructor() {
-        super(ESettingsID.PERMISSIONS);
+        super(ESettingsID.PERMISSIONS,
+            'Permission Settings',
+            `*Assistants* can control the bot via the widget but are not allowed to edit the bot's settings  
+            *Editors* can create new widgets and adjust the bot's settings. They can also control the bot via the widget.`,
+            'If neither Editor nor Assistant roles have been set anyone can control the bot via the widget and settings can only be changed by administrators.'
+        );
+    }
+    public getSettingsRows() {
         const assistantRoles = new RoleSelectMenuBuilder()
             .setCustomId(this.getCustomId(this.id, [EPermissionSettingsOptions.ASSISTANT]))
             .setMinValues(0)
@@ -29,13 +38,7 @@ export class PermissionSettings extends Setting {
         const editorRow = new ActionRowBuilder<RoleSelectMenuBuilder>()
             .addComponents(editorRoles);
 
-        this.init(
-            'Permission Settings',
-            `*Assistants* can control the bot via the widget but are not allowed to edit the bot's settings  
-            *Editors* can create new widgets and adjust the bot's settings. They can also control the bot via the widget.`,
-            'If neither Editor nor Assistant roles have been set anyone can control the bot via the widget and settings can only be changed by administrators.',
-            editorRow, assistantRow
-        );
+        return Promise.resolve([editorRow, assistantRow]);
     }
     public async getCurrentSettings(guildData: DBGuild, guild?: Guild | undefined): Promise<string> {
         return `**Editor Roles**  
@@ -51,7 +54,19 @@ export class PermissionSettings extends Setting {
                     roles.filter((role) => !!role)
                         .map((role) => `${role}`)
                         .join('\n')
-                ).catch(() => ['Unable to retrieve roles']) }`;
+                ).catch(() => ['Unable to retrieve roles'])}`;
     }
-
+    public async onInteract(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction, option: string): Promise<unknown> {
+        switch (option) {
+            case EPermissionSettingsOptions.EDITOR:
+                if (!interaction.isRoleSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+                dbGuild.editorRoleIDs = interaction.roles.map((role) => role.id);
+                break;
+            case EPermissionSettingsOptions.ASSISTANT:
+                if (!interaction.isRoleSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+                dbGuild.assistantRoleIDs = interaction.roles.map((role) => role.id);
+                break;
+        }
+        return dbGuild.save().then(() => this.send(interaction, dbGuild, { update: true }));
+    }
 }

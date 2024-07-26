@@ -9,11 +9,11 @@ import logger from '../../lib/logger';
 import { timers } from '../common/timer';
 import { Guild, VoiceBasedChannel } from 'discord.js';
 import { Widget } from '../common/widget';
-import { getGuild } from '../db/guild.schema';
 import { checkChannelPermissions } from './checkChannelPermissions';
 import { TimingsSettings } from '../common/settings/timings.settings';
 import { DBGuild } from '../common/types/dbGuild';
 import { WarInfo } from '../common/types';
+import Database from '../db/database';
 
 const loadFiles = (voice: Voices): {
     id: string;
@@ -111,7 +111,7 @@ class AudioManager {
             const minutesSubscribed = new Date(date.getTime() - subscriber.timeStamp).getTime() / 1000 / 60;
 
             if ((minutes === 59 || minutes === 29) && seconds === 59 && minutesSubscribed >= 15) {
-                getGuild(subscriber.guild).then((dbGuild) => 
+                Database.getGuild(subscriber.guild).then((dbGuild) => 
                     this.disconnect(subscriber.guild, dbGuild)
                 ).catch(logger.error);
             }
@@ -221,7 +221,7 @@ class AudioManager {
         if (this.subscribers.find((s) => s.guild.id === dbGuild.id)) return Promise.reject('Already connected');
         return this.getConnection(channel)
             .then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
-                getGuild(channel.guild)
+                Database.getGuild(channel.guild)
                     .then((dbGuild) => Widget.get(channel.guild, dbGuild.widget.messageId, dbGuild.widget.channelId))
                     .then((widget) => widget?.toggleVoice({dbGuild}))
                     .catch(() => { });

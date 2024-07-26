@@ -50,7 +50,7 @@
                 "allowExpressions": true
             }
         ],
-        "@typescript-eslint/no-explicit-any": "off",
+        "@typescript-eslint/no-explicit-any": "on",
         "@typescript-eslint/semi": 2,
         "@typescript-eslint/member-delimiter-style": [
             "error",

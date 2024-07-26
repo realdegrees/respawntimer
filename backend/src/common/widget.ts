@@ -2,18 +2,18 @@
 import {
     ActionRowBuilder,
     ButtonBuilder,
-    ButtonInteraction, ButtonStyle, CacheType, CommandInteraction, EmbedBuilder, Guild,
+    ButtonInteraction, ButtonStyle, CacheType, CommandInteraction, DiscordAPIError, EmbedBuilder, Guild,
     Message, PartialMessage, TextBasedChannel, TextChannel, VoiceBasedChannel
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
 import logger from '../../lib/logger';
 import audioManager from '../util/audioManager';
 import textManager from '../util/textManager';
-import { getGuild } from '../db/guild.schema';
 import { WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './constant';
 import { EInteractionType } from './types/interactionType';
 import { DBGuild } from './types/dbGuild';
 import { WidgetHandler } from '../widgetHandler';
+import Database from '../db/database';
 
 export const widgetButtonIds = {
     text: 'text',
@@ -49,6 +49,14 @@ export class Widget {
         this._isResetting = value;
     }
 
+    private _rateLimitExceeded = false;
+    public get rateLimitExceeded(): boolean {
+        return this._rateLimitExceeded;
+    }
+    private set rateLimitExceeded(value) {
+        this._rateLimitExceeded = value;
+    }
+
     private isUpdating = 0;
 
     /**
@@ -75,14 +83,13 @@ export class Widget {
                 arg3 ? res((arg1 as Guild).channels.fetch(arg3)
                     .then((channel) => {
                         return !channel?.isTextBased() ? undefined :
-                            channel.messages.fetch().then((messages) =>
-                                messages.find((message) => message.id === arg2));
+                            channel.messages.fetch(arg2);
                     })) : rej();
             }
         }).then(async (message) => {
             if (!message) return Promise.resolve(undefined);
             if (!message.guild) return Promise.reject('Unable to find to find required data on the Discord API response. Try again later.');
-            const dbGuild = await getGuild(message.guild);
+            const dbGuild = await Database.getGuild(message.guild);
 
             // if the clicked message doesn't equal the message stored in the db we try to find the message corresponding to the stored data and delete it
             if (dbGuild.widget.channelId &&
@@ -126,7 +133,7 @@ export class Widget {
         channel: TextBasedChannel
     ): Promise<unknown> {
         // checks if guild exists in db, creates document if not
-        const dbGuild = await getGuild(guild);
+        const dbGuild = await Database.getGuild(guild);
 
         if (dbGuild.widget.channelId && dbGuild.widget.messageId) {
             await Widget.get(guild, dbGuild.widget.messageId, dbGuild.widget.channelId)
@@ -222,24 +229,24 @@ export class Widget {
         title?: string;
         description?: string;
         force?: boolean;
-    }): Promise<boolean> {
-        if (this.isResetting) {
-            return Promise.resolve(false);
+    }): Promise<unknown> {
+        if (this.isResetting || this.rateLimitExceeded) {
+            return Promise.resolve();
         }
         if (!options?.force && this.isUpdating > 0) {
             if (this.isUpdating >= 4) {
-                return this.recreateMessage().then(() => false);
+                return this.recreateMessage();
             } else {
                 this.isUpdating++;
-                return Promise.resolve(false);
+                return Promise.resolve();
             }
         }
         this.isUpdating++;
 
         const embed = new EmbedBuilder();
         if (!options?.description) {
-            const nextWar = await getGuild(this.guild).then((dbGuild) => {
-                embed.setFooter({ text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKey ? 'Enabled' : 'Disabled'}`});
+            const nextWar = await Database.getGuild(this.guild).then((dbGuild) => {
+                embed.setFooter({ text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKey ? 'Enabled' : 'Disabled'}` });
                 const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
                     Math.abs(current.startTime * 1000 - Date.now()) < Math.abs(lowest.startTime * 1000 - Date.now()) ? current : lowest);
                 return `On Standby for **${event.title}**\n*at* <t:${event.startTime}:t> *on* <t:${event.startTime}:d>`;
@@ -257,15 +264,17 @@ export class Widget {
         return this.message.edit({
             components: this.showButtons ? [this.getButtons()] : [],
             embeds: [embed]
-        }).then(() => {
+        }).then((res) => {
             this.isUpdating = 0;
-            return true;
-        }).catch(() => {
-            if (this.isResetting) return false;
-            textManager.unsubscribe(this.message.id);
-            return this.message.delete()
-                .then(() => false)
-                .catch(() => false);
+            return res;
+        }).catch((e: DiscordAPIError): unknown => {
+            if (e.code === 429) {
+                logger.error('Error: ' + e.message);
+                this.rateLimitExceeded = true;
+                return setTimeout((e.requestBody.json as { retry_after: number }).retry_after)
+                    .then(() => this.rateLimitExceeded = false)
+                    .catch(logger.error);
+            }
         });
     }
 
@@ -281,7 +290,7 @@ export class Widget {
                         `Resetting.. (${resetDurationSeconds}s)
                         This only affects the widget.\nAudio announcements still work.`)]
             }).then(async (message) => {
-                await getGuild(message.guild).then((guild) => {
+                await Database.getGuild(message.guild).then((guild) => {
                     guild.widget.channelId = message.channel.id;
                     guild.widget.messageId = message.id;
                     return guild.save();

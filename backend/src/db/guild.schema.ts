@@ -1,7 +1,5 @@
-import { FilterQuery, Schema, model } from 'mongoose';
+import { Schema, model } from 'mongoose';
 import { RaidhelperSettingData } from '../common/types';
-import { Document } from 'mongoose';
-import { Guild } from 'discord.js';
 import { Voices } from '../util/audioManager';
 
 export interface GuildData {
@@ -49,42 +47,3 @@ export const GuildModel = model<GuildData>('Guild', new Schema<GuildData>({
         messageId: String
     }
 }));
-export const getGuild = async (guild: Guild): Promise<Document<unknown, object, GuildData> & GuildData & Required<{ _id: string }>> => {
-    return GuildModel.findById(guild.id).then((obj) => {
-        if (obj) {
-            obj.lastActivityTimestamp = Date.now();
-            obj.name = guild.name;
-            return obj;
-        } else {
-            return new GuildModel({
-                _id: guild.id,
-                name: guild.name,
-                assistantRoleIDs: [],
-                editorRoleIDs: [],
-                voice: 'female',
-                lastActivityTimestamp: Date.now(),
-                raidHelper: {
-                    events: []
-                },
-                widget: {}
-            });
-        }
-    }).then((obj) => obj.save());
-};
-
-export const deleteGuild = async (guildId: string): Promise<void> => {
-    return GuildModel.deleteOne({
-        _id: guildId
-    }).then();
-};
-export const getAllGuilds = async (): Promise<(Document<unknown, object, GuildData> & GuildData & Required<{
-    _id: string;
-}>)[]> => {
-    return GuildModel.find({}).exec();
-};
-export const queryGuilds = async (filter: FilterQuery<GuildData>): Promise<(Document<unknown, object, GuildData> & GuildData & Required<{
-    _id: string;
-}>)[]> => {
-    return GuildModel.find(filter).exec();
-};
-

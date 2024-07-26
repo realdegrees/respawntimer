@@ -1,5 +1,6 @@
 import { Client } from 'discord.js';
 import { Widget } from './common/widget';
+import textManager from './util/textManager';
 
 export class WidgetHandler {
     public static WIDGETS : Widget[] = []; // in-memory widgets
@@ -8,7 +9,8 @@ export class WidgetHandler {
             const widgetIndex = WidgetHandler.WIDGETS.findIndex((widget) => widget.getId() === message.id);
             if(widgetIndex !== -1){
                 if(!WidgetHandler.WIDGETS[widgetIndex].isResetting){
-                    WidgetHandler.WIDGETS.splice(widgetIndex, 1);
+                    const [widget] = WidgetHandler.WIDGETS.splice(widgetIndex, 1);
+                    textManager.unsubscribe(widget.getId(), true);
                 }
             }
         });

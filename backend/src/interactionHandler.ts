@@ -2,25 +2,16 @@
 import {
     EmbedBuilder, Client, Guild, User, ButtonInteraction, CacheType,
     ChannelSelectMenuInteraction, MentionableSelectMenuInteraction, ModalSubmitInteraction,
-    RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction
+    RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction, ButtonBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, StringSelectMenuBuilder
 } from 'discord.js';
 import logger from '../lib/logger';
 import { Widget } from './common/widget';
 import { SETTINGS_LIST, openSettings } from './commands/settings';
-import { deleteGuild, getGuild } from './db/guild.schema';
 import { WARTIMER_INTERACTION_SPLIT, WARTIMER_INTERACTION_ID, WARTIMER_ICON_LINK, EXCLAMATION_ICON_LINK as EXCLAMATION_ICON_LINK } from './common/constant';
 import { EInteractionType } from './common/types/interactionType';
-import { ESettingsID, Setting } from './common/settings/settings';
-import { ERaidhelperSettingsOptions, RaidhelperSettings } from './common/settings/raidhelper.settings';
-import raidhelperIntegration from './raidhelperIntegration';
-import { EPermissionSettingsOptions } from './common/settings/permissions.settings';
-import { EMiscSettingsOptions } from './common/settings/misc.settings';
-import audioManager, { Voices } from './util/audioManager';
-import { ENotificationSettingsOptions } from './common/settings/notifications.settings';
-import { checkChannelPermissions } from './util/checkChannelPermissions';
-import { ETimingsSettingsOptions, TimingsSettings } from './common/settings/timings.settings';
-import textManager from './util/textManager';
+import { BaseSetting } from './common/settings/base.setting';
 import { DBGuild } from './common/types/dbGuild';
+import Database from './db/database';
 
 const widgetButtonIds = {
     text: 'text',
@@ -70,13 +61,10 @@ export class InteractionHandler {
         if (!interaction.channel) {
             return;
         }
-
         if (!interaction.guild) {
             return Promise.reject('Unable to complete request! Cannot retrieve server data');
         }
-
-
-        return getGuild(interaction.guild).then((dbGuild) => {
+        return Database.getGuild(interaction.guild).then((dbGuild) => {
             if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
 
             if (type === EInteractionType.WIDGET && interaction.isButton()) {
@@ -96,193 +84,25 @@ export class InteractionHandler {
         ModalSubmitInteraction<CacheType>,
         dbGuild: DBGuild, id: string, option: string): Promise<unknown> {
 
-        let setting: Setting | undefined;
-        SETTINGS_LIST.find((row) => setting = row.find((setting) => setting.id === id));
+
+        let setting: BaseSetting | undefined;
+        for (const row of SETTINGS_LIST) {
+            for (const item of row) {
+                if (item.id === id)
+                    setting = item;
+            }
+        }
         if (!setting) {
             return Promise.reject('**Detected Legacy Widget**\nPlease create a new widget with `/create`');
         }
-
         if (!option) {
             // No args = subsetting button was pressed -> open a subsetting menu
             return setting.send(interaction, dbGuild);
         }
-        if (!interaction.guild) {
-            return Promise.reject('Unable to complete request! Cannot retrieve server data');
-        }
-
-        switch (id) {
-            case ESettingsID.PERMISSIONS:
-                switch (option) {
-                    case EPermissionSettingsOptions.EDITOR:
-                        if (!interaction.isRoleSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                        dbGuild.editorRoleIDs = interaction.roles.map((role) => role.id);
-                        break;
-                    case EPermissionSettingsOptions.ASSISTANT:
-                        if (!interaction.isRoleSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                        dbGuild.assistantRoleIDs = interaction.roles.map((role) => role.id);
-                        break;
-                }
-                return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
-            case ESettingsID.VOICE:
-                if (!interaction.isStringSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                dbGuild.voice = interaction.values[0] as Voices;
-                audioManager.setVoice(interaction.guild.id, dbGuild.voice);
-                logger.info('[' + interaction.guild.name + '] Changed Voice to ' + dbGuild.voice);
-                return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
-            case ESettingsID.RAIDHELPER:
-                switch (option) {
-                    case ERaidhelperSettingsOptions.API_KEY:
-                        if (interaction.isButton()) {
-                            return (setting as RaidhelperSettings).showModal(interaction);
-                        } else if (interaction.isModalSubmit()) {
-                            const apiKey = interaction.fields
-                                .getTextInputValue(
-                                    setting.getCustomId(
-                                        ESettingsID.RAIDHELPER,
-                                        [ERaidhelperSettingsOptions.API_KEY]
-                                    ));
-                            return raidhelperIntegration.checkApiKey(interaction.guild, apiKey)
-                                .then((valid) => {
-                                    if (valid) {
-                                        logger.info('[' + interaction.guild?.name + '] Added Raidhelper API Key');
-                                        dbGuild.raidHelper.apiKey = apiKey;
-                                    } else {
-                                        return Promise.reject('Invalid API Key');
-                                    }
-                                })
-                                .then(() => dbGuild.save())
-                                .then(() => setting!.send(interaction, dbGuild, { update: true }));
-                        } else {
-                            return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                        }
-                    case ERaidhelperSettingsOptions.DEFAULT_CHANNEL:
-                        if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                        return interaction.guild.channels.fetch(interaction.values[0])
-                            .then((channel) => {
-                                if (!channel?.isVoiceBased()) {
-                                    return Promise.reject('Invalid Channel');
-                                } else {
-                                    return checkChannelPermissions(channel, ['ViewChannel', 'Connect', 'Speak'])
-                                        .then(() => {
-                                            dbGuild.raidHelper.defaultVoiceChannelId = interaction.values[0];
-                                        })
-                                        .then(() => dbGuild.save())
-                                        .then(() => setting!.send(interaction, dbGuild, { update: true }));
-                                }
-                            });
-                    case ERaidhelperSettingsOptions.EVENT_CHANNEL:
-                        if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                        return interaction.guild.channels.fetch(interaction.values[0])
-                            .then((channel) => {
-                                if (!channel?.isTextBased()) {
-                                    return Promise.reject('Invalid Channel');
-                                } else {
-                                    return checkChannelPermissions(channel, ['ViewChannel'])
-                                        .then(() => {
-                                            dbGuild.raidHelper.eventChannelId = interaction.values[0];
-                                        })
-                                        .then(() => dbGuild.save())
-                                        .then(() => setting!.send(interaction, dbGuild, { update: true }));
-                                }
-                            });
-                    case ERaidhelperSettingsOptions.TOGGLE_AUTO_VOICE:
-                        dbGuild.raidHelper.enabled = !dbGuild.raidHelper.enabled;
-                        return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
-                    case ERaidhelperSettingsOptions.TOGGLE_AUTO_WIDGET:
-                        dbGuild.raidHelper.widget = !dbGuild.raidHelper.widget;
-                        return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
-                    default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
-                }
-                break;
-            case ESettingsID.MISC:
-                switch (option) {
-                    case EMiscSettingsOptions.CLEAR:
-                        // eslint-disable-next-line no-case-declarations
-                        return deleteGuild(interaction.guild.id)
-                            .then(() => interaction.reply({ ephemeral: true, content: 'Data deleted ✅' }))
-                            .then(() => logger.info('[' + interaction.guild!.name + '] Data Deleted'));
-                    case EMiscSettingsOptions.TOGGLE_WIDGET_BUTTONS:
-                        dbGuild.hideWidgetButtons = !dbGuild.hideWidgetButtons;
-                        return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }))
-                            .then(async () => {
-                                const widget = interaction.guild ? await Widget.get(interaction.guild, dbGuild.widget.messageId, dbGuild.widget.channelId).catch(() => undefined) : undefined;
-                                return widget ? widget.setButtonsDisplay(!dbGuild.hideWidgetButtons) : Promise.resolve();
-                            });
-                    default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
-                }
-            case ESettingsID.NOTIFICATIONS:
-                switch (option) {
-                    case ENotificationSettingsOptions.UPDATE_CHANNEL:
-                        if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                        return interaction.guild.channels.fetch(interaction.values[0])
-                            .then((channel) => {
-                                if (!channel?.isTextBased()) {
-                                    return Promise.reject('Invalid Channel');
-                                } else {
-                                    return checkChannelPermissions(channel, ['ViewChannel', 'SendMessages'])
-                                        .then(() => {
-                                            logger.info('[' + channel.guild.name + '] Enabled Notifications');
-                                            dbGuild.notificationChannelId = interaction.values[0];
-                                            return channel.send({
-                                                embeds: [new EmbedBuilder()
-                                                    .setAuthor({
-                                                        iconURL: EXCLAMATION_ICON_LINK,
-                                                        name: 'Wartimer Notifications'
-                                                    })
-                                                    .setThumbnail(WARTIMER_ICON_LINK)
-                                                    .setDescription('This channel will now receive bot update notifications!')]
-                                            });
-                                        })
-                                        .then(() => dbGuild.save())
-                                        .then(() => setting!.send(interaction, dbGuild, { update: true }));
-                                }
-                            });
-                    default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
-                }
-            case ESettingsID.TIMINGS:
-                switch (option) {
-                    case ETimingsSettingsOptions.TIMINGS:
-                        if (interaction.isButton()) {
-                            return (setting as TimingsSettings).showModal(interaction, dbGuild.customTimings);
-                        } else if (interaction.isModalSubmit()) {
-                            const timings = interaction.fields
-                                .getTextInputValue(
-                                    setting.getCustomId(
-                                        ESettingsID.TIMINGS,
-                                        [ETimingsSettingsOptions.TIMINGS]
-                                    ));
-                            const [validSyntax, reason] = TimingsSettings.checkSyntax(timings);
-                            if (!validSyntax) return Promise.reject(reason);
-                            if (TimingsSettings.equalsDefault(timings)) {
-                                // No need to save if the settings are default
-                                return Promise.reject('Default Timings');
-                            }
-                            // remove duplicates and trim spaces
-                            dbGuild.customTimings = TimingsSettings.sort(timings).join(',');
-                            return dbGuild.save().then(() => {
-                                logger.info('[' + dbGuild.name + '] Added custom respawn timings');
-                                audioManager.setTimings(dbGuild.id, timings);
-                                textManager.setTimings(dbGuild.id, timings);
-                                return setting!.send(interaction, dbGuild, { update: true });
-                            });
-                        } else {
-                            return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                        }
-                    case ETimingsSettingsOptions.RESET:
-                        if (!dbGuild.customTimings) return interaction.deferUpdate();
-                        dbGuild.customTimings = undefined;
-                        logger.info('[' + interaction.guild.name + '] Reset respawn timings');
-                        audioManager.resetTimings(dbGuild.id);
-                        textManager.resetTimings(dbGuild.id);
-                        return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
-                    default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
-                }
-            default: return Promise.reject('Could not complete request');
-        }
+        return setting.onInteract(dbGuild, interaction, option);
     }
     private async handleWidgetButtons(interaction: ButtonInteraction, dbGuild: DBGuild, id: string,): Promise<unknown> {
-        const message = await interaction.message.fetch();
-        const widget = await Widget.get(message);
+        const widget = await Widget.get(interaction.message);
         if (!widget) return Promise.reject('Unable to find widget for this interaction. This should not happen.');
         switch (id) {
             case widgetButtonIds.text:
@@ -367,9 +187,7 @@ export class InteractionHandler {
     private async checkPermission(guild: Guild, user: User, permittedRoleIDs: string[]): Promise<boolean> {
         return guild.members.fetch(user)
             .then((member) => permittedRoleIDs.length === 0 ||
-                member.roles.cache
-                    .some((userRole) =>
-                        permittedRoleIDs.includes(userRole.id)) ||
+                member.roles.cache.some((userRole) => permittedRoleIDs.includes(userRole.id)) ||
                 member.permissions.has('Administrator') ||
                 user.id === process.env['OWNER_ID']);
     }

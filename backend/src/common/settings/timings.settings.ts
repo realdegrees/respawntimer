@@ -1,19 +1,21 @@
 import {
-    ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle
+    ActionRowBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, Guild, Interaction, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, TextInputBuilder, TextInputStyle
 } from 'discord.js';
-import { ESettingsID, Setting } from './settings';
+import { ESettingsID, BaseSetting } from './base.setting';
 import { DBGuild } from '../types/dbGuild';
 import { WarInfo } from '../types';
 import { clamp } from '../../util/util.generic';
 import { string } from 'yargs';
+import textManager from '../../util/textManager';
+import audioManager from '../../util/audioManager';
+import logger from '../../../lib/logger';
 
 export enum ETimingsSettingsOptions {
     TIMINGS = 'timings',
     RESET = 'reset'
 }
 
-export class TimingsSettings extends Setting {
-
+export class TimingsSettings extends BaseSetting<ButtonBuilder> {
     public static DEFAULT = [
         '29:40', '29:20', '29:00', '28:40', '28:20',
         '28:00', '27:40', '27:20', '27:00', '26:40',
@@ -27,7 +29,35 @@ export class TimingsSettings extends Setting {
         '05:44', '04:52', '03:52', '02:52', '01:52',
         '00:52'];
 
-    public async getCurrentSettings(guildData: DBGuild): Promise<string> {
+    public constructor() {
+        super(ESettingsID.TIMINGS,
+            'Respawn Timers',
+            `Wartimer uses a field-tested set of respawn timers.\nIf you feel like some are off and want to customize them you can do so below.`,
+            'Use the reset button to go back the default timers');
+    }
+    public getSettingsRows(dbGuild: DBGuild) {
+        const customTimingsButton = new ButtonBuilder({
+            custom_id: this.getCustomId(this.id, [ETimingsSettingsOptions.TIMINGS]),
+            label: 'Set Custom Timers',
+            style: ButtonStyle.Primary
+        });
+        const resetButton = new ButtonBuilder({
+            custom_id: this.getCustomId(this.id, [ETimingsSettingsOptions.RESET]),
+            label: 'Reset',
+            style: ButtonStyle.Danger
+        });
+
+        const row = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(customTimingsButton);
+
+        if (dbGuild.customTimings) {
+            row.addComponents(resetButton);
+        }
+
+        return Promise.resolve([row]);
+
+    }
+    public async getCurrentSettings(guildData: DBGuild) {
         let timings: string[];
         let resetMessage = '';
 
@@ -57,6 +87,60 @@ export class TimingsSettings extends Setting {
             !TimingsSettings.DEFAULT.includes(val) ? `[${val}]` : val)
             .join(' > ')}\`\`\``)
             .join('')}${resetMessage ? '\n' + resetMessage : ''}`;
+    }
+    public showModal(interaction: ButtonInteraction, timings?: string) {
+        const modal = new ModalBuilder()
+            .setCustomId(this.getCustomId(this.id, [ETimingsSettingsOptions.TIMINGS]))
+            .setTitle('Customize Respawn Timers');
+        const timingsInput = new TextInputBuilder()
+            .setCustomId(this.getCustomId(this.id, [ETimingsSettingsOptions.TIMINGS]))
+            .setLabel('Current Settings')
+            .setStyle(TextInputStyle.Paragraph)
+            .setValue(timings ? TimingsSettings.sort(timings).join(', ') : [...TimingsSettings.DEFAULT].sort().reverse().join(', '));
+        const apiKeyRow = new ActionRowBuilder<TextInputBuilder>()
+            .addComponents(timingsInput);
+        modal.addComponents(apiKeyRow);
+        return interaction.showModal(modal);
+    }
+    public async onInteract(dbGuild: DBGuild, interaction: Interaction, option: string): Promise<unknown> {
+        switch (option) {
+            case ETimingsSettingsOptions.TIMINGS:
+                if (interaction.isButton()) {
+                    return this.showModal(interaction, dbGuild.customTimings);
+                } else if (interaction.isModalSubmit()) {
+                    const timings = interaction.fields
+                        .getTextInputValue(
+                            this.getCustomId(
+                                ESettingsID.TIMINGS,
+                                [ETimingsSettingsOptions.TIMINGS]
+                            ));
+                    const [validSyntax, reason] = TimingsSettings.checkSyntax(timings);
+                    if (!validSyntax) return Promise.reject(reason);
+                    if (TimingsSettings.equalsDefault(timings)) {
+                        // No need to save if the settings are default
+                        return Promise.reject('Default Timings');
+                    }
+                    // remove duplicates and trim spaces
+                    dbGuild.customTimings = TimingsSettings.sort(timings).join(',');
+                    return dbGuild.save().then(() => {
+                        logger.info('[' + dbGuild.name + '] Added custom respawn timings');
+                        audioManager.setTimings(dbGuild.id, timings);
+                        textManager.setTimings(dbGuild.id, timings);
+                        return this.send(interaction, dbGuild, { update: true });
+                    });
+                } else {
+                    return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+                }
+            case ETimingsSettingsOptions.RESET:
+                if (!interaction.isButton()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+                if (!dbGuild.customTimings) return interaction.deferUpdate();
+                dbGuild.customTimings = undefined;
+                logger.info('[' + dbGuild.name + '] Reset respawn timings');
+                audioManager.resetTimings(dbGuild.id);
+                textManager.resetTimings(dbGuild.id);
+                return dbGuild.save().then(() => this.send(interaction, dbGuild, { update: true }));
+            default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
+        }
     }
 
     public static checkSyntax(text: string): [boolean, string];
@@ -137,45 +221,5 @@ export class TimingsSettings extends Setting {
                 timeLeftSeconds: timeLeftTotalSeconds
             }
         };
-    }
-
-    public constructor() {
-        super(ESettingsID.TIMINGS);
-
-        const customTimingsButton = new ButtonBuilder({
-            custom_id: this.getCustomId(this.id, [ETimingsSettingsOptions.TIMINGS]),
-            label: 'Set Custom Timers',
-            style: ButtonStyle.Primary
-        });
-        const resetButton = new ButtonBuilder({
-            custom_id: this.getCustomId(this.id, [ETimingsSettingsOptions.RESET]),
-            label: 'Reset Timers',
-            style: ButtonStyle.Danger
-        });
-
-        const row = new ActionRowBuilder<ButtonBuilder>()
-            .addComponents(customTimingsButton)
-            .addComponents(resetButton);
-
-        this.init(
-            'Respawn Timers',
-            `Wartimer uses a field-tested set of respawn timers.\nIf you feel like some are off and want to customize them you can do so below.`,
-            'Use the reset button to go back the default timers',
-            row);
-    }
-
-    public showModal(interaction: ButtonInteraction, timings?: string): Promise<void> {
-        const modal = new ModalBuilder()
-            .setCustomId(this.getCustomId(this.id, [ETimingsSettingsOptions.TIMINGS]))
-            .setTitle('Customize Respawn Timers');
-        const timingsInput = new TextInputBuilder()
-            .setCustomId(this.getCustomId(this.id, [ETimingsSettingsOptions.TIMINGS]))
-            .setLabel('Current Settings')
-            .setStyle(TextInputStyle.Paragraph)
-            .setValue(timings ? TimingsSettings.sort(timings).join(', ') : [...TimingsSettings.DEFAULT].sort().reverse().join(', '));
-        const apiKeyRow = new ActionRowBuilder<TextInputBuilder>()
-            .addComponents(timingsInput);
-        modal.addComponents(apiKeyRow);
-        return interaction.showModal(modal);
     }
 }
