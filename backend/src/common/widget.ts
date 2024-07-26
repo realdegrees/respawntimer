@@ -23,6 +23,7 @@ export class Widget {
     private voiceState = false;
     private isUpdating = false;
     private isResetting = false;
+    private skipNext = false;
     private deferButtonQueue: ((
         options?: InteractionDeferUpdateOptions | undefined
     ) => Promise<void>)[] = [];
@@ -97,12 +98,17 @@ export class Widget {
     public getId(): string {
         return this.message.id;
     }
-    public async update(title?: string, description?: string): Promise<void> {
+    public async update(title?: string, description?: string, skipNext = false): Promise<void> {
         if (this.isUpdating) {
             this.deferButtonQueue.forEach((def) => def());
             this.deferButtonQueue = [];
             return;
         }
+        if(this.skipNext){
+            this.skipNext = false;
+            return;
+        }
+        this.skipNext = skipNext;
         this.isUpdating = true;
         const beforeEditTimestamp = Date.now();
         await this.message.edit({
@@ -233,7 +239,7 @@ export class Widget {
         intervalText.subscribe(
             this.message.id,
             this.guild.id,
-            this.update.bind(this),
+            this.update.bind(this, undefined, undefined, true),
             this.resetEmbed.bind(this)
         );
     }
