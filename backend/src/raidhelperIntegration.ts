@@ -88,10 +88,10 @@ export class RaidhelperIntegration {
     }
     private static async onFetchEventError(guild: Guild | null, dbGuild: DBGuild): Promise<void> {
         try {
-            logger.error(`[${dbGuild.name}] Polling failed`);
-
             // Set retries
             pollingRetries[dbGuild.id] = (pollingRetries[dbGuild.id] ?? 0) + 1;
+            logger.error(`[${dbGuild.name}] Polling failed (Attempt #${pollingRetries[dbGuild.id]})`);
+
             // If too many retries, reset api key and stop polling
             if (pollingRetries[dbGuild.id] > MAX_POLL_RETRIES) {
                 if (dbGuild.id in pollingIntervals) {
