@@ -23,7 +23,7 @@ export class HelpSettings extends BaseSetting<ButtonBuilder> {
         super(ESettingsID.HELP,
             ButtonStyle.Success,
             [new EmbedBuilder()
-                .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
+                .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Respawn Timer' })
                 .setThumbnail(WARTIMER_ICON_LINK)
                 .setTitle('Helpful Resources')
                 .setFields([{
@@ -31,10 +31,10 @@ export class HelpSettings extends BaseSetting<ButtonBuilder> {
                     value: `https://discord.gg/tcvd8CsA4N\n*Join the support server to receive help if steps below don't work*`
                 }, emptyField, {
                     name: `<:github:1153001600391065630> Github`,
-                    value: `https://github.com/realdegrees/wartimer\n*Check out the README for an in-depth guide on all features*`
+                    value: `https://github.com/realdegrees/respawntimer\n*Check out the README for an in-depth guide on all features*`
                 }]),
             new EmbedBuilder()
-                .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
+                .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Respawn Timer' })
                 .setThumbnail(WARN_ICON_LINK)
                 .setTitle('Troubleshooting')
                 .setFields([{

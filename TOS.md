@@ -14,7 +14,7 @@ Saved data can be fully deleted from the database at any point in the bot's sett
 
 ### Availablity
 **Respawn Timer** is provided as-is. There is no guarantee that it will be up *24/7* and the developer reservers the right to take the Bot offline at any point in time.  
-If you wish to host your own instance the open-source repository provides a guide on [self-hosting](https://github.com/realdegrees/wartimer/blob/develop/README.md#-deployment---docker).  
+If you wish to host your own instance the open-source repository provides a guide on [self-hosting](https://github.com/realdegrees/respawntimer/blob/develop/README.md#-deployment---docker).  
 
 ### Usage
 You agree to not intentionally attempt to crash the bot or try to find and abuse any flaws in its' functionality. 

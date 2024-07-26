@@ -32,9 +32,9 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
         super(ESettingsID.RAIDHELPER,
             ButtonStyle.Primary,
             'Raidhelper Integration (Experimental)',
-            `Wartimer now integrates with Raidhelper to automatically connect to a channel when an event scheduled by *Raidhelper* starts.\n
+            `**Respawn Timer** now integrates with Raidhelper to automatically connect to a channel when an event scheduled by *Raidhelper* starts.\n
             Set the API Key below and toggle Auto-Join to enable *Raidhelper Integration*\n`,
-            'Wartimer will connect to the voice channel specified in the Raidhelper event.\nIf no event is set it will use the default voice channel set below.'
+            '**Respawn Timer** will connect to the voice channel specified in the Raidhelper event.\nIf no event is set it will use the default voice channel set below.'
         );
     }
 

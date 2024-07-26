@@ -23,7 +23,7 @@ In the event of an unauthorised Data access, users will be notified through the 
 ### User Rights
 
 At any time, you have the right to delete the data stored for your discord server. This can be done manually in the bots settings by selecting the `Clear Saved Data` option.  
-This deletes all data stored in the database. This functionality can be confirmed in the [source code](https://github.com/realdegrees/wartimer/blob/develop/backend/src/widget.ts).
+This deletes all data stored in the database. This functionality can be confirmed in the [source code](https://github.com/realdegrees/respawntimer/blob/develop/backend/src/widget.ts).
 
 ### Questions
 
