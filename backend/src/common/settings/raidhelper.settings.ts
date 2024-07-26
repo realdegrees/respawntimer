@@ -246,7 +246,6 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 				await RaidhelperIntegration.onFetchEventSuccess(dbGuild, events);
 				await modalInteraction.deferUpdate();
 				return ['update', 'startEventPolling'] as SettingsPostInteractAction[];
-				break;
 			case ERaidhelperSettingsOptions.DEFAULT_CHANNEL:
 				if (!interaction.isStringSelectMenu())
 					return Promise.reject(
@@ -261,6 +260,9 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 				} else if (value === EAdvancedChannelSelectReturnValue.PREV_PAGE) {
 					this.voiceChannelSelectPage -= 1;
 					return ['update'];
+				} else if (value === EAdvancedChannelSelectReturnValue.UNSET) {
+					dbGuild.raidHelper.defaultVoiceChannelId = undefined;
+					return ['saveGuild', 'update', 'updateWidget'];
 				}
 
 				const defaultVoiceChannel = await interaction.guild.channels.fetch(value);
@@ -270,8 +272,6 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 				await checkChannelPermissions(defaultVoiceChannel, ['ViewChannel', 'Connect', 'Speak']);
 				dbGuild.raidHelper.defaultVoiceChannelId = value;
 				return ['saveGuild', 'update', 'updateWidget'];
-
-				break;
 			case ERaidhelperSettingsOptions.EVENT_CHANNEL:
 				if (!interaction.isStringSelectMenu())
 					return Promise.reject(
@@ -286,6 +286,9 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 				} else if (value === EAdvancedChannelSelectReturnValue.PREV_PAGE) {
 					this.textChannelSelectPage -= 1;
 					return ['update'];
+				} else if (value === EAdvancedChannelSelectReturnValue.UNSET) {
+					dbGuild.raidHelper.eventChannelId = undefined;
+					return ['saveGuild', 'update', 'updateWidget'];
 				}
 
 				const defaultEventChannel = await interaction.guild.channels.fetch(value);
@@ -295,8 +298,6 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 				await checkChannelPermissions(defaultEventChannel, ['ViewChannel']);
 				dbGuild.raidHelper.eventChannelId = interaction.values[0];
 				return ['saveGuild', 'update'];
-
-				break;
 			case ERaidhelperSettingsOptions.TOGGLE_AUTO_VOICE:
 				dbGuild.raidHelper.enabled = !dbGuild.raidHelper.enabled;
 				return ['saveGuild', 'update', 'updateWidget'];
