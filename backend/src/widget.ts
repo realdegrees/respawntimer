@@ -3,10 +3,10 @@ import {
     ActionRowBuilder,
     ButtonBuilder,
     ButtonComponentData,
-    ButtonInteraction, ButtonStyle, CacheType, Client, CommandInteraction, ComponentType, DiscordAPIError, Embed, EmbedBuilder, Guild,
+    ButtonInteraction, ButtonStyle, CacheType, Client, CommandInteraction, ComponentType, DiscordAPIError, DiscordjsErrorCodes, Embed, EmbedBuilder, Guild,
     GuildTextBasedChannel,
     InteractionCollector,
-    Message, PartialMessage, TextBasedChannel, TextChannel, VoiceBasedChannel
+    Message, PartialMessage, RateLimitError, TextBasedChannel, TextChannel, VoiceBasedChannel
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
 import logger from '../lib/logger';
@@ -32,42 +32,16 @@ const DEFAULT_TITLE = 'Respawn Timer';
 export class Widget {
     private static LIST: Widget[] = []; // in-memory widgets
 
-    private _textState = false;
-    private _voiceState = false;
-    private _isResetting = false;
-    private _rateLimitExceeded = false;
+    private textState = false;
+    private voiceState = false;
+    private isResetting = false;
+    private rateLimitExceeded = false;
 
-    //region - getters
-    public get textState(): boolean {
-        return this._textState;
-    }
-    public get voiceState(): boolean {
-        return this._voiceState;
-    }
-    public get isResetting(): boolean {
-        return this._isResetting;
-    }
-    public get rateLimitExceeded(): boolean {
-        return this._rateLimitExceeded;
-    }
-    //endregion
-    //region - setters
-    private set textState(value) {
-        this._textState = value;
-    }
-    private set voiceState(value) {
-        this._voiceState = value;
-    }
-    private set isResetting(value) {
-        this._isResetting = value;
-    }
-    private set rateLimitExceeded(value) {
-        this._rateLimitExceeded = value;
-    }
-    //endregion
+    public getTextState() { return this.textState; }
 
     private listener: InteractionCollector<ButtonInteraction> | undefined;
-
+    private showButtons: boolean;
+    private onUpdateOnce: (() => void) | undefined;
     private isUpdating = 0;
 
     /**
@@ -78,10 +52,11 @@ export class Widget {
      */
     public constructor(
         private message: Message | PartialMessage,
-        private guild: Guild,
-        private showButtons: boolean,
+        public readonly guild: Guild,
+        private dbGuild: DBGuild,
         onReady: (widget: Widget) => void
     ) {
+        this.showButtons = !dbGuild.hideWidgetButtons;
         Widget.LIST.push(this);
         this.init(onReady).catch(logger.error);
     }
@@ -109,7 +84,7 @@ export class Widget {
                 }
                 const widget = await Widget.find(clientGuild, dbGuild.widget.messageId, dbGuild.widget.channelId, dbGuild);
                 await widget?.update({ force: true });
-                widget?.startListening();
+                // widget?.startListening(); might not need this
             } catch (e) {
                 logger.error(`[${dbGuild.name}] Error while trying to initialize widget: ${e?.toString?.() || 'Unknown'}`);
                 continue;
@@ -164,7 +139,7 @@ export class Widget {
             new Widget(
                 message,
                 guild,
-                !dbGuild.hideWidgetButtons,
+                dbGuild,
                 res);
         });
     }
@@ -201,7 +176,7 @@ export class Widget {
             await dbGuild.save();
 
             return new Promise((res) => {
-                new Widget(message, guild, !dbGuild.hideWidgetButtons, (widget) => res(widget));
+                new Widget(message, guild, dbGuild, (widget) => res(widget));
             });
         }
         catch (error) {
@@ -286,6 +261,12 @@ export class Widget {
 
             this.startListening();
             this.message = message;
+
+            textManager.subscribe({
+                widget: this,
+                customTimings: this.dbGuild.customTimings
+            }, this.update.bind(this));
+
             onReady(this);
         } catch (e) {
             logger.error(e?.toString?.() || 'Error initializing widget');
@@ -321,27 +302,30 @@ export class Widget {
                 embeds: [embed]
             });
 
+            this.onUpdateOnce?.();
+            this.onUpdateOnce = undefined;
+
             this.isUpdating = 0;
             return Promise.resolve();
         } catch (e) {
-            if (e instanceof DiscordAPIError && e.code === 429) {
-                logger.error('Error: ' + e.message);
-
-                const retryAfter = (e.requestBody.json as { retry_after?: number })?.retry_after ?? 500;
+            if (e instanceof RateLimitError) {
+                logger.debug('Hit rate limit while updating: ' + e.timeToReset);
                 this.rateLimitExceeded = true;
-                await setTimeout(retryAfter);
+                await setTimeout(e.timeToReset);
                 this.rateLimitExceeded = false;
-                return Promise.resolve();
             } else {
                 // Handle other errors or log them as needed
                 logger.error('Update error: ' + e?.toString?.() || 'Unknown');
             }
         }
     }
-    public startListening(): void {
+    private stopListening(): void {
         if (this.listener) {
             this.listener.stop(ECollectorStopReason.DISPOSE);
         }
+    }
+    public startListening(): void {
+        this.stopListening();
         this.listener = this.message.createMessageComponentCollector({ componentType: ComponentType.Button })
             .on('collect', async (interaction) => {
                 try {
@@ -365,14 +349,12 @@ export class Widget {
                     let hasPermission;
                     switch (interactionId) {
                         case EWidgetButtonID.TEXT:
-                            if(this.isResetting){
+                            if (this.isResetting) {
                                 return Promise.reject('Widget is currently resetting! Please wait.');
                             }
                             hasPermission = hasAssistantPermission || hasEditorPermission || dbGuild.assistantRoleIDs.length === 0;
                             if (hasPermission) {
-                                await this.toggleText({
-                                    dbGuild
-                                });
+                                await this.toggleText();
                             } else return Promise.reject('You do not have permission to use this.');
                             break;
                         case EWidgetButtonID.VOICE:
@@ -444,10 +426,6 @@ export class Widget {
     }
     //endregion
     //region - Callbacks
-    private async onTextUnsubscribe(): Promise<void> {
-        this.textState = false;
-        await this.update({ force: true });
-    }
     public async onAudioUnsubscribe(): Promise<void> {
         this.voiceState = false;
         if (!this.textState) {
@@ -496,70 +474,57 @@ export class Widget {
         return this.message.id;
     }
     public async recreateMessage(): Promise<void> {
-        try {
-            this.isResetting = true;
+        this.isResetting = true;
 
-            // Delete the existing message
-            await this.message.delete();
-
-            // Create a new message with components and an embed
-            const newMessage = await (this.message.channel as TextChannel).send({
-                components: [this.getButtons(true, true)],
-                embeds: [
-                    EmbedBuilder.from(this.message.embeds[0])
-                        .setTitle('Discord API Timeout')
-                        .setFooter({ text: 'Wartimer' })
-                        .setDescription(`Resetting.. (${resetDurationSeconds}s) This only affects the widget.\nAudio announcements still work.`),
-                ],
+        // Delete the existing message, unsubscribe the listener even inc ase the message couldn't be deleted
+        await this.message.delete()
+            .catch(() => {
+                this.stopListening();
+                logger.error('Unable to delete old widget on recreation!');
             });
-            // Update the database with new message information
-            const dbGuild = await Database.getGuild(newMessage.guild);
-            dbGuild.widget = {
-                channelId: newMessage.channel.id,
-                messageId: newMessage.id,
-            };
-            await dbGuild.save();
 
-            // Subscribe to text updates if needed
-            if (this.textState) {
-                textManager.subscribe(
-                    {
-                        guildId: newMessage.guild.id,
-                        msgId: newMessage.id,
-                        customTimings: dbGuild.customTimings,
-                    },
-                    this.update.bind(this),
-                    () => { },
-                    this.onTextUnsubscribe.bind(this)
-                );
-            }
-
-            this.message = newMessage;
-            this.startListening();
-
-            // Delay before further actions (setTimeout returns a Promise)
-            await setTimeout(resetDurationSeconds * 1000);
-
-            // Reset flags and perform additional actions if needed
-            this.isUpdating = 0;
-            this.isResetting = false;
-
-            if (!this.textState) {
-                await this.update({ force: true });
-            }
-        } catch (e) {
-            // Handle and log any errors that occur
-            if (e instanceof DiscordAPIError && e.code === 429) {
-                logger.error('Error: ' + e.message);
-                const retryAfter = (e.requestBody.json as { retry_after?: number })?.retry_after ?? 500;
+        // Try to create a new message
+        let newMessage;
+        while (!newMessage) {
+            try {
+                // Create a new message with components and an embed
+                newMessage = await (this.message.channel as TextChannel).send({
+                    components: [this.getButtons(true, true)],
+                    embeds: [
+                        EmbedBuilder.from(this.message.embeds[0])
+                            .setTitle('Discord API Timeout')
+                            .setFooter({ text: 'Wartimer' })
+                            .setDescription(`Resetting.. (${resetDurationSeconds}s) This only affects the widget.\nAudio announcements still work.`),
+                    ],
+                });
+            } catch (e) {
                 this.rateLimitExceeded = true;
-                await setTimeout(retryAfter);
+                await setTimeout(e instanceof RateLimitError ? e.timeToReset : 200);
                 this.rateLimitExceeded = false;
-                this.recreateMessage();
-            } else {
-                // Handle other errors or log them as needed
-                logger.error(e?.toString?.() || 'Error during message recreation');
             }
+        }
+
+        // Update the database with new message information
+        const dbGuild = await Database.getGuild(newMessage.guild);
+        dbGuild.widget = {
+            channelId: newMessage.channel.id,
+            messageId: newMessage.id,
+        };
+        await dbGuild.save();
+
+        this.message = newMessage;
+        this.startListening();
+
+        // Delay before further actions (setTimeout returns a Promise)
+        await setTimeout(resetDurationSeconds * 1000);
+
+        // Reset flags and perform additional actions if needed
+        this.isUpdating = 0;
+        this.isResetting = false;
+
+        if (!this.textState) {
+            await this.update({ force: true })
+                .catch(logger.error);
         }
     }
     //endregion
@@ -570,28 +535,19 @@ export class Widget {
      * @returns 
      * @throws {Error}
      */
-    public toggleText(options: {
-        dbGuild: DBGuild;
-        forceOn?: boolean;
-    }): Promise<void> {
-        return new Promise((res) => {
-            if (!this.textState || options.forceOn) {
-                if (this.textState) return; // already on
+    public async toggleText(forceOn?: boolean): Promise<void> {
+        return new Promise(async (res) => {
+            if (!this.textState || forceOn) {
                 this.textState = true;
-                textManager.subscribe({
-                    msgId: this.message.id,
-                    guildId: this.guild.id,
-                    customTimings: options.dbGuild.customTimings
-                },
-                    this.update.bind(this),
-                    res, // pass resolve as callback resolves this promise only when the first update happens in textManager
-                    this.onTextUnsubscribe.bind(this));
+                this.onUpdateOnce = res;
             } else {
                 this.textState = false;
-                textManager.unsubscribe(this.message.id);
-                res();
+                this.onUpdateOnce = res;
+                await setTimeout(1000);
+                await this.update({ force: true });
             }
-        });
+        })
+        
     }
     public async toggleVoice(options: {
         dbGuild: DBGuild;
@@ -606,15 +562,15 @@ export class Widget {
                 if (!channel) {
                     throw new Error('You are not in a voice channel!');
                 }
-                this.voiceState = true;
                 await audioManager.connect(channel, options.dbGuild);
+                this.voiceState = true;
                 if (!this.textState) {
                     await this.update({ force: true });
                 }
             }
         } else if (options.channel) {
-            this.voiceState = true;
             await audioManager.connect(options.channel, options.dbGuild);
+            this.voiceState = true;
             if (!this.textState) {
                 await this.update();
             }

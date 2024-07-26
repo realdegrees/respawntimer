@@ -77,7 +77,7 @@ export class RaidhelperIntegration {
             dbGuild.widget.messageId,
             dbGuild.widget.channelId
         )
-        if (!widget?.textState) {
+        if (!widget?.getTextState()) {
             await widget?.update({ force: true });
         }
     }
@@ -101,7 +101,7 @@ export class RaidhelperIntegration {
                     dbGuild.widget.messageId,
                     dbGuild.widget.channelId
                 )
-                if (!widget?.textState) {
+                if (!widget?.getTextState()) {
                     await widget?.update({ force: true });
                 }
             }
@@ -251,8 +251,8 @@ export class RaidhelperIntegration {
                         // Attempt to start widget if auto-widget is enabled
                         if (guild.db.raidHelper.widget) {
                             if (widget) {
-                                if (widget.textState) return; // It's already on
-                                await widget.toggleText({ dbGuild: guild.db, forceOn: true });
+                                if (widget.getTextState()) return; // It's already on
+                                await widget.toggleText(true);
                             } else {
                                 await NotificationHandler.sendNotification(
                                     guild.client,
