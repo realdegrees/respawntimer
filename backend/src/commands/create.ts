@@ -37,7 +37,7 @@ export class Create extends Command {
         }).catch(async (msg) => {
             await interaction.reply({
                 ephemeral: true,
-                content: msg
+                content: msg.toString()
             });
         });
 

@@ -3,17 +3,18 @@ import {
     ChannelSelectMenuInteraction, MentionableSelectMenuInteraction, ModalSubmitInteraction,
     RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction
 } from 'discord.js';
-import logger from '../../lib/logger';
-import { Widget } from '../common/widget';
-import { SETTINGS_LIST, openSettings } from '../commands/settings';
-import { Voices } from '../common/types';
-import { getGuild } from '../db/guild.schema';
-import { WARTIMER_INTERACTION_SPLIT, WARTIMER_INTERACTION_ID } from '../common/constant';
-import { EInteractionType } from '../common/types/interactionType';
-import { ESettingsID, Setting } from '../common/settings/settings';
-import { ERaidhelperSettingsOptions, RaidhelperSettings } from '../common/settings/raidhelper.settings';
-import raidhelperIntegration from './raidhelperIntegration';
-import { EPermissionSettingsOptions } from '../common/settings/permissions.settings';
+import logger from '../lib/logger';
+import { Widget } from './common/widget';
+import { SETTINGS_LIST, openSettings } from './commands/settings';
+import { deleteGuild, getGuild } from './db/guild.schema';
+import { WARTIMER_INTERACTION_SPLIT, WARTIMER_INTERACTION_ID } from './common/constant';
+import { EInteractionType } from './common/types/interactionType';
+import { ESettingsID, Setting } from './common/settings/settings';
+import { ERaidhelperSettingsOptions, RaidhelperSettings } from './common/settings/raidhelper.settings';
+import raidhelperIntegration from './util/raidhelperIntegration';
+import { EPermissionSettingsOptions } from './common/settings/permissions.settings';
+import { EMiscSettingsOptions } from './common/settings/misc.settings';
+import audioManager, { Voices } from './util/audioManager';
 
 const widgetButtonIds = {
     text: 'text',
@@ -98,7 +99,9 @@ export class InteractionHandler {
                                 });
                                 return;
                             }
-                            await widget.toggleText(interaction as ButtonInteraction);
+                            await widget.toggleText(interaction as ButtonInteraction).finally(() =>
+                                interaction.deferUpdate()
+                            );
                             break;
                         case widgetButtonIds.voice:
                             if (!await this.checkPermission(
@@ -112,7 +115,15 @@ export class InteractionHandler {
                                 });
                                 return;
                             }
-                            await widget.toggleVoice(dbGuild.voice, interaction as ButtonInteraction);
+                            await widget.toggleVoice({
+                                voice: dbGuild.voice,
+                                interaction: interaction as ButtonInteraction
+                            })
+                                .then(() => interaction.deferUpdate())
+                                .catch((e) => interaction.reply({
+                                    ephemeral: true,
+                                    content: e.toString()
+                                }));
                             break;
                         case widgetButtonIds.settings:
                             if (!await this.checkPermission(
@@ -189,12 +200,14 @@ export class InteractionHandler {
                 case ESettingsID.VOICE:
                     if (!interaction.isStringSelectMenu()) return;
                     dbGuild.voice = interaction.values[0] as Voices;
+                    audioManager.setVoice(guild.id, dbGuild.voice);
                     break;
                 case ESettingsID.RAIDHELPER:
                     switch (option) {
                         case ERaidhelperSettingsOptions.API_KEY:
                             if (interaction.isButton()) {
                                 await (setting as RaidhelperSettings).showModal(interaction);
+                                return;
                             } else if (interaction.isModalSubmit()) {
                                 const apiKey = interaction.fields
                                     .getTextInputValue(
@@ -207,9 +220,6 @@ export class InteractionHandler {
                                         if (valid) {
                                             logger.log('setting api key');
                                             dbGuild.raidHelper.apiKey = apiKey;
-                                            setting.send(interaction, dbGuild, {
-                                                includeDescription: false
-                                            });
                                         } else {
                                             throw new Error('Invalid API Key');
                                         }
@@ -226,17 +236,25 @@ export class InteractionHandler {
                             break;
                     }
                     break;
+                case ESettingsID.MISC:
+                    switch (option) {
+                        case EMiscSettingsOptions.CLEAR:
+                            await deleteGuild(guild).then(() => interaction.reply({ ephemeral: true, content: 'Data deleted ✅' }));
+                            return;
+                        default:
+                            break;
+                    }
+                    break;
                 default:
+                    logger.debug('no id, deferring and deleting');
                     await interaction.deferUpdate().then(() => interaction.deleteReply());
                     return;
             }
             await dbGuild.save()
                 .then(() => {
                     if (!interaction.deferred && !interaction.replied) {
-                        logger.log('Resending');
                         setting.send(interaction, dbGuild, {
-                            includeDescription: false,
-                            deleteOriginal: true
+                            update: true
                         });
                     }
                 })

@@ -1,12 +1,13 @@
 import { ActionRowBuilder, StringSelectMenuBuilder, StringSelectMenuOptionBuilder } from 'discord.js';
 import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, Setting } from './settings';
+import audioManager from '../../util/audioManager';
 
 export enum EVoiceSettingsOptions {
     VOICE = 'voice'
 }
 
-export class VoiceSettings extends Setting {    
+export class VoiceSettings extends Setting {
     public constructor() {
         super(ESettingsID.VOICE);
         const voice = new StringSelectMenuBuilder()
@@ -14,28 +15,22 @@ export class VoiceSettings extends Setting {
             .setPlaceholder('Select Voice')
             .setMinValues(0)
             .setMaxValues(1)
-            .addOptions(
-                new StringSelectMenuOptionBuilder()
-                    .setLabel('Male')
-                    .setDescription('Use male voice to announce respawns')
-                    .setValue('male'),
-                new StringSelectMenuOptionBuilder()
-                    .setLabel('Female')
-                    .setDescription('Use female voice to announce respawns')
-                    .setValue('female')
-            );
+            .addOptions(audioManager.sounds.map((s) => new StringSelectMenuOptionBuilder()
+                .setLabel(s.voice.split(' ').map((voice) => voice.charAt(0).toUpperCase() + voice.slice(1)).join(' '))
+                .setDescription(s.voiceDescription)
+                .setValue(s.voice)));
 
         const voicesRow = new ActionRowBuilder<StringSelectMenuBuilder>()
             .addComponents(voice);
 
         this.init(
             'Voice Settings',
-            `Wartimer currently offers a female and a male voice.\nIn the future more voice might be added.\n(Maybe even custom voices that you can upload from discord))`,
+            `Wartimer supports several voices and sound effects.\nThey can be changed even while the bot is in your channel.`,
             '',
             voicesRow
         );
     }
     public async getCurrentSettings(guild: GuildData): Promise<string> {
-        return Promise.resolve(guild.voice);
+        return Promise.resolve(guild.voice.split(' ').map((voice) => voice.charAt(0).toUpperCase() + voice.slice(1)).join(' '));
     }
 }
