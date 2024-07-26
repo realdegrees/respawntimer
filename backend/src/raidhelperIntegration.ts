@@ -14,7 +14,9 @@ const RETRY_INTERVAL_SECONDS = 5;
 const RAIDHELPER_USER_ID = "579155972115660803"
 
 export class RaidhelperIntegration {
-    // TODO: instead of checking on an interval basis check for messages from raidhelper (either in event channel or global if not set) and request events only for that guild
+    // TODO: save messageId and channelId of created raidhelper events (can be retrieved from api response) into the db as well
+    // TODO: when the bot starts load all event messages into memory and attach a collector to see when the message is deleted
+    // TODO: this makes it so no events will ever not be in sync, additionaly to capture events created during bot downtime an auto refresh could be performaed at bot start (will have to be careful with rate-limits on raidhelper API)
     public static startListening(client: Client): void {
         client
             .on('messageCreate', async (message) => {
@@ -59,11 +61,11 @@ export class RaidhelperIntegration {
                 dbGuild.raidHelper.apiKeyValid = true;
                 await dbGuild.save();
                 if (guild) {
-                    await Widget.find({
+                    await Widget.find(
                         guild,
-                        messageId: dbGuild.widget.messageId,
-                        channelId: dbGuild.widget.channelId
-                    }).then((widget) => {
+                        dbGuild.widget.messageId,
+                        dbGuild.widget.channelId
+                    ).then((widget) => {
                         if (!widget?.textState) {
                             widget?.update({ force: true });
                         }
@@ -73,7 +75,7 @@ export class RaidhelperIntegration {
             })
             .then(async ([events, oldEvents]) => {
                 logger.info(`[${guild.name}] raidhelper events request success`);
-                if (oldEvents.every((oldEvent) => events.find((event) => event.id === oldEvent.id)) && 
+                if (oldEvents.every((oldEvent) => events.find((event) => event.id === oldEvent.id)) &&
                     events.every((event) => oldEvents.find((oldEvent) => event.id === oldEvent.id))) return;
                 // Check for old events that have been descheduled and notify
                 const descheduledEvents = oldEvents.filter((event) => !events.find((newEvent) => newEvent.id === event.id));
@@ -143,11 +145,11 @@ export class RaidhelperIntegration {
                     const guild = clientGuilds.find((cg) => cg.id === dbGuild.id);
                     if (!guild) return;
 
-                    const widget = await Widget.find({
+                    const widget = await Widget.find(
                         guild,
-                        messageId: dbGuild.widget.messageId,
-                        channelId: dbGuild.widget.channelId
-                    });
+                        dbGuild.widget.messageId,
+                        dbGuild.widget.channelId
+                    );
                     // Connect to voice if not connected and auto-join is enabled
                     if (!audioManager.isConnected(guild.id) && dbGuild.raidHelper.enabled) {
                         await Promise.resolve().then(() => {

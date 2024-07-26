@@ -205,11 +205,11 @@ class AudioManager {
         });
     }
     public async disconnect(guild: Guild, dbGuild: DBGuild): Promise<void> {
-        return Widget.find({
+        return Widget.find(
             guild,
-            messageId: dbGuild.widget.messageId,
-            channelId: dbGuild.widget.channelId
-        }).then((widget) => {
+            dbGuild.widget.messageId,
+            dbGuild.widget.channelId
+        ).then((widget) => {
             widget?.onAudioUnsubscribe();
         }).finally(() => {
             this.subscribers.splice(this.subscribers.findIndex((s) => s.guild.id === guild.id), 1);
@@ -226,11 +226,11 @@ class AudioManager {
         return this.getConnection(channel)
             .then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
                 Database.getGuild(channel.guild)
-                    .then((dbGuild) => Widget.find({
-                        guild: channel.guild,
-                        messageId: dbGuild.widget.messageId,
-                        channelId: dbGuild.widget.channelId
-                    }))
+                    .then((dbGuild) => Widget.find(
+                        channel.guild,
+                        dbGuild.widget.messageId,
+                        dbGuild.widget.channelId
+                    ))
                     .then((widget) => widget?.toggleVoice({ dbGuild }))
                     .catch(() => { });
             }))
