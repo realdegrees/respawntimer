@@ -123,13 +123,14 @@ export class SettingsHandler {
                                 )
                                 await interaction.deferUpdate().catch(() => { });
                             } catch (e) {
+                                logger.error(`[${dbGuild.name}][Error] ${e?.toString?.() || 'Unknown'}`)
                                 interaction.reply({
                                     ephemeral: true,
-                                    content: e?.toString?.() ?? 'Unknown Error'
+                                    content: e?.toString?.() || 'Unknown Error'
                                 })
                                     .then(() => setTimeout(EPHEMERAL_REPLY_DURATION_LONG))
                                     .then(() => interaction.deleteReply())
-                                    .catch((err) => logger.error(`${err?.toString?.()} | Tried logging original error: ${e?.toString?.() || 'Unknown'}`));
+                                    .catch(logger.error);
                             }
                         })
                         .on('end', async (interaction, reason: ECollectorStopReason) => {
@@ -141,13 +142,14 @@ export class SettingsHandler {
                     if (settingInteraction) await interaction.deferUpdate().catch(() => {});
                     settingInteraction = settingInteraction ?? interaction;
                 } catch (e) {
+                    logger.error(`[${guild.name}][Error] ${e?.toString?.() || 'Unknown'}`)
                     await interaction.reply({
                         ephemeral: true,
-                        content: e?.toString?.() ?? 'Unkown Error'
+                        content: e?.toString?.() || 'Unkown Error'
                     })
                         .then(() => setTimeout(EPHEMERAL_REPLY_DURATION_LONG))
                         .then(() => interaction.deleteReply())
-                        .catch((err) => logger.error(`${err?.toString?.()} | Tried logging original error: ${e?.toString?.() || 'Unknown'}`));
+                        .catch(logger.error);
                 }
             })
             .on('end', async () => {
