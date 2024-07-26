@@ -41,9 +41,11 @@ export class RaidhelperIntegration {
                     return;
                 }
                 await RaidhelperIntegration.sendEventNotifications(message.guild, dbGuild, events, [...dbGuild.raidHelper.events])
-                    .then(() => dbGuild.raidHelper.events = events)
-                    .then(() => dbGuild.save())
                     .catch(logger.error);
+
+                dbGuild.raidHelper.apiKeyValid = true;
+                dbGuild.raidHelper.events = events;
+                await dbGuild.save();
 
                 const widget = await Widget.find(
                     message.guild,
@@ -72,10 +74,13 @@ export class RaidhelperIntegration {
                     );
                     return;
                 }
+                
                 await RaidhelperIntegration.sendEventNotifications(message.guild, dbGuild, events, [...dbGuild.raidHelper.events])
-                    .then(() => dbGuild.raidHelper.events = events)
-                    .then(() => dbGuild.save())
                     .catch(logger.error);
+
+                dbGuild.raidHelper.apiKeyValid = true;
+                dbGuild.raidHelper.events = events;
+                await dbGuild.save();
 
                 const widget = await Widget.find(
                     message.guild,
