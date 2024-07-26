@@ -15,6 +15,7 @@ import { setTimeout } from "timers/promises";
 import { WidgetHandler } from "./widgetHandler";
 import { SettingsPostInteractAction } from "../common/types/settingsPostInteractActions";
 import { DBGuild } from "../common/types/dbGuild";
+import { ECollectorStopReason } from "../common/types/collectorStopReason";
 
 const settingsEmbed = new EmbedBuilder()
     .setAuthor({ iconURL: 'https://cdn3.emoji.gg/emojis/2637-settings.png', name: 'Settings' })
@@ -56,6 +57,7 @@ export class SettingsHandler {
         });
         let settingInteraction: AnySelectMenuInteraction | ButtonInteraction | undefined;
         const overviewCollector = (await res.fetch()).createMessageComponentCollector({ idle: 1000 * 60 * 1.5 });
+        let settingCollector: InteractionCollector<AnySelectMenuInteraction | ButtonInteraction> | undefined;
         overviewCollector
             .on('collect', async (interaction) => {
                 // Runs when a button sub setting is selected
@@ -75,7 +77,8 @@ export class SettingsHandler {
                     const dbGuild = await Database.getGuild(interaction.guild);
                     if (settingInteraction) {
                         // Delete reply, catch into nothing because it doesn't matter
-                        await settingInteraction.deleteReply().catch(() => {});
+                        await settingInteraction?.deleteReply().catch(() => { });
+                        settingCollector?.stop(ECollectorStopReason.DISPOSE);
                         settingInteraction = undefined;
                     }
                     const message = await setting.send(
@@ -83,7 +86,7 @@ export class SettingsHandler {
                         dbGuild
                     )
 
-                    message.createMessageComponentCollector({ idle: 1000 * 60 * 1 })
+                    settingCollector = message.createMessageComponentCollector({ idle: 1000 * 60 * 1 })
                         .on('collect', async (interaction) => {
                             overviewCollector.resetTimer({ idle: 1000 * 60 * 1.5 })
                             try {
@@ -122,7 +125,9 @@ export class SettingsHandler {
                                     .catch(logger.error);
                             }
                         })
-                        .on('end', async () => {
+                        .on('end', async (interaction, reason: ECollectorStopReason) => {
+                            if(reason === ECollectorStopReason.DISPOSE) return;
+                            logger.debug('stopped');
                             // Delete reply, catch into nothing because it doesn't matter
                             await settingInteraction?.deleteReply().catch(() => {});
                             settingInteraction = undefined;
