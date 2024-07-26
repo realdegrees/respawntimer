@@ -288,7 +288,7 @@ export class Widget {
     //region - Instance methods
     private async init(onReady: (widget: Widget) => void): Promise<void> {
         try {
-            this.voiceState = !!this.message.guild && audioManager.isConnected(this.message.guild.id);
+            this.voiceState = !!this.message.guild && audioManager.isConnected(this.message.guild, this.dbGuild);
             this.startListening();
             textManager.subscribe({
                 widget: this,
