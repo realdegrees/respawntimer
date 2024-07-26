@@ -88,7 +88,7 @@ export class RaidhelperIntegration {
             } else if (response instanceof Response) {
                 logger.error(`[${guild.name}] ${response.status}: ${response.statusText}`);
             } else {
-                logger.error('Unkown Error while polling')
+                logger.error('Unknown Error while polling')
             }
         } finally {
             if (!retryAfterAwaited) {
