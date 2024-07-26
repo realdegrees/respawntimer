@@ -63,21 +63,30 @@ export class CommandCreate extends Command {
                     //     widget.recreateMessage(true);
                     //     break;
                     case buttonIds.info:
-                        interaction.reply({
-                            ephemeral: true,
-                            embeds: [new EmbedBuilder()
-                                .setTitle('Widget Info')
-                                .setDescription('Button 1 - Starts / Stops Text Updates\n' +
-                                    'Button 2 - Starts/Stops Audio Updates\n' +
-                                    'Button 3 - Reloads the Widget\n' +
-                                    'Button 4 - Sends Widget Info\n\n' +
-                                    'If the text widget reloads too often increase the interval with /set delay')]
-                        });
+                        // eslint-disable-next-line no-case-declarations
+                        const embed = new EmbedBuilder()
+                            .setTitle('Widget Info')
+                            .setDescription('- The bot will automatically disconnect after every war if it has been running for more than 15 minutes\n' +
+                                '- (Not implemented) The bot will automatically join any channel it has permission in when a war starts and over 40 users are connected to that channel\n' +
+                                '- If the text widget reloads too often increase the interval with /set delay');
+                        if (!interaction.deferred) {
+                            await interaction.deferReply({
+                                ephemeral: true
+                            }).then(() => interaction.editReply({
+                                embeds: [embed]
+                            }));
+
+                        } else {
+                            await interaction.reply({
+                                embeds: [embed]
+                            });
+                        }
+
                         break;
                 }
             })
             .catch(async () => {
-                if(!interaction.deferred){
+                if (!interaction.deferred) {
                     await interaction.reply({ ephemeral: true, content: 'Unable to fetch the message' });
                 }
             });

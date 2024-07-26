@@ -1,5 +1,6 @@
 import { EmojiResolvable } from 'discord.js';
 import { timers as timestamps } from './timer';
+import { WarInfo } from './types';
 
 const includesArg = (arg: string): boolean => {
     return !!process.argv.find((a: string) => [arg, `-${arg}`, `--${arg}`].includes(a));
@@ -14,13 +15,7 @@ export const debug = ((): boolean => {
 export const logging = ((): boolean => {
     return includesArg('logging');
 })();
-export const getRespawnInfo = (): {
-    timeLeft: number;
-    timeTotal: number;
-    timeTotalNext: number;
-    remainingRespawns: number;
-    timeLeftTotalSeconds: number;
-} => {
+export const getRespawnInfo = (): WarInfo => {
     const start = new Date();
     start.setMinutes(start.getMinutes() >= 30 ? 30 : 0);
     start.setSeconds(0);
@@ -44,12 +39,17 @@ export const getRespawnInfo = (): {
     const remainingRespawns = timestamps.length - 1 - timestampIndex;
     const timeLeftTotalSeconds = 30 * 60 - timePassedSeconds;
 
+
     return {
-        timeLeft: clamp(respawnTimestamp - timePassedSeconds, 0, Infinity),
-        timeTotal,
-        timeTotalNext,
-        remainingRespawns,
-        timeLeftTotalSeconds
+        respawn: {
+            duration: timeTotal,
+            durationNext: timeTotalNext,
+            timePassed: clamp(respawnTimestamp - timePassedSeconds, 0, Infinity),
+            remaining: remainingRespawns
+        },
+        war: {
+            timeLeftSeconds: timeLeftTotalSeconds
+        }
     };
 };
 export const clamp = (val: number, min: number, max: number): number => {
