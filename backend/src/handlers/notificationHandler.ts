@@ -69,7 +69,7 @@ export class NotificationHandler {
 			byPassDuplicateCheck?: boolean;
 		}
 	): Promise<NotificationResponse> {
-		let guildNotificationMap = notificationMap.find(({guildId}) => guildId === dbGuild.id);
+		let guildNotificationMap = notificationMap.find(({ guildId }) => guildId === dbGuild.id);
 
 		if (!guildNotificationMap) {
 			guildNotificationMap = {
@@ -106,7 +106,7 @@ export class NotificationHandler {
 					]
 				});
 
-				logger.info('[' + dbGuild.name + '][Notification] ' + title);
+				logger.info('[' + dbGuild.name + '][Notification] ' + title + ' ' + text);
 				saveToLog(guildNotificationMap, dbGuild.id, title, text);
 				return {
 					type: 'sent'
@@ -118,7 +118,7 @@ export class NotificationHandler {
 				};
 			}
 		} else {
-			logger.debug('[' + dbGuild.name + '] Notification (log): ' + title);
+			logger.info('[' + dbGuild.name + '][Notification-Log] ' + title + ' ' + text);
 			saveToLog(guildNotificationMap, dbGuild.id, title, text);
 			return { type: 'nochannel' };
 		}
