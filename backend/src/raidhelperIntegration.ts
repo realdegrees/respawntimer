@@ -21,31 +21,34 @@ const pollingRetries: {
 export class RaidhelperIntegration {
     public static startRaidhelperMessageCollector(guild: Guild): void {
         const messageCreateEvent = guild.client.on('messageCreate', async (message) => {
+            if (message.author.id !== RAIDHELPER_USER_ID || message.type !== 20) {
+                return;
+            }
             try {
                 const dbGuild = await Database.getGuild(guild);
                 if (!dbGuild.raidHelper.apiKey) {
                     await messageCreateEvent.destroy();
                     return;
                 }
-                if (message.author.id === RAIDHELPER_USER_ID && message.type === 20) {
-                    await promiseTimeout(1000);
-                    await this.poll(guild, dbGuild, false);
-                }
+                await promiseTimeout(1000);
+                await this.poll(guild, dbGuild, false);
+
             } catch (err) {
                 logger.error(`[${guild.name}] Autopoll on messageCreate failed`);
             }
         });
         const messageDeleteEvent = guild.client.on('messageDelete', async (message) => {
+            if (message.author?.id !== RAIDHELPER_USER_ID || message.type !== 0) {
+                return;
+            }
             try {
                 const dbGuild = await Database.getGuild(guild);
                 if (!dbGuild.raidHelper.apiKey) {
                     await messageDeleteEvent.destroy();
                     return;
                 }
-                if (message.author?.id === RAIDHELPER_USER_ID && message.type === 0) {
-                    await promiseTimeout(10000);
-                    await this.poll(guild, dbGuild, false);
-                }
+                await promiseTimeout(10000);
+                await this.poll(guild, dbGuild, false);
             } catch (err) {
                 logger.error(`[${guild.name}] Autopoll on messageDelete failed`);
             }
@@ -55,7 +58,6 @@ export class RaidhelperIntegration {
         this.poll(guild, dbGuild);
         this.startRaidhelperMessageCollector(guild);
     }
-    // Polls the raidhelper api every RAIDHELPER_INTEGRATION_QUERY_INTERVAL_MS milliseconds to retrieve new events
     public static async poll(guild: Guild, dbGuild: DBGuild, interval = true): Promise<void> {
         if (!dbGuild.raidHelper.apiKey) {
             return;
@@ -67,10 +69,6 @@ export class RaidhelperIntegration {
             const events = await this.getEvents(dbGuild);
             await this.onFetchEventSuccess(guild, dbGuild, events);
             logger.debug('Event Poll Success');
-
-            // Poll every 10 minutes on top of autopolling when a raidhelper message is created
-            const timeout = 1000 * 60 * 10;
-            await promiseTimeout(timeout);
         } catch (response) {
             if (response instanceof Response && response.status === 429) {
                 dbGuild.raidHelper.apiKeyValid = false;
@@ -91,6 +89,10 @@ export class RaidhelperIntegration {
                 pollFailed = true;
             }
         } finally {
+            if(!pollFailed){
+                const timeout = 1000 * 60 * 10;
+                await promiseTimeout(timeout);
+            }
             // If too many retries, reset api key and stop polling else schedule a new poll
             const tooManyTries = dbGuild.id in pollingRetries && pollingRetries[dbGuild.id] >= MAX_POLL_RETRIES;
             if (tooManyTries) {
