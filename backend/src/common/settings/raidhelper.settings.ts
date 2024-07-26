@@ -180,7 +180,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
                 await this.showModal(interaction);
                 let modalInteraction;
                 try {
-                    modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 60 })
+                    modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 5 })
                 } catch (e) {
                     return [];
                 }
