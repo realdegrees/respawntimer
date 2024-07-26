@@ -348,7 +348,7 @@ export class Widget {
             this.isUpdating = false;
             if (!(e instanceof DiscordAPIError)) {
                 // Handle other errors or log them as needed
-                logger.error('Update error: ' + e?.toString?.() || 'Unknown');
+                logger.error(`[${this.dbGuild.name}] Widget update Error: ${e?.toString?.() || 'Unknown'}`);
             }
         }
     }
