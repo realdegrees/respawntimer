@@ -84,8 +84,6 @@ export class RaidhelperIntegration {
 			await this.onFetchEventSuccess(dbGuild, events);
 			logger.debug('Event Poll Success');
 		} catch (response) {
-			dbGuild.raidHelper.apiKeyValid = false;
-
 			if (response instanceof Response) {
 				switch (response.status) {
 					case 429:
