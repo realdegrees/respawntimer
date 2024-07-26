@@ -1,8 +1,9 @@
 # Live Version
-If you don't want to deploy your own instance via docker or node or just want to test the bot you can use the public instance of the bot at the risk of it being down for a few minutes whenever I update it. I try to only update it at times when there are no wars in EU timezones.  
-I will maintain this bot as long as I actively play the game - [which should be a long time since I have over 5000 hours in it](https://thedecisionlab.com/biases/the-sunk-cost-fallacy).
 
 **[Public Bot Link](https://discord.com/api/oauth2/authorize?client_id=993116789284286484&scope=bot+applications.commands&permissions=2100224)**
+
+If you don't want to deploy your own instance via docker or node or just want to test the bot you can use the public instance of the bot at the risk of it being down for a few minutes whenever I update it. I try to only update it at times when there are no wars in EU timezones.  
+I will maintain this bot as long as I actively play the game.
 
 # How to use
 
