@@ -51,10 +51,11 @@ export const getNotificationChannel = async (
 			logger.info(`[${dbGuild.name}][10003] Unsetting notification channel!`);
 			dbGuild.notificationChannelId = undefined;
 			await dbGuild.save();
+			return null;
 		}
 	}
 
-	if (!channel?.isTextBased()) {
+	if (channel && !channel.isTextBased()) {
 		logger.info(`[${dbGuild.name}] Unsetting notification channel! Not text-based!`);
 		dbGuild.notificationChannelId = undefined;
 		await dbGuild.save();
