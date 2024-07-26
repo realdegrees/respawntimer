@@ -1,6 +1,6 @@
 import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v9';
-import { Client, Intents, User } from 'discord.js';
+import { Client, GatewayIntentBits, User } from 'discord.js';
 import logger from '../lib/logger';
 import { CommandCreate } from './commands/create';
 import { CommandSet } from './commands/set';
@@ -20,7 +20,7 @@ class Bot {
         commands: Command[]
     ) {
         this.user = this.client.user;
-        this.client.user?.setActivity({name: '/create'})
+        this.client.user?.setActivity({name: '/create'});
         this.client.on('interactionCreate', (interaction) => {
             if (!interaction.isCommand()) return;
             commands.find((command) => command.name === interaction.commandName)?.execute(interaction);
@@ -29,7 +29,7 @@ class Bot {
 
     public static async init(): Promise<Bot> {
         return new Promise((resolve, reject) => {
-            const client = new Client({ intents: [Intents.FLAGS.GUILDS, Intents.FLAGS.GUILD_VOICE_STATES] });
+            const client = new Client({ intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildVoiceStates] });
             const token = process.env['DISCORD_CLIENT_TOKEN'];
             const clientId = process.env['DISCORD_CLIENT_ID'];
             const commands = [
