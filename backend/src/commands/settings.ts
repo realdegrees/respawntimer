@@ -45,14 +45,13 @@ export class Settings extends Command {
             .toJSON();
     }
     // eslint-disable-next-line @typescript-eslint/require-await
-    public async execute(interaction: CommandInteraction<CacheType>): Promise<void> {
-        this.checkPermission(interaction, 'editor').then(() => {
+    public async execute(interaction: CommandInteraction<CacheType>): Promise<unknown> {
+        return this.checkPermission(interaction, 'editor').then(() => {
             openSettings(interaction);
         }).catch(async (msg) => {
-            logger.debug('Error opening settings');
             await interaction.reply({
                 ephemeral: true,
-                content: msg
+                content: msg?.toString()
             }).catch(logger.error);
         });
     }
