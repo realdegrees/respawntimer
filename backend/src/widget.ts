@@ -97,27 +97,23 @@ export class Widget {
     const dbGuilds = await Database.queryGuilds({
       "widget.messageId": { $exists: true },
     });
-    const clientGuilds = await client.guilds.fetch();
-    logger.info("Loading widget for " + clientGuilds);
+    logger.info(`[Server] Loading widget for ${dbGuilds.length} guilds`);
     for (const dbGuild of dbGuilds) {
       try {
-        const clientGuild = clientGuilds.find(
-          (clientGuild) => clientGuild.id === dbGuild.id
-        );
-        const clientGuildFetched = await clientGuild?.fetch().catch(() => {
+        const clientGuild = await client.guilds.fetch(dbGuild.id).catch(() => {
           throw new Error("Unable to fetch guild " + clientGuild.name);
         });
-        if (!clientGuildFetched) {
+        if (!clientGuild) {
           throw new Error("Unable to find guild while initializing widget");
         }
         const widget = await Widget.find(
-          clientGuildFetched,
+          clientGuild,
           dbGuild.widget.messageId,
           dbGuild.widget.channelId,
           dbGuild
         );
+        logger.info(`[${dbGuild.name}] Connected to widget`);
         await widget?.update({ force: true });
-        // widget?.startListening(); might not need this
       } catch (e) {
         logger.error(
           `[${dbGuild.name}] Error while trying to initialize widget: ${
