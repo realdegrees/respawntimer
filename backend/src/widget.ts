@@ -289,19 +289,12 @@ export class Widget {
     private async init(onReady: (widget: Widget) => void): Promise<void> {
         try {
             this.voiceState = !!this.message.guild && audioManager.isConnected(this.message.guild.id);
-            let message = await this.message.fetch();
-            message = await message.edit({
-                components: this.showButtons ? [this.getButtons()] : [],
-                embeds: [EmbedBuilder.from(this.message.embeds[0])]
-            });
-
             this.startListening();
-            this.message = message;
-
             textManager.subscribe({
                 widget: this,
                 customTimings: this.dbGuild.customTimings
             }, this.update.bind(this));
+            this.update();
 
             onReady(this);
         } catch (e) {
