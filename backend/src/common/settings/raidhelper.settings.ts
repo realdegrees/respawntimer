@@ -198,7 +198,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
                 if (this.waitingForApiKeyModal) {
                     return [];
                 }
-                let modalInteraction;
+                let modalInteraction: ModalSubmitInteraction;
                 try {
                     this.waitingForApiKeyModal = true;
                     modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 5 })
@@ -218,7 +218,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
                 } catch (e) {
                     await modalInteraction.reply({ ephemeral: true, content: 'Invalid API Key.\nTry using `/apikey refresh` to get a new key.' })
                         .then(() => setTimeout(EPHEMERAL_REPLY_DURATION_SHORT))
-                        .then(() => interaction.deleteReply())
+                        .then(() => modalInteraction.deleteReply())
                         .catch(logger.error);
                     return [];
                 }
