@@ -64,7 +64,11 @@ export class TimingsSettings extends Setting {
     public static checkSyntax(text: string[] | string): [boolean, string] {
         const list = Array.isArray(text) ? text : text.split(',');
         const invalid = list.find((val) => !/^[0-2]?\d:[0-5]\d$/.test(val.trim()));
-        return [!invalid, `Invalid Entry: **${invalid}**`];
+        const reason = !invalid ? '' : `Invalid Entry: **${invalid}**\n\`\`\`fix\n${list
+            .map((item) => `${item === invalid ? `⚠️${item}` : item}`)
+            .map((item) => item.trim())
+            .join(', ')}\`\`\``;
+        return [!invalid, reason];
     }
     /**
      * @param time a string containing all timers seperated by comma
