@@ -29,8 +29,8 @@ class IntervalText {
             this.getBar(data.timeTotal, data.timeLeft) + '**\n\n' +
             'This Respawn Duration: **' + (data.timeTotal >= 0 ? data.timeTotal : '-') + '**\n' +
             'Next Respawn Duration: **' + (data.timeTotalNext >= 0 ? data.timeTotalNext : '-') + '**\n' +
-            'Respawns Left: **' + data.remainingRespawns + '**\n' +
-            'Time Left in War: **' + (timeLeftMinutes > 9 ? timeLeftMinutes : '0' + timeLeftMinutes) + ':' +
+            'Respawns Remaining: **' + data.remainingRespawns + '**\n' +
+            'Time Remaining: **' + (timeLeftMinutes > 9 ? timeLeftMinutes : '0' + timeLeftMinutes) + ':' +
             (timeLeftSeconds > 9 ? timeLeftSeconds : '0' + timeLeftSeconds) + '**';
         const title = this.getTitle(data.remainingRespawns, data.timeLeft);
 
