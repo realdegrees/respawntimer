@@ -74,23 +74,13 @@ export class InteractionHandler {
         }
 
         const guild = interaction.guild;
-
-
-        logger.debug('Trying to find guild in db');
         const dbGuild = await getGuild(guild);
-        logger.debug(`DB obj: ${JSON.stringify(dbGuild.toJSON())}`);
-        logger.debug('ID: ' + id);
-        logger.debug('TYPE: ' + type);
-
 
         if (type === EInteractionType.WIDGET) {
-            logger.log('Widget interaction');
             return interaction.message?.fetch()
                 // eslint-disable-next-line no-async-promise-executor
                 .then(Widget.get)
                 .then(async (widget) => {
-                    logger.info('[' + guild.name + '][Button] ' + id + ' activated by ' +
-                        interaction.user.username);
                     switch (id) {
                         case widgetButtonIds.text:
                             return this.checkPermission(
@@ -183,7 +173,6 @@ export class InteractionHandler {
 
             if (!option) {
                 // No args = subsetting button was pressed -> open a subsetting menu
-                logger.debug('Sending sub settings menu');
                 return setting.send(interaction, dbGuild);
             }
 
@@ -204,6 +193,7 @@ export class InteractionHandler {
                     if (!interaction.isStringSelectMenu()) return;
                     dbGuild.voice = interaction.values[0] as Voices;
                     audioManager.setVoice(guild.id, dbGuild.voice);
+                    logger.info('[' + interaction.guild.name + '] Changed Voice to ' + dbGuild.voice);
                     return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
                 case ESettingsID.RAIDHELPER:
                     switch (option) {
@@ -220,7 +210,7 @@ export class InteractionHandler {
                                 return raidhelperIntegration.checkApiKey(guild, apiKey)
                                     .then((valid) => {
                                         if (valid) {
-                                            logger.log('setting api key');
+                                            logger.info('[' + interaction.guild?.name + '] Added Raidhelper API Key');
                                             dbGuild.raidHelper.apiKey = apiKey;
                                         } else {
                                             return Promise.reject('Invalid API Key');
@@ -239,7 +229,6 @@ export class InteractionHandler {
                                     } else {
                                         return checkChannelPermissions(channel, ['ViewChannel', 'Connect', 'Speak'])
                                             .then(() => {
-                                                logger.debug('Valid Channel');
                                                 dbGuild.raidHelper.defaultVoiceChannelId = interaction.values[0];
                                             })
                                             .then(() => dbGuild.save())
@@ -255,7 +244,6 @@ export class InteractionHandler {
                                     } else {
                                         return checkChannelPermissions(channel, ['ViewChannel'])
                                             .then(() => {
-                                                logger.debug('Valid Channel');
                                                 dbGuild.raidHelper.eventChannelId = interaction.values[0];
                                             })
                                             .then(() => dbGuild.save())
@@ -270,8 +258,10 @@ export class InteractionHandler {
                 case ESettingsID.MISC:
                     switch (option) {
                         case EMiscSettingsOptions.CLEAR:
-                            return deleteGuild(guild)
-                                .then(() => interaction.reply({ ephemeral: true, content: 'Data deleted ✅' }));
+                            // eslint-disable-next-line no-case-declarations
+                            return deleteGuild(guild.id)
+                                .then(() => interaction.reply({ ephemeral: true, content: 'Data deleted ✅' }))
+                                .then(() => logger.info('[' + guild.name + '] Data Deleted'));
                         default:
                             break;
                     }
@@ -287,7 +277,7 @@ export class InteractionHandler {
                                     } else {
                                         return checkChannelPermissions(channel, ['ViewChannel', 'SendMessages'])
                                             .then(() => {
-                                                logger.debug('Valid Channel');
+                                                logger.info('[' + channel.guild.name + '] Enabled Notifications');
                                                 dbGuild.notificationChannelId = interaction.values[0];
                                                 return channel.send({
                                                     embeds: [new EmbedBuilder()
@@ -328,6 +318,7 @@ export class InteractionHandler {
                                 // remove duplicates and trim spaces
                                 dbGuild.customTimings = TimingsSettings.sort(timings).join(',');
                                 return dbGuild.save().then(() => {
+                                    logger.info('[' + dbGuild.name + '] Added custom respawn timings');
                                     audioManager.setTimings(dbGuild.id, timings);
                                     textManager.setTimings(dbGuild.id, timings);
                                     return setting!.send(interaction, dbGuild, { update: true });
@@ -335,8 +326,9 @@ export class InteractionHandler {
                             }
                             break;
                         case ETimingsSettingsOptions.RESET:
-                            if(!dbGuild.customTimings) return interaction.deferUpdate();
+                            if (!dbGuild.customTimings) return interaction.deferUpdate();
                             dbGuild.customTimings = undefined;
+                            logger.info('[' + interaction.guild.name + '] Reset respawn timings');
                             audioManager.resetTimings(dbGuild.id);
                             textManager.resetTimings(dbGuild.id);
                             return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
