@@ -85,10 +85,8 @@ export class Widget {
                 }
                 this.updateQueue = { title, description };
             }
-            logger.log('queuing widget update ' + this.getId());
             return;
         }
-        logger.log('updating widget' + this.getId());
         this.isUpdating = true;
         this.message.edit({
             components: [this.getButtons()],
@@ -102,7 +100,6 @@ export class Widget {
         }).finally(() => {
             this.deferButtonQueue.forEach((def) => def());
             this.deferButtonQueue = [];
-            logger.log('Message updat done');
             this.isUpdating = false;
             if (this.updateQueue) {
                 this.update(this.updateQueue.title, this.updateQueue.description);

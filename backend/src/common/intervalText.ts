@@ -1,3 +1,4 @@
+import logger from '../../lib/logger';
 import audioplayer from '../audioplayer';
 import applicationSettings from './applicationSettings';
 import { clamp, getRespawnInfo } from './util';
@@ -34,7 +35,10 @@ class IntervalText {
         // Audioplayer only plays at the second marks provided by available sound files
         // Skip any announcements higher than 40% of the total time 
         if (data.timeLeft / data.timeTotal < 0.60 && data.remainingRespawns > 0) {
-            audioplayer.play(data.timeLeft);
+            audioplayer.playCountdown(data.timeLeft);
+        }
+        if(data.timeTotal - data.timeLeft === 3) {
+            audioplayer.playRespawnCount(data.remainingRespawns);
         }
         for (const subscriber of subscribers) {
             // Update delay > 10 seconds is decided by the settings, 
