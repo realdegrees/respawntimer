@@ -59,7 +59,7 @@ export class CommandCreate extends Command {
                         await widget.toggleVoice(interaction);
                         break;
                     case buttonIds.info:
-                        interaction.reply({
+                        await interaction.reply({
                             ephemeral: true,
                             embeds: [new EmbedBuilder()
                                 .setTitle('Widget Info')
@@ -67,16 +67,16 @@ export class CommandCreate extends Command {
                                     '- (Not implemented) The bot will automatically join any channel it has permission in when a war starts and over 40 users are connected to that channel\n' +
                                     '- If the text widget reloads too often increase the interval with /set delay')]
                         });
-
-
-
                         break;
                 }
             })
             .catch(async () => {
                 if (!interaction.deferred) {
-                    await interaction.reply({ ephemeral: true, content: 'Unable to fetch the message' });
+                    await interaction.reply({ ephemeral: true, content: 'Something went wrong :(' });
                 }
+            })
+            .catch(() => {
+                logger.error('[' + interaction.guild?.name + '] Fatal Error. Unable to reply to user!'); 
             });
     }
     public build(): RESTPostAPIApplicationCommandsJSONBody {
