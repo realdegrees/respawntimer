@@ -53,7 +53,7 @@ You can set **Editor** and **Assistant** roles. **Editor** roles have full acces
 ## 🔔 Notifications
 Set a dedicated notification channel in the **Notification Settings** to get notfied when the bot encounters problems like missing permissions or when events get de-/scheduled. You will also receive important app updates here.
 # 🐋 Deployment - Docker
-`docker run -d --name wartimer -e DISCORD_CLIENT_TOKEN='<Token>' -e DISCORD_CLIENT_ID='<ID>' wartimer`
+`docker run -d --name wartimer -e DISCORD_CLIENT_TOKEN='<Token>' -e DISCORD_CLIENT_ID='<ID>' realdegrees/wartimer`
 
 **OR**
 
@@ -64,6 +64,10 @@ Set a dedicated notification channel in the **Notification Settings** to get not
 2. Run `npm install` in `backend`
 3. Create `.env` in `backend` with following content:
 ```
+MONGO_HOST="localhost"
+MONGO_PORT="27017"
+MONGO_USER=
+MONGO_PASS=
 DISCORD_CLIENT_TOKEN="<token>"
 DISCORD_CLIENT_ID="<id>"
 OWNER_ID="<id>"
