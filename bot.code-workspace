@@ -1,0 +1,34 @@
+{
+    "folders": [
+        {
+            // Source code
+            "name": "Backend",
+            "path": "backend"
+        },
+        {
+            // Config
+            "name": "Config",
+            "path": "config"
+        },
+        {
+            // Github
+            "name": "Github",
+            "path": ".github"
+        },
+        {
+            // Docs and release notes
+            "name": "Documentation",
+            "path": "docs"
+        },
+        {
+            // Docker
+            "name": "Docker",
+            "path": "docker"
+        }
+    ],
+    "settings": {
+        "eslint.validate": [
+            "typescript"
+        ],
+    }
+}
