@@ -35,8 +35,8 @@ class TextManager {
             const widgetHasTextEnabled = subscriber.widget.getTextState();
             const isEndOfwar = (minutes === 59 || minutes === 29) && seconds === 30 && (minutesSubscribed >= 15 || minutesSubscribed >= 45);
             if (widgetHasTextEnabled && isEndOfwar) {
+                logger.info(`[${subscriber.widget.guild.name}] auto-stop widget`);
                 subscriber.widget.toggleText().catch(logger.error);
-                logger.info('auto-stop widget');
             }
         });
 
