@@ -348,7 +348,7 @@ export class RaidhelperIntegration {
 				try {
 					// Connect to voice if auto-join is enabled
 					if (dbGuild.raidHelper.enabled) {
-						let channel: GuildBasedChannel | null = await getEventVoiceChannel(event, dbGuild.id);
+						let channel: GuildBasedChannel | null = await getEventVoiceChannel(event, dbGuild.id).catch(() => null);
 
 						if (!channel)
 							throw new Error(

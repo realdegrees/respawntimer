@@ -235,7 +235,7 @@ export class Widget {
 				: lowest
 		);
 		const startTimeStamp = roundUpHalfHourUnix(event.startTimeUnix);
-		const voiceChannel = await getEventVoiceChannel(event, dbGuild.id);
+		const voiceChannel = await getEventVoiceChannel(event, dbGuild.id).catch(() => null);
 		const permissionText = voiceChannel
 			? await checkChannelPermissions(voiceChannel, ['ViewChannel', 'Connect', 'Speak']).catch(
 					(e) => String(e)
