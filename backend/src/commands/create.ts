@@ -99,6 +99,14 @@ export class CommandCreate extends Command {
                 .setName('managerrole3')
                 .setDescription('This role is allowed to manage the timer')
                 .setRequired(false))
+            .addRoleOption((option) => option
+                .setName('managerrole4')
+                .setDescription('This role is allowed to manage the timer')
+                .setRequired(false))
+            .addRoleOption((option) => option
+                .setName('managerrole5')
+                .setDescription('This role is allowed to manage the timer')
+                .setRequired(false))
             .toJSON();
     }
     // eslint-disable-next-line @typescript-eslint/require-await
@@ -123,7 +131,9 @@ export class CommandCreate extends Command {
             const roles = [
                 interaction.options.getRole('managerrole'),
                 interaction.options.getRole('managerrole2'),
-                interaction.options.getRole('managerrole3')
+                interaction.options.getRole('managerrole3'),
+                interaction.options.getRole('managerrole4'),
+                interaction.options.getRole('managerrole5')
             ].filter((role): role is Role => !!role);
             
             await interaction.deferReply({ ephemeral: true });
