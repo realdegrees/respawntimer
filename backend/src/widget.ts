@@ -234,10 +234,10 @@ export class Widget {
                         try {
                             const channel = (await guild.members.fetch(guild.client.user)).voice.channel;
                             embed.setDescription(`in ${channel}`);
-                        }catch(e){
+                        } catch (e) {
                             embed.setDescription('-');
                         }
-                    }else {
+                    } else {
                         embed.setDescription('-');
 
                     }
@@ -533,18 +533,17 @@ export class Widget {
      * @throws {Error}
      */
     public async toggleText(forceOn?: boolean): Promise<void> {
-        return new Promise(async (res) => {
+        await new Promise(async (res) => {
             if (!this.textState || forceOn) {
                 this.textState = true;
-                this.onUpdateOnce = res;
+                this.onUpdateOnce = () => res(undefined);
             } else {
                 this.textState = false;
-                this.onUpdateOnce = res;
-                await setTimeout(1000);
+                this.onUpdateOnce = () => res(undefined);
                 await this.update({ force: true });
             }
-        })
-
+        });
+        logger.info(`[${this.guild.name}] ${this.textState ? 'widget text started' : 'widget text stopped'}`);
     }
     public async toggleVoice(options: {
         dbGuild: DBGuild;
