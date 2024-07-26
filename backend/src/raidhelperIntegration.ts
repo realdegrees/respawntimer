@@ -351,7 +351,7 @@ export class RaidhelperIntegration {
 
 		try {
 			const dbGuilds = await Database.queryGuilds({
-				'raidHelper.widget': { $exists: true, $not: { $size: 0 } },
+				'raidHelper.events': { $exists: true, $ne: [] },
 				'raidHelper.apiKey': { $exists: true },
 				'raidHelper.apiKeyValid': true,
 				$or: [{ 'raidHelper.enabled': true }, { 'raidHelper.widget': true }]
@@ -404,7 +404,7 @@ export class RaidhelperIntegration {
 							);
 						if (!channel.isVoiceBased()) throw new Error(`${channel} is not a voice channel.`);
 
-						await audioManager.subscribe(dbGuild.id, channel, widget);
+						await audioManager.subscribe(dbGuild.id, channel);
 						logger.info(`[${dbGuild.name}][Raidhelper] Voice autojoin`);
 					}
 				} catch (e) {
@@ -421,7 +421,7 @@ export class RaidhelperIntegration {
 				// Attempt to start widget if auto-widget is enabled
 				if (dbGuild.raidHelper.widget) {
 					if (widget) {
-						await textManager.subscribe(dbGuild.id, widget);
+						await textManager.subscribe(dbGuild.id);
 						logger.info(`[${dbGuild.name}][Raidhelper] Widget autostart`);
 					} else {
 						await NotificationHandler.sendNotification(

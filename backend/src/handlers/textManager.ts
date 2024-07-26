@@ -1,27 +1,20 @@
 import { TimingsSettings } from '../common/settings/timings.settings';
 import { WarInfo } from '../common/types';
+import Database from '../db/database';
 import { clamp } from '../util/util.generic';
 import { Widget } from '../widget';
-import { IntervalManager, Subscriber, TimeInfo } from './intervalManager';
+import { Manager, Subscriber, TimeInfo, UnsubscribeReason } from './manager';
 
 const settings = {
 	barWidth: 25,
 	barIconFull: '●',
 	barIconEmpty: '○'
 };
-const defaultRespawnData = TimingsSettings.convertToRespawnData(
-	TimingsSettings.convertToSeconds(TimingsSettings.DEFAULT)!
-);
 
-class TextManager extends IntervalManager {
+class TextManager extends Manager {
 	public update(subscribers: (Subscriber & TimeInfo)[]): void {
 		subscribers.forEach(
-			async ({
-				time: { subscribedForMs },
-				warEnd,
-				widget,
-				dbGuild: { id, customTimings }
-			}) => {
+			async ({ time: { subscribedForMs }, warEnd, widget, dbGuild: { id, customTimings } }) => {
 				// If widget doesn't exist, unsubscribe
 				if (!widget) {
 					this.unsubscribe(id, 'No Widget');
@@ -39,15 +32,32 @@ class TextManager extends IntervalManager {
 
 				const respawnData = customTimings
 					? TimingsSettings.convertToRespawnData(TimingsSettings.convertToSeconds(customTimings)!)
-					: defaultRespawnData;
+					: TimingsSettings.convertToRespawnData(
+							TimingsSettings.convertToSeconds(TimingsSettings.DEFAULT)!
+					  );
 				const description = this.getDescription(respawnData);
 				widget.update({ description });
 			}
 		);
 	}
-	public subscribe(guildId: string, widget: Widget): Promise<() => Promise<void>> {
-		widget.textState = true;
+	public async subscribe(guildId: string): Promise<() => Promise<void>> {
+		const dbGuild = await Database.getGuild(guildId);
+		const widget = await Widget.find(dbGuild);
+
+		if (widget) {
+			widget.textState = true;
+		}
+		
 		return super.subscribe(guildId);
+	}
+	public async unsubscribe(guildId: string, reason?: UnsubscribeReason | undefined): Promise<void> {
+		const dbGuild = await Database.getGuild(guildId);
+		const widget = await Widget.find(dbGuild);
+		if (widget) {
+			widget.textState = false;
+			widget.update({ force: true });
+		}
+		return super.unsubscribe(guildId, reason);
 	}
 	private getDescription(info: WarInfo): string {
 		const timeLeftMinutes = Math.floor(info.war.timeLeftSeconds / 60);

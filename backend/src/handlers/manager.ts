@@ -1,10 +1,8 @@
 import logger from '../../lib/logger';
 import { DBGuild } from '../common/types/dbGuild';
 import Database from '../db/database';
-import { RaidhelperIntegration } from '../raidhelperIntegration';
 import { Widget } from '../widget';
 
-const WAR_START_TIMES_MINUTES = [0, 30];
 
 type SubscribedTimestamp = number;
 export type Subscriber = {
@@ -19,7 +17,7 @@ export type TimeInfo = {
 	warEnd: boolean;
 };
 export type UnsubscribeReason = 'Manual' | 'War End' | 'No Voiceconnection' | 'No Widget';
-export abstract class IntervalManager<
+export abstract class Manager<
 	SubscriberExtension extends Record<Exclude<string, keyof Subscriber>, any> = {}
 > {
 	private _subscribers: Record<string, SubscribedTimestamp> = {};
@@ -34,26 +32,9 @@ export abstract class IntervalManager<
 			  }>
 	) {}
 
-	public static start(managers: (IntervalManager<any> | IntervalManager)[]): void {
-		setInterval(() => {
-			const date = new Date();
-			const [minutes, seconds] = [date.getMinutes(), date.getSeconds()];
-			const warEnd = seconds === 0 && WAR_START_TIMES_MINUTES.some((t) => t === minutes);
-			try {
-				RaidhelperIntegration.interval();
-				managers.forEach(async (manager) => {
-					const subscribers = await manager.populatedSubscribers();
-					manager.update(subscribers.map((subscriber) => ({ ...subscriber, warEnd })));
-				});
-			} catch (e) {
-				logger.error('[FATAL] Something went wrong in the interval!', e);
-			}
-		}, 1000);
-	}
-
 	public abstract update(subscribers: (Subscriber & SubscriberExtension & TimeInfo)[]): void;
 
-	private async populatedSubscribers(): Promise<(Subscriber & SubscriberExtension)[]> {
+	public async populatedSubscribers(): Promise<(Subscriber & SubscriberExtension)[]> {
 		return (
 			await Promise.allSettled<Subscriber & SubscriberExtension>(
 				Object.entries(this._subscribers).map(
@@ -92,7 +73,7 @@ export abstract class IntervalManager<
 	}
 	public async subscribe(guildId: string, ...props: unknown[]): Promise<() => Promise<void>> {
 		this._subscribers[guildId] = Date.now();
-		IntervalManager._subscribers.add(guildId);
+		Manager._subscribers.add(guildId);
 		return this.unsubscribe.bind(this, guildId);
 	}
 	public async unsubscribe(guildId: string, reason?: UnsubscribeReason): Promise<void> {
@@ -106,6 +87,6 @@ export abstract class IntervalManager<
 			).toFixed(1)}m)`
 		);
 		delete this._subscribers[guildId];
-		IntervalManager._subscribers.delete(guildId);
+		Manager._subscribers.delete(guildId);
 	}
 }

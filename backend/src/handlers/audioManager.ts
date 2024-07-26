@@ -8,6 +8,7 @@ import {
 	joinVoiceChannel,
 	NoSubscriberBehavior,
 	VoiceConnection,
+	VoiceConnectionStatus
 } from '@discordjs/voice';
 import fs from 'fs';
 import path from 'path';
@@ -17,16 +18,17 @@ import { Widget } from '../widget';
 import { checkChannelPermissions } from '../util/permissions';
 import { TimingsSettings } from '../common/settings/timings.settings';
 import { WarInfo } from '../common/types';
-import { IntervalManager, Subscriber, TimeInfo, UnsubscribeReason } from './intervalManager';
+import { Manager, Subscriber, TimeInfo, UnsubscribeReason } from './manager';
+import Database from '../db/database';
 
+//TODO: can probably remove this since the path can just be passed to createAudioResource without a crash
 const loadVoice = (
 	voice: Voices
 ): {
-	[sound: string]: AudioResource;
-} => {
-	const sounds: {
-		[sound: string]: AudioResource;
-	} = {};
+	id: string;
+	path: string;
+}[] => {
+	const sounds = [];
 	const directoryPath = path.resolve(process.cwd(), 'audio', voice.toLowerCase());
 
 	for (let i = -1; i < 60; i++) {
@@ -35,14 +37,20 @@ const loadVoice = (
 		const filePathRespawnCount = directoryPath + '/respawn-' + i + '.mp3';
 		try {
 			if (fs.lstatSync(filePathCountdown).isFile()) {
-				sounds[i.toString()] = createAudioResource(filePathCountdown);
+				sounds.push({
+					id: i.toString(),
+					path: filePathCountdown
+				});
 			}
 		} catch (e) {
 			/* empty */
 		}
 		try {
 			if (fs.lstatSync(filePathCountdownShifted).isFile()) {
-				sounds[i.toString()] = createAudioResource(filePathCountdownShifted);
+				sounds.push({
+					id: '+' + i.toString(),
+					path: filePathCountdownShifted
+				});
 			}
 		} catch (e) {
 			/* empty */
@@ -50,7 +58,10 @@ const loadVoice = (
 
 		try {
 			if (fs.lstatSync(filePathRespawnCount).isFile()) {
-				sounds[i.toString()] = createAudioResource(filePathRespawnCount);
+				sounds.push({
+					id: 'respawn-' + i,
+					path: filePathRespawnCount
+				});
 			}
 		} catch (e) {
 			/* empty */
@@ -58,16 +69,21 @@ const loadVoice = (
 	}
 	return sounds;
 };
+
 const defaultAudioPlayerBehaviour = {
 	behaviors: {
 		noSubscriber: NoSubscriberBehavior.Stop
 	}
 };
-const defaultRespawnData = TimingsSettings.convertToRespawnData(
-	TimingsSettings.convertToSeconds(TimingsSettings.DEFAULT)!
-);
-
-const audioResources: Partial<Record<Voices, Record<string, AudioResource>>> = {};
+const voiceMap: Partial<
+	Record<
+		Voices,
+		{
+			id: string;
+			path: string;
+		}[]
+	>
+> = {};
 export type Voices = 'male' | 'female' | 'female legacy' | 'material' | 'rocket league';
 export const voices: Record<Voices, string> = {
 	female: 'A generic female voice',
@@ -80,12 +96,13 @@ export const voices: Record<Voices, string> = {
 // Looks for voice files and loads them as an audio resource
 (Object.keys(voices) as Voices[]).forEach((voice) => {
 	const voiceFiles = loadVoice(voice);
-	audioResources[voice] = voiceFiles;
+	voiceMap[voice] = voiceFiles;
 	logger.info(`[SERVER] Loaded voice ${voice} (${Object.keys(voiceFiles).length} Files)`);
 });
 
 type Extended = { voiceConnection?: VoiceConnection };
-class AudioManager extends IntervalManager<Extended> {
+class AudioManager extends Manager<Extended> {
+	private audioPlayers: Record<string, AudioPlayer> = {};
 	public constructor() {
 		super({
 			voiceConnection: (guildId) => getVoiceConnection(guildId)
@@ -93,78 +110,110 @@ class AudioManager extends IntervalManager<Extended> {
 	}
 	public update(subscribers: (Subscriber & Extended & TimeInfo)[]): void {
 		subscribers.forEach(
-			({ warEnd, dbGuild: { id, customTimings, voice, name }, voiceConnection }) => {
-				if (warEnd || !voiceConnection) {
-					this.unsubscribe(id, warEnd ? 'War End' : 'No Voiceconnection');
+			({
+				warEnd,
+				dbGuild: { id, customTimings, voice, name },
+				voiceConnection,
+				time: { subscribedForMs }
+			}) => {
+				if (!voiceConnection) {
+					this.unsubscribe(id, 'No Voiceconnection');
 					return;
 				}
-				const audioPlayer = createAudioPlayer(defaultAudioPlayerBehaviour);
-				const subscription = voiceConnection.subscribe(audioPlayer);
-				audioPlayer.on(AudioPlayerStatus.Idle, () => {
-					subscription?.unsubscribe();
-				});
+
+				const minutesSubscribed = subscribedForMs / 1000 / 60;
+				if (warEnd && minutesSubscribed > 15) {
+					this.unsubscribe(id, 'War End');
+					return;
+				}
 
 				const respawnData = customTimings
 					? TimingsSettings.convertToRespawnData(TimingsSettings.convertToSeconds(customTimings)!)
-					: defaultRespawnData;
+					: TimingsSettings.convertToRespawnData(
+							TimingsSettings.convertToSeconds(TimingsSettings.DEFAULT)!
+					  );
 
-				this.handleSounds(respawnData, voice, audioPlayer);
+				this.handleSounds(respawnData, voice, voiceConnection);
 			}
 		);
 	}
 
-	private handleSounds(data: WarInfo, voice: Voices, audioPlayer: AudioPlayer): void {
+	private handleSounds(data: WarInfo, voice: Voices, voiceConnection: VoiceConnection): void {
 		// Audioplayer only plays at the second marks provided by available sound files
 		// Skip any announcements higher than 50% of the total time
 		if (
 			data.respawn.timeUntilRespawn / data.respawn.duration < 0.5 &&
 			data.respawn.remainingRespawns > 0
 		) {
-			this.playCountdown(data.respawn.timeUntilRespawn, voice, audioPlayer);
+			this.playCountdown(data.respawn.timeUntilRespawn, voice, voiceConnection);
 		}
 		if (
 			data.respawn.remainingRespawns <= 5 &&
 			data.respawn.duration - data.respawn.timeUntilRespawn === 2
 		) {
-			this.playRespawnCount(data.respawn.remainingRespawns, voice, audioPlayer);
+			this.playRespawnCount(data.respawn.remainingRespawns, voice, voiceConnection);
 		}
 		if (
 			data.respawn.remainingRespawns === 0 &&
 			data.respawn.previousTimestamp &&
 			data.respawn.previousTimestamp - data.war.timeLeftSeconds === 5
 		) {
-			this.playRespawnCount(0, voice, audioPlayer);
+			this.playRespawnCount(0, voice, voiceConnection);
 		}
 	}
 
-	private playCountdown(num: number, voice: Voices, player: AudioPlayer): void {
-		const voiceFiles = audioResources[voice];
-		const audioResource = voiceFiles?.[num.toString()] ?? voiceFiles?.['+' + (num - 1).toString()];
-
-		if (audioResource) player.play(audioResource);
+	private playCountdown(num: number, voice: Voices, voiceConnection: VoiceConnection): void {
+		const voiceFiles = voiceMap[voice];
+		const path =
+			voiceFiles?.find(({ id }) => id === `+${num}`)?.path ??
+			voiceFiles?.find(({ id }) => id === `${num}`)?.path;
+		if (path) {
+			const audioResource = createAudioResource(path);
+			this.playAudio(audioResource, voiceConnection);
+		}
 	}
-	private playRespawnCount(count: number, voice: Voices, player: AudioPlayer): void {
-		const voiceFiles = audioResources[voice];
-		const audioResource = voiceFiles?.['respawn-' + count];
-
-		if (audioResource) player.play(audioResource);
+	private playRespawnCount(count: number, voice: Voices, voiceConnection: VoiceConnection): void {
+		const voiceFiles = voiceMap[voice];
+		const path = voiceFiles?.find(({ id }) => id === `respawn-${count}`)?.path;
+		if (path) {
+			const audioResource = createAudioResource(path);
+			this.playAudio(audioResource, voiceConnection);
+		}
+	}
+	private playAudio(audioResource: AudioResource, voiceConnection: VoiceConnection): void {
+		const audioPlayer = this.audioPlayers[voiceConnection.joinConfig.guildId];
+		const subscription = voiceConnection.subscribe(audioPlayer);
+		audioPlayer.on(AudioPlayerStatus.Idle, (v) => {
+			subscription?.unsubscribe();
+			audioPlayer.removeAllListeners(AudioPlayerStatus.Idle);
+		});
+		audioPlayer.play(audioResource);
 	}
 
 	public async subscribe(
 		guildId: string,
-		channel: VoiceBasedChannel,
-		widget?: Widget
+		channel: VoiceBasedChannel
 	): Promise<() => Promise<void>> {
-		await this.connect(channel).then(() => {
+		await this.connect(channel).then(async () => {
+			this.audioPlayers[guildId] = createAudioPlayer(defaultAudioPlayerBehaviour);
+			const dbGuild = await Database.getGuild(guildId);
+			const widget = await Widget.find(dbGuild);
 			if (widget) {
 				widget.voiceState = true;
-				return widget.update({ force: true });
+				if (!widget.textState) widget.update({ force: true });
 			}
 		});
 		return super.subscribe(guildId);
 	}
-	public unsubscribe(guildId: string, reason?: UnsubscribeReason): Promise<void> {
+	public async unsubscribe(guildId: string, reason?: UnsubscribeReason): Promise<void> {
 		getVoiceConnection(guildId)?.destroy();
+		delete this.audioPlayers[guildId];
+		const dbGuild = await Database.getGuild(guildId);
+		const widget = await Widget.find(dbGuild);
+		if (widget) {
+			widget.voiceState = false;
+			if (!widget.textState) widget.update({ force: true });
+		}
 		return super.unsubscribe(guildId, reason);
 	}
 
@@ -175,6 +224,7 @@ class AudioManager extends IntervalManager<Extended> {
 			channelId: channel.id,
 			adapterCreator: channel.guild.voiceAdapterCreator
 		});
+		connection.on(VoiceConnectionStatus.Disconnected, () => connection.destroy());
 		return connection;
 	}
 }
