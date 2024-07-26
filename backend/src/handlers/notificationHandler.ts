@@ -18,42 +18,43 @@ export const UPDATE_SOURCE_CHANNEL_ID = '1151202146268741682'; // Wartimer Devel
 
 export class NotificationHandler {
     public static async startListening(client: Client): Promise<void> {
-        const sourceChannel = await client.guilds.fetch(UPDATE_SOURCE_SERVER_ID)
-            .then((guild) => guild.channels.fetch(UPDATE_SOURCE_CHANNEL_ID))
-            .catch(() => undefined);
-        if(!sourceChannel) return Promise.reject('Unable to find update source channel at ' + `Server ID: ${UPDATE_SOURCE_SERVER_ID} Channel ID: ${UPDATE_SOURCE_CHANNEL_ID}`);
-        if(!sourceChannel.isTextBased()) return Promise.reject('Update source channel is not a text channel!');
-        sourceChannel.createMessageCollector().on('collect', (message) => {
-            message.fetch().then(async (message) => {
-                if(message.embeds.length === 0){
-                    logger.info('Collected message from update channel with no embeds!');
-                    return;
-                }
-                const dbGuilds = await Database.queryGuilds({
-                    'notificationChannelId': { $regex: /\d+/ }
-                });
-                for (const dbGuild of dbGuilds) {
-                    await client.guilds.fetch(dbGuild.id)
-                        .then((guild) => dbGuild.notificationChannelId ? guild.channels.fetch(dbGuild.notificationChannelId) : undefined)
-                        .catch(() => undefined)
-                        .then(async (channel) => {
-                            if (!channel || !channel.isTextBased()) {
-                                dbGuild.notificationChannelId = undefined;
-                                return dbGuild.save();
-                            } else {
-                                return channel.send({
-                                    embeds: message.embeds.map((embed) => EmbedBuilder.from(embed).setTimestamp())
-                                });
-                            }
-                        })
-                        .then(() => {
-                            logger.info(`[${dbGuild.name}] Received Update`)
-                        })
-                        .then(() => setTimeout(2000))
-                        .catch(logger.error);
-                }
-            }).catch(() => logger.error('Unable to fetch dev update message!'));
-        })
+        //! Disabled until the message content privilige is granted by discord or a web-based solution is implemented
+        // const sourceChannel = await client.guilds.fetch(UPDATE_SOURCE_SERVER_ID)
+        //     .then((guild) => guild.channels.fetch(UPDATE_SOURCE_CHANNEL_ID))
+        //     .catch(() => undefined);
+        // if(!sourceChannel) return Promise.reject('Unable to find update source channel at ' + `Server ID: ${UPDATE_SOURCE_SERVER_ID} Channel ID: ${UPDATE_SOURCE_CHANNEL_ID}`);
+        // if(!sourceChannel.isTextBased()) return Promise.reject('Update source channel is not a text channel!');
+        // sourceChannel.createMessageCollector().on('collect', (message) => {
+        //     message.fetch().then(async (message) => {
+        //         if(message.embeds.length === 0){
+        //             logger.info('Collected message from update channel with no embeds!');
+        //             return;
+        //         }
+        //         const dbGuilds = await Database.queryGuilds({
+        //             'notificationChannelId': { $regex: /\d+/ }
+        //         });
+        //         for (const dbGuild of dbGuilds) {
+        //             await client.guilds.fetch(dbGuild.id)
+        //                 .then((guild) => dbGuild.notificationChannelId ? guild.channels.fetch(dbGuild.notificationChannelId) : undefined)
+        //                 .catch(() => undefined)
+        //                 .then(async (channel) => {
+        //                     if (!channel || !channel.isTextBased()) {
+        //                         dbGuild.notificationChannelId = undefined;
+        //                         return dbGuild.save();
+        //                     } else {
+        //                         return channel.send({
+        //                             embeds: message.embeds.map((embed) => EmbedBuilder.from(embed).setTimestamp())
+        //                         });
+        //                     }
+        //                 })
+        //                 .then(() => {
+        //                     logger.info(`[${dbGuild.name}] Received Update`)
+        //                 })
+        //                 .then(() => setTimeout(2000))
+        //                 .catch(logger.error);
+        //         }
+        //     }).catch(() => logger.error('Unable to fetch dev update message!'));
+        // })
     }
     public static async sendNotification(guild: Guild, dbGuild: DBGuild, title: string, text: string, options?: {
         color?: ColorResolvable,
