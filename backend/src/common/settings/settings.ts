@@ -2,7 +2,6 @@ import { ActionRowBuilder, RepliableInteraction, InteractionResponse, EmbedBuild
 import { GuildData } from '../../db/guild.schema';
 import { EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from '../constant';
 import { EInteractionType } from '../types/interactionType';
-import logger from '../../../lib/logger';
 
 export enum ESettingsID {
     PERMISSIONS = 'permissions',
@@ -36,7 +35,6 @@ export abstract class Setting {
             removeDescription?: boolean;
             removeCurrentSettings?: boolean;
             customEmbed?: EmbedBuilder;
-            deleteOriginal?: boolean;
             update?: boolean;
         }
     ): Promise<undefined | InteractionResponse<boolean> | Message<boolean>> {
@@ -61,23 +59,16 @@ export abstract class Setting {
         if (!options?.removeCurrentSettings && currentSettingsDesc) embeds.push(currentSettingsEmbed);
         if (options?.customEmbed) embeds.push(options.customEmbed);
 
-        // Delete 
-        if (options?.deleteOriginal && !options.update) {
-            logger.debug('deleting original');
-            if(interaction.deferred || interaction.replied){
-                return interaction.deleteReply().catch(logger.error).then(undefined);
-            }
-        }
-
         const content = {
             ephemeral: true,
             embeds: embeds,
             components: this.settings as ActionRowBuilder<any>[]
         };
-        
-        return (options?.update ?
-            (interaction as MessageComponentInteraction).deferUpdate().then(() => interaction.editReply(content)) :
-            interaction.reply(content)).catch(logger.error).then(undefined);
+
+        return options?.update ?
+            (interaction as MessageComponentInteraction).deferUpdate()
+                .then(() => interaction.editReply(content)) :
+            interaction.reply(content);
     }
     public getCustomId(id: string, args: string[]): string {
         return [WARTIMER_INTERACTION_ID, EInteractionType.SETTING, id, ...args].join(WARTIMER_INTERACTION_SPLIT);
