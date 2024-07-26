@@ -3,7 +3,7 @@ import { RaidhelperAPIEvent, ScheduledEvent } from './common/types/raidhelperEve
 import { Client, Colors, Guild, Message, MessageType, PartialMessage } from 'discord.js';
 import logger from '../lib/logger';
 import { Widget } from './widget';
-import audioManager from './util/audioManager';
+import audioManager from './handlers/audioManager';
 import { NotificationHandler } from './handlers/notificationHandler';
 import { DBGuild } from './common/types/dbGuild';
 import { checkChannelPermissions } from './util/permissions';

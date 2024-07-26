@@ -10,8 +10,8 @@ import {
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
 import logger from '../lib/logger';
-import audioManager from './util/audioManager';
-import textManager from './util/textManager';
+import audioManager from './handlers/audioManager';
+import textManager from './handlers/textManager';
 import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './common/constant';
 import { EInteractionType } from './common/types/interactionType';
 import { DBGuild } from './common/types/dbGuild';
@@ -416,8 +416,8 @@ export class Widget {
                         default: return Promise.reject('Could not complete request');
                     }
                     await interaction.deferUpdate().catch(() => { });
-                } catch (e) {
-                    interaction.reply({ ephemeral: true, content: e?.toString?.() || 'Unknown Error' })
+                } catch (error) {
+                    interaction.reply({ ephemeral: true, content: (error instanceof Error ? error.message : error?.toString?.()) || 'An error occurred' })
                         .then(() => setTimeout(3000))
                         .then(() => interaction.deleteReply())
                         .catch(logger.error);
@@ -562,6 +562,12 @@ export class Widget {
     }
     //endregion
     //region - External action
+    /**
+     * 
+     * @param options 
+     * @returns 
+     * @throws {Error}
+     */
     public toggleText(options: {
         dbGuild: DBGuild;
         forceOn?: boolean;
@@ -590,37 +596,31 @@ export class Widget {
         interaction?: ButtonInteraction<CacheType>;
         channel?: VoiceBasedChannel;
     }): Promise<void> {
-        try {
-            if (options.interaction) {
-                if (this.voiceState) {
-                    await audioManager.disconnect(this.guild, options.dbGuild);
-                } else {
-                    const channel = (await options.interaction.guild?.members.fetch(options.interaction.user).catch(() => undefined))?.voice.channel;
-                    if (!channel) {
-                        throw new Error('You are not in a voice channel!');
-                    }
-                    await audioManager.connect(channel, options.dbGuild);
-                    this.voiceState = true;
-                    if (!this.textState) {
-                        await this.update({ force: true });
-                    }
+        if (options.interaction) {
+            if (this.voiceState) {
+                await audioManager.disconnect(this.guild, options.dbGuild);
+            } else {
+                const channel = (await options.interaction.guild?.members.fetch(options.interaction.user).catch(() => undefined))?.voice.channel;
+                if (!channel) {
+                    throw new Error('You are not in a voice channel!');
                 }
-            } else if (options.channel) {
-                await audioManager.connect(options.channel, options.dbGuild);
+                await audioManager.connect(channel, options.dbGuild);
                 this.voiceState = true;
                 if (!this.textState) {
-                    await this.update();
+                    await this.update({ force: true });
                 }
-            } else {
-                await audioManager.disconnect(this.guild, options.dbGuild);
             }
-            // Resolve the Promise
-            return Promise.resolve();
-        } catch (error) {
-            // Handle and log errors
-            // You can also return a rejection with a specific error message
-            return Promise.reject(error?.toString?.() || 'An error occurred.');
+        } else if (options.channel) {
+            await audioManager.connect(options.channel, options.dbGuild);
+            this.voiceState = true;
+            if (!this.textState) {
+                await this.update();
+            }
+        } else {
+            await audioManager.disconnect(this.guild, options.dbGuild);
         }
+        // Resolve the Promise
+        return Promise.resolve();
     }
     //endregion
 }

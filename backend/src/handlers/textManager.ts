@@ -1,7 +1,7 @@
 import logger from '../../lib/logger';
 import { TimingsSettings } from '../common/settings/timings.settings';
 import { WarInfo } from '../common/types';
-import { clamp } from './util.generic';
+import { clamp } from '../util/util.generic';
 
 const settings = {
     barWidth: 25,
