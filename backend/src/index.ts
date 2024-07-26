@@ -10,7 +10,7 @@ config();
 Promise.resolve()
     //.then(() => Firebase.init())
     .then(() => Bot.init())
-    .then((bot) => logger.info('Bot started successfully | ' + bot.user?.client.generateInvite({
+    .then((bot) => logger.info('Invite | ' + bot.user?.client.generateInvite({
         scopes: [OAuth2Scopes.Bot, OAuth2Scopes.ApplicationsCommands],
         permissions: [
             PermissionFlagsBits.SendMessages,
@@ -18,7 +18,7 @@ Promise.resolve()
             PermissionFlagsBits.ViewChannel]
     })))
     .catch((error) => {
-        logger.error('The bot is unable to start!');
+        logger.error('Unable to start!');
         logger.error(error);
         process.exit(0);
     });
