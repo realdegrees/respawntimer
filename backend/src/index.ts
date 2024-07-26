@@ -23,6 +23,7 @@ const logStats = (guildsDb: DBGuild[]): void => {
     logger.info('Guilds with Custom Respawn Timings: ' + guildsDb.filter((guild) => guild.customTimings).length);
 };
 
+
 Promise.resolve()
     .then(() => Database.init())
     .then(() => Bot.init())
@@ -40,9 +41,9 @@ Promise.resolve()
         // Start polling interval for all guilds
         dbGuilds = await Database.getAllGuilds();
         for (const dbGuild of dbGuilds) {
-            if(dbGuild.raidHelper.apiKey){
+            if (dbGuild.raidHelper.apiKey) {
                 const guild = await bot.client.guilds.fetch(dbGuild.id);
-                RaidhelperIntegration.startPollingInterval(guild, dbGuild);
+                RaidhelperIntegration.start(guild, dbGuild);
                 await setTimeout(100);
             }
         }

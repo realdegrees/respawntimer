@@ -196,7 +196,7 @@ export class SettingsHandler {
             }
         }
         if (postInteractActions?.includes('startEventPolling')) {
-            RaidhelperIntegration.startPollingInterval(guild, dbGuild);
+            RaidhelperIntegration.start(guild, dbGuild);
         }
     }
 }
