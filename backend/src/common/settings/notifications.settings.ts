@@ -34,7 +34,7 @@ export class NotificationSettings extends Setting {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public async getCurrentSettings(guildData: DBGuild, guild?: Guild | undefined): Promise<string> {
         const channel = guildData.notificationChannelId ?
-            await guild?.channels.fetch(guildData.notificationChannelId).catch() : undefined;
+            await guild?.channels.fetch(guildData.notificationChannelId).catch(() => undefined) : undefined;
         return channel && channel.isTextBased() ? checkChannelPermissions(channel, ['ViewChannel', 'SendMessages'])
             .then(() => `**Notification Channel**\n${channel}`)
             .catch((reason) => `**Notification Channel**\n${channel}\n\n⚠️ ${reason}`) :

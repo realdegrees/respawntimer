@@ -232,7 +232,7 @@ class AudioManager {
             .then((connection) => connection.on(VoiceConnectionStatus.Disconnected, () => {
                 getGuild(channel.guild)
                     .then((dbGuild) => Widget.get(channel.guild, dbGuild.widget.messageId, dbGuild.widget.channelId))
-                    .then((widget) => widget.toggleVoice())
+                    .then((widget) => widget?.toggleVoice())
                     .catch(() => { });
             }))
             .then((connection) =>

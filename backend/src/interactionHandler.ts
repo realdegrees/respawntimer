@@ -86,7 +86,7 @@ export class InteractionHandler {
             }
         });
     }
-    private handleSettingsInteractions(interaction:
+    private async handleSettingsInteractions(interaction:
         StringSelectMenuInteraction<CacheType> |
         UserSelectMenuInteraction<CacheType> |
         RoleSelectMenuInteraction<CacheType> |
@@ -198,6 +198,13 @@ export class InteractionHandler {
                         return deleteGuild(interaction.guild.id)
                             .then(() => interaction.reply({ ephemeral: true, content: 'Data deleted ✅' }))
                             .then(() => logger.info('[' + interaction.guild!.name + '] Data Deleted'));
+                    case EMiscSettingsOptions.TOGGLE_WIDGET_BUTTONS:
+                        dbGuild.hideWidgetButtons = !dbGuild.hideWidgetButtons;
+                        return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }))
+                            .then(async () => {
+                                const widget = interaction.guild ? await Widget.get(interaction.guild, dbGuild.widget.messageId, dbGuild.widget.channelId).catch(() => undefined) : undefined;
+                                return widget ? widget.setButtonsDisplay(!dbGuild.hideWidgetButtons) : Promise.resolve();
+                            });
                     default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
                 }
             case ESettingsID.NOTIFICATIONS:
@@ -270,91 +277,89 @@ export class InteractionHandler {
             default: return Promise.reject('Could not complete request');
         }
     }
-    private handleWidgetButtons(interaction: ButtonInteraction, dbGuild: DBGuild, id: string,): Promise<unknown> {
-        return interaction.message.fetch()
-            // eslint-disable-next-line no-async-promise-executor
-            .then(Widget.get)
-            .then(async (widget) => {
-                switch (id) {
-                    case widgetButtonIds.text:
-                        return this.checkPermission(
-                            interaction.guild!,
-                            interaction.user,
-                            dbGuild.editorRoleIDs
-                        ).then(async (perm) => {
-                            if (!perm) {
-                                return interaction.reply({
-                                    ephemeral: true,
-                                    content: 'You do not have permission to use this.'
-                                });
-                            } else {
-                                return widget.toggleText({
-                                    interaction: interaction as ButtonInteraction,
-                                    dbGuild
-                                }).then(() => interaction.deferUpdate());
-                            }
-                        });
-                    case widgetButtonIds.voice:
-                        return this.checkPermission(
-                            interaction.guild!,
-                            interaction.user,
-                            dbGuild.editorRoleIDs
-                        ).then(async (perm) => {
-                            if (!perm) {
-                                return interaction.reply({
-                                    ephemeral: true,
-                                    content: 'You do not have permission to use this.'
-                                });
-
-                            } else {
-                                return widget.toggleVoice({
-                                    dbGuild,
-                                    interaction: interaction as ButtonInteraction
-                                }).then(() => interaction.deferUpdate());
-                            }
-                        });
-                    case widgetButtonIds.settings:
-                        return this.checkPermission(
-                            interaction.guild!,
-                            interaction.user,
-                            dbGuild.editorRoleIDs
-                        ).then(async (perm) => {
-                            if (!perm) {
-                                return interaction.reply({
-                                    ephemeral: true,
-                                    content: 'You do not have editor permissions.'
-                                });
-                            } else {
-                                return openSettings(interaction as ButtonInteraction);
-                            }
-                        });
-                    case widgetButtonIds.info:
+    private async handleWidgetButtons(interaction: ButtonInteraction, dbGuild: DBGuild, id: string,): Promise<unknown> {
+        const message = await interaction.message.fetch();
+        const widget = await Widget.get(message);
+        if (!widget) return Promise.reject('Unable to find widget for this interaction. This should not happen.');
+        switch (id) {
+            case widgetButtonIds.text:
+                return this.checkPermission(
+                    interaction.guild!,
+                    interaction.user,
+                    dbGuild.editorRoleIDs
+                ).then(async (perm) => {
+                    if (!perm) {
                         return interaction.reply({
                             ephemeral: true,
-                            embeds: [
-                                new EmbedBuilder()
-                                    .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
-                                    .setThumbnail('https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png')
-                                    .setTitle('Discord')
-                                    .setURL('https://discord.gg/AzHDPVrBfn')
-                                    .setDescription('Join the discord to get assistance, discuss the bot or suggest new features'),
-                                new EmbedBuilder()
-                                    .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
-                                    .setThumbnail('https://cdn.pixabay.com/photo/2022/01/30/13/33/github-6980894_1280.png')
-                                    .setFooter({
-                                        text: 'If the bot is offline please contact dennisgrees on discord',
-                                        iconURL: EXCLAMATION_ICON_LINK
-                                    })
-                                    .setTitle('Github')
-                                    .setURL('https://github.com/realdegrees/wartimer')
-                                    // eslint-disable-next-line max-len
-                                    .setDescription('If you require assistance with the bot or have suggestions for improvements feel free to open an issue on the github repo linked above.')
-                            ]
+                            content: 'You do not have permission to use this.'
                         });
-                    default:
-                        return Promise.reject('Could not complete request');
-                }
-            });
+                    } else {
+                        return widget.toggleText({
+                            interaction: interaction as ButtonInteraction,
+                            dbGuild
+                        }).then(() => interaction.deferUpdate());
+                    }
+                });
+            case widgetButtonIds.voice:
+                return this.checkPermission(
+                    interaction.guild!,
+                    interaction.user,
+                    dbGuild.editorRoleIDs
+                ).then(async (perm_1) => {
+                    if (!perm_1) {
+                        return interaction.reply({
+                            ephemeral: true,
+                            content: 'You do not have permission to use this.'
+                        });
+
+                    } else {
+                        return widget.toggleVoice({
+                            dbGuild,
+                            interaction: interaction as ButtonInteraction
+                        }).then(() => interaction.deferUpdate());
+                    }
+                });
+            case widgetButtonIds.settings:
+                return this.checkPermission(
+                    interaction.guild!,
+                    interaction.user,
+                    dbGuild.editorRoleIDs
+                ).then(async (perm_2) => {
+                    if (!perm_2) {
+                        return interaction.reply({
+                            ephemeral: true,
+                            content: 'You do not have editor permissions.'
+                        });
+                    } else {
+                        return openSettings(interaction as ButtonInteraction);
+                    }
+                });
+            case widgetButtonIds.info:
+                return interaction.reply({
+                    ephemeral: true,
+                    embeds: [
+                        new EmbedBuilder()
+                            .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
+                            .setThumbnail('https://assets-global.website-files.com/6257adef93867e50d84d30e2/636e0a6a49cf127bf92de1e2_icon_clyde_blurple_RGB.png')
+                            .setTitle('Discord')
+                            .setURL('https://discord.gg/AzHDPVrBfn')
+                            .setDescription('Join the discord to get assistance, discuss the bot or suggest new features'),
+                        new EmbedBuilder()
+                            .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Wartimer' })
+                            .setThumbnail('https://cdn.pixabay.com/photo/2022/01/30/13/33/github-6980894_1280.png')
+                            .setFooter({
+                                text: 'If the bot is offline please contact dennisgrees on discord',
+                                iconURL: EXCLAMATION_ICON_LINK
+                            })
+                            .setTitle('Github')
+                            .setURL('https://github.com/realdegrees/wartimer')
+                            // eslint-disable-next-line max-len
+                            .setDescription('If you require assistance with the bot or have suggestions for improvements feel free to open an issue on the github repo linked above.')
+                    ]
+                });
+            default:
+                return Promise.reject('Could not complete request');
+        }
     }
 
     private async checkPermission(guild: Guild, user: User, permittedRoleIDs: string[]): Promise<boolean> {

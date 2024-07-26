@@ -1,11 +1,10 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
-import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, Setting } from './settings';
-import { Document } from 'mongoose';
 import { DBGuild } from '../types/dbGuild';
 
 export enum EMiscSettingsOptions {
-    CLEAR = 'clear'
+    CLEAR = 'clear',
+    TOGGLE_WIDGET_BUTTONS = 'togglewidgetbuttons'
 }
 
 export class MiscSettings extends Setting {
@@ -15,21 +14,28 @@ export class MiscSettings extends Setting {
             .setCustomId(this.getCustomId(this.id, [EMiscSettingsOptions.CLEAR]))
             .setLabel('Clear Saved Data')
             .setStyle(ButtonStyle.Danger);
+        const toggleWidgetButtons = new ButtonBuilder()
+            .setCustomId(this.getCustomId(this.id, [EMiscSettingsOptions.TOGGLE_WIDGET_BUTTONS]))
+            .setLabel('Toggle Text-Widget Buttons')
+            .setStyle(ButtonStyle.Primary);
 
-        const clearRow = new ActionRowBuilder<ButtonBuilder>()
+        const row = new ActionRowBuilder<ButtonBuilder>()
+            .addComponents(toggleWidgetButtons)
             .addComponents(clear);
 
         this.init(
             'Misc Settings',
-            `**Clear Saved Data**  
+            `**Toggle Text-Widget Buttons**
+            You can choose to hide the buttons below the widget if you want a clearer image for the discord overlay for example\n
+            **Clear Saved Data**  
             Removes everything that is saved in the Wartimer database for this discord`,
             '',
-            clearRow
+            row
         );
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     public async getCurrentSettings(guildData: DBGuild): Promise<string> {
-        return Promise.resolve('');
+        return Promise.resolve(`**Text Widget Buttons**\n${guildData.hideWidgetButtons ? 'Hidden' : 'Shown'}`);
     }
 
 }

@@ -7,7 +7,7 @@ import {
 } from 'discord.js';
 import { setTimeout } from 'timers/promises';
 import logger from '../../lib/logger';
-import audioManager, { Voices } from '../util/audioManager';
+import audioManager from '../util/audioManager';
 import textManager from '../util/textManager';
 import { getGuild } from '../db/guild.schema';
 import { WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './constant';
@@ -39,14 +39,15 @@ export class Widget {
     public constructor(
         private message: Message,
         private guild: Guild,
+        private showButtons: boolean,
         onReady: (widget: Widget) => void,
         private onDestroy?: (widget: Widget) => void
     ) {
         this.init(onReady).catch(logger.error);
     }
-    public static async get(guild: Guild, messageId?: string, channelId?: string): Promise<Widget>;
-    public static async get(message?: Message<boolean>): Promise<Widget>;
-    public static async get(arg1?: Guild | Message<boolean>, arg2?: string, arg3?: string): Promise<Widget> {
+    public static async get(guild: Guild, messageId?: string, channelId?: string): Promise<Widget | undefined>;
+    public static async get(message?: Message<boolean>): Promise<Widget | undefined>;
+    public static async get(arg1?: Guild | Message<boolean>, arg2?: string, arg3?: string): Promise<Widget | undefined> {
         return new Promise<Message<boolean> | undefined>((res, rej) => {
             if (!arg2) {
                 res(arg1 as Message<boolean>);
@@ -59,7 +60,8 @@ export class Widget {
                     })) : rej();
             }
         }).then(async (message) => {
-            if (!message?.guild) return Promise.reject('Unable to find to find required data on the Discord API response. Try again later.');
+            if (!message) return Promise.resolve(undefined);
+            if (!message.guild) return Promise.reject('Unable to find to find required data on the Discord API response. Try again later.');
             const dbGuild = await getGuild(message.guild);
             if (dbGuild.widget.channelId &&
                 dbGuild.widget.messageId &&
@@ -76,13 +78,13 @@ export class Widget {
             dbGuild.widget.channelId = message.channel.id;
             dbGuild.widget.messageId = message.id;
             await dbGuild.save();
-            const widget = widgets.find((widget_1) => widget_1.getId() === message!.id);
+            const widget = widgets.find((widget) => widget.getId() === message!.id);
             if (!widget) {
                 return new Promise((res) => {
                     if (!message.guild) return Promise.reject('Unable to find to find required data on the Discord API response. Try again later.');
-                    new Widget(message!, message.guild, (widget_2) => {
-                        widgets.push(widget_2);
-                        return res(widget_2);
+                    new Widget(message!, message.guild, !dbGuild.hideWidgetButtons, (widget) => {
+                        widgets.push(widget);
+                        return res(widget);
                     }, (widget_3) => widgets = widgets.filter((w) => w.getId() !== widget_3.getId()));
                 });
             } else {
@@ -90,6 +92,10 @@ export class Widget {
             }
 
         });
+    }
+    public setButtonsDisplay(state: boolean): Promise<unknown> {
+        this.showButtons = state;
+        return this.update(undefined, undefined, true);
     }
     public static async create(
         interaction: CommandInteraction<CacheType>,
@@ -123,7 +129,10 @@ export class Widget {
             .then(() => interaction.deferReply({ ephemeral: true }))
             .then(async () =>
                 channel.send({
-                    embeds: [new EmbedBuilder().setTitle('Respawn Timer')]
+                    embeds: [new EmbedBuilder()
+                        .setTitle('Respawn Timer')
+                        .setDescription('-')
+                        .setFooter({ text: 'Lots of new features! Check /settings' })]
                 }).then((message) => {
                     dbGuild.widget.channelId = message.channel.id;
                     dbGuild.widget.messageId = message.id;
@@ -131,13 +140,13 @@ export class Widget {
                         new Widget(
                             message,
                             guild,
+                            !dbGuild.hideWidgetButtons,
                             (widget) => widgets.push(widget),
                             (widget) => widgets = widgets.filter((w) => w.getId() !== widget.getId()));
                     });
-                }).finally(() => interaction.reply({ content: 'Widget created.' })))
+                }).finally(() => interaction.editReply({ content: 'Widget created.' })))
             .catch((e) =>
-                interaction.reply({
-                    ephemeral: true,
+                interaction.editReply({
                     content: (e as Error).message
                 }))
             .catch(logger.error);
@@ -145,7 +154,7 @@ export class Widget {
     private async init(onReady: (widget: Widget) => void): Promise<void> {
         return this.message.fetch().then((message) =>
             message.edit({
-                components: [this.getButtons()],
+                components: this.showButtons ? [this.getButtons()] : [],
                 embeds: [EmbedBuilder.from(this.message.embeds[0])]
             }).then((message) => {
                 this.message = message;
@@ -204,14 +213,17 @@ export class Widget {
         }
         this.isUpdating++;
         const embed = new EmbedBuilder()
-            .setFooter({ text: 'Lots of new features! Check the settings.' })
             .setDescription(description ?? '-');
 
         // New title if string with content is passed, old title if empty string is passed, no title if undefined is passed
         if (title !== undefined && title) embed.setTitle(title);
+        if (!title && !description) {
+            embed.setTitle('Respawn Timer')
+                .setFooter({ text: 'Lots of new features! Check the settings.' });
+        }
 
         return this.message.edit({
-            components: [this.getButtons()],
+            components: this.showButtons ? [this.getButtons()] : [],
             embeds: [embed]
         }).then(() => {
             this.isUpdating = 0;
@@ -290,7 +302,7 @@ export class Widget {
                 this.voiceState = false;
                 audioManager.disconnect(this.guild.id);
             } else {
-                const channel = (await options.interaction.guild?.members.fetch(options.interaction.user).catch())?.voice.channel ?? undefined;
+                const channel = (await options.interaction.guild?.members.fetch(options.interaction.user).catch(() => undefined))?.voice.channel ?? undefined;
                 if (!channel) {
                     return Promise.reject('You are not in a voice channel!');
                 }

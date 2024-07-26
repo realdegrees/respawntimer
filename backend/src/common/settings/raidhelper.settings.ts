@@ -27,7 +27,7 @@ export class RaidhelperSettings extends Setting {
             .catch(() => []);
 
         const defaultChannel = guildData.raidHelper.defaultVoiceChannelId ?
-            await guild.channels.fetch(guildData.raidHelper.defaultVoiceChannelId).catch() : undefined;
+            await guild.channels.fetch(guildData.raidHelper.defaultVoiceChannelId).catch(() => undefined) : undefined;
         const defaultChannelText = defaultChannel && defaultChannel.isVoiceBased() ? await checkChannelPermissions(defaultChannel, ['ViewChannel', 'Connect', 'Speak'])
             .then(() => `${defaultChannel}`)
             .catch((reason) => `${defaultChannel} ⚠️ ${reason}`) :
@@ -57,7 +57,7 @@ export class RaidhelperSettings extends Setting {
                 Or \`/apikey refresh\` if you don't have an API Key\n\`\`\`diff\n- Not Set\`\`\``;
 
         const eventChannel = guildData.raidHelper.eventChannelId ?
-            await guild.channels.fetch(guildData.raidHelper.eventChannelId).catch() : undefined;
+            await guild.channels.fetch(guildData.raidHelper.eventChannelId).catch(() => undefined) : undefined;
         const eventChannelText = eventChannel && eventChannel.isTextBased() ? await checkChannelPermissions(eventChannel, ['ViewChannel'])
             .then(() => `${eventChannel}`)
             .catch((reason) => `${eventChannel} ⚠️ ${reason}`) :
