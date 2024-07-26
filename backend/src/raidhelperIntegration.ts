@@ -33,28 +33,15 @@ export class RaidhelperIntegration {
                 try {
                     events = await RaidhelperIntegration.getEvents(dbGuild);
                 } catch (e) {
-                    await RaidhelperIntegration.handleUpdateEventError(
+                    await RaidhelperIntegration.onFetchEventError(
                         message.guild,
                         dbGuild,
                         'Error while trying to schedule a Raidhelper event.\nCheck your Raidhelper Integration settings in `/settings`'
                     );
                     return;
                 }
-                await RaidhelperIntegration.sendEventNotifications(message.guild, dbGuild, events, [...dbGuild.raidHelper.events])
-                    .catch(logger.error);
+                await this.onFetchEventSuccess(message.guild, dbGuild, events);
 
-                dbGuild.raidHelper.apiKeyValid = true;
-                dbGuild.raidHelper.events = events;
-                await dbGuild.save();
-
-                const widget = await Widget.find(
-                    message.guild,
-                    dbGuild.widget.messageId,
-                    dbGuild.widget.channelId
-                )
-                if (!widget?.textState) {
-                    await widget?.update({ force: true });
-                }
             })
             .on('messageDelete', async (message) => {
                 if (!message.guild || message.type !== MessageType.Default || message.member?.user.id !== RAIDHELPER_USER_ID) return;
@@ -67,32 +54,34 @@ export class RaidhelperIntegration {
                 try {
                     events = await RaidhelperIntegration.getEvents(dbGuild);
                 } catch (e) {
-                    await RaidhelperIntegration.handleUpdateEventError(
+                    await RaidhelperIntegration.onFetchEventError(
                         message.guild,
                         dbGuild,
                         'Error while trying to deschedule a Raidhelper event.\nCheck your Raidhelper Integration settings in `/settings`'
                     );
                     return;
                 }
-                
-                await RaidhelperIntegration.sendEventNotifications(message.guild, dbGuild, events, [...dbGuild.raidHelper.events])
-                    .catch(logger.error);
-
-                dbGuild.raidHelper.apiKeyValid = true;
-                dbGuild.raidHelper.events = events;
-                await dbGuild.save();
-
-                const widget = await Widget.find(
-                    message.guild,
-                    dbGuild.widget.messageId,
-                    dbGuild.widget.channelId
-                )
-                if (!widget?.textState) {
-                    await widget?.update({ force: true });
-                }
+                await this.onFetchEventSuccess(message.guild, dbGuild, events);
             });
     }
-    private static async handleUpdateEventError(guild: Guild | null, dbGuild: DBGuild, message: string): Promise<void> {
+    private static async onFetchEventSuccess(guild: Guild, dbGuild: DBGuild, events: ScheduledEvent[]): Promise<void> {
+        await RaidhelperIntegration.sendEventNotifications(guild, dbGuild, events, [...dbGuild.raidHelper.events])
+            .catch(logger.error);
+
+        dbGuild.raidHelper.apiKeyValid = true;
+        dbGuild.raidHelper.events = events;
+        await dbGuild.save();
+
+        const widget = await Widget.find(
+            guild,
+            dbGuild.widget.messageId,
+            dbGuild.widget.channelId
+        )
+        if (!widget?.textState) {
+            await widget?.update({ force: true });
+        }
+    }
+    private static async onFetchEventError(guild: Guild | null, dbGuild: DBGuild, message: string): Promise<void> {
         try {
             dbGuild.raidHelper.apiKeyValid = false;
             await dbGuild.save();
