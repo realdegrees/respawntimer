@@ -1,7 +1,6 @@
 import {
     ActionRowBuilder, AnySelectMenuInteraction, ButtonBuilder, ButtonInteraction, ButtonStyle,
-    CacheType,
-    ChannelSelectMenuBuilder, ChannelType, Colors, EmbedField, Guild, GuildChannel, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle
+    ChannelType,  EmbedField,  GuildChannel, ModalBuilder, ModalSubmitInteraction, StringSelectMenuBuilder, TextInputBuilder, TextInputStyle
 } from 'discord.js';
 import { ESettingsID, BaseSetting } from './base.setting';
 import { checkChannelPermissions } from '../../util/permissions';

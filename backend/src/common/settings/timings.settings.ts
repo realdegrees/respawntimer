@@ -4,10 +4,6 @@ import {
 import { ESettingsID, BaseSetting } from './base.setting';
 import { DBGuild } from '../types/dbGuild';
 import { WarInfo } from '../types';
-import { clamp } from '../../util/util.generic';
-import { string } from 'yargs';
-import textManager from '../../handlers/textManager';
-import audioManager from '../../handlers/audioManager';
 import logger from '../../../lib/logger';
 import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';

@@ -1,4 +1,4 @@
-import { ButtonInteraction, CacheType, CommandInteraction, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ComponentType, AnySelectMenuInteraction, InteractionCollector, ModalSubmitInteraction, ChannelSelectMenuInteraction, MentionableSelectMenuInteraction, RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction, Guild } from "discord.js";
+import { ButtonInteraction, CacheType, CommandInteraction, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ComponentType, AnySelectMenuInteraction, InteractionCollector } from "discord.js";
 import { WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT, EPHEMERAL_REPLY_DURATION_LONG, debug, BULB_ICON_LINK } from "../common/constant";
 import { WidgetSettings } from "../common/settings/widget.settings";
 import { NotificationSettings } from "../common/settings/notifications.settings";
@@ -173,7 +173,7 @@ export class SettingsHandler {
             await dbGuild.save();
         }
         if (postInteractActions?.includes('updateWidget')) {
-            if (!widget?.getTextState()) {
+            if (!widget?.textState) {
                 await widget?.update({ force: true });
             }
         }

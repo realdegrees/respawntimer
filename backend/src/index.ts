@@ -1,8 +1,8 @@
+import './util/string.extensions';
 import Bot from "./bot";
 import { config } from "dotenv";
 import { install } from "source-map-support";
 import logger from "../lib/logger";
-import { RespawnInterval } from "./respawnInterval";
 import Database from "./db/database";
 import { DBGuild } from "./common/types/dbGuild";
 import { cleanGuilds } from "./db/clean";
@@ -12,6 +12,9 @@ import { RaidhelperIntegration } from "./raidhelperIntegration";
 import { NotificationHandler } from "./handlers/notificationHandler";
 import { MAX_INACTIVE_DAYS } from "./common/constant";
 import { setTimeout } from "timers/promises";
+import textManager from "./handlers/textManager";
+import { IntervalManager } from "./handlers/intervalManager";
+import audioManager from './handlers/audioManager';
 install();
 config();
 
@@ -46,40 +49,41 @@ const logStats = (guildsDb: DBGuild[]): void => {
 };
 
 Promise.resolve()
-  .then(() => Database.init())
-  .then(() => Bot.init())
-  .then(async () => {
-    // Log invite link
-    logger.info("Invite | " + Bot.client.generateInvite(INVITE_SETTINGS));
+	.then(() => Database.init())
+	.then(() => Bot.init())
+	.then(async () => {
+		// Log invite link
+		logger.info('Invite | ' + Bot.client.generateInvite(INVITE_SETTINGS));
 
-    // Remove discord servers from DB taht have been inactive or where bot is not a member anymore
-    let dbGuilds = await Database.getAllGuilds();
+		// Remove discord servers from DB taht have been inactive or where bot is not a member anymore
+		let dbGuilds = await Database.getAllGuilds();
 
-    //logStats(dbGuilds);
+		//logStats(dbGuilds);
 
-    //TODO check why no workey
-    // const guildsCleaned = await cleanGuilds(bot.client, dbGuilds, MAX_INACTIVE_DAYS);
-    // guildsCleaned.forEach((clean) => logger.info(`[${clean.name}] ${clean.reason}`))
+		//TODO check why no workey
+		// const guildsCleaned = await cleanGuilds(bot.client, dbGuilds, MAX_INACTIVE_DAYS);
+		// guildsCleaned.forEach((clean) => logger.info(`[${clean.name}] ${clean.reason}`))
 
-    // Start polling interval for all guilds
-    dbGuilds = await Database.getAllGuilds();
-    for (const dbGuild of dbGuilds) {
-      if (dbGuild.raidHelper.apiKey) {
-        RaidhelperIntegration.start(dbGuild);
-        await setTimeout(100);
-      }
-    }
-    RaidhelperIntegration.startRaidhelperMessageCollector();
+		// Start polling interval for all guilds
+		dbGuilds = await Database.getAllGuilds();
+		for (const dbGuild of dbGuilds) {
+			if (dbGuild.raidHelper.apiKey) {
+				RaidhelperIntegration.start(dbGuild);
+				await setTimeout(100);
+			}
+		}
+		RaidhelperIntegration.startRaidhelperMessageCollector();
 
-    // Start respawn interval
-    RespawnInterval.startInterval();
-    await NotificationHandler.startListening();
+		// Start respawn interval
+		IntervalManager.start([textManager, audioManager]);
 
-    // Load existing widgets
-    //await Widget.loadExisting();
-  })
-  .catch((error) => {
-    logger.error("Unable to start!");
-    logger.error(error);
-    process.exit(0);
-  });
+		await NotificationHandler.startListening();
+
+		// Load existing widgets
+		//await Widget.loadExisting();
+	})
+	.catch((error) => {
+		logger.error('Unable to start!');
+		logger.error(error);
+		process.exit(0);
+	});

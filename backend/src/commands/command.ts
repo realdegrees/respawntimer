@@ -1,7 +1,6 @@
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
 import { CacheType, Client, CommandInteraction } from 'discord.js';
 import Database from '../db/database';
-import { DBGuild } from '../common/types/dbGuild';
 
 export class Command {
     public constructor(
