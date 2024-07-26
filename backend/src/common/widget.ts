@@ -134,6 +134,7 @@ export class Widget {
                         This only affects the widget.\nAudio announcements still work.`
                     )]
             }).then((message) => {
+                intervalText.updateSubscription(this.message.id, message.id);
                 this.message = message;
                 this.message.edit({
                     components: [this.getButtons(true)],

@@ -1,9 +1,10 @@
-import { AudioPlayerStatus, 
-    AudioResource, createAudioPlayer, 
-    createAudioResource, VoiceConnection } from '@discordjs/voice';
+import {
+    AudioPlayerStatus,
+    AudioResource, createAudioPlayer,
+    createAudioResource, VoiceConnection
+} from '@discordjs/voice';
 import fs from 'fs';
 import path from 'path';
-import applicationSettings from './common/applicationSettings';
 
 const volume = 0.7;
 
@@ -14,16 +15,17 @@ class AudioPlayer {
         path: string;
     }[] = [];
     public constructor(private player = createAudioPlayer()) {
-        this.sounds = [...loadFiles()];
+        this.sounds = loadFiles();
         this.player.on(AudioPlayerStatus.Idle, () => {
             this.sounds.forEach((sound) => {
-                const audio = createAudioResource(sound.path, {
-                    inlineVolume: true
-                });
-                audio.volume?.setVolume(volume);
-                if(sound.audio.ended) sound.audio = audio;
+                if (sound.audio.ended) {
+                    const audio = createAudioResource(sound.path, {
+                        inlineVolume: true
+                    });
+                    audio.volume?.setVolume(volume);
+                    sound.audio = audio;
+                }
             });
-            // this.sounds = [...loadFiles()];
         });
     }
     public setVolume(volume: number): void {
