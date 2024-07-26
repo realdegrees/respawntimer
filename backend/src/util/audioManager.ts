@@ -6,9 +6,8 @@ import {
 import fs from 'fs';
 import path from 'path';
 import logger from '../../lib/logger';
-import { timers } from '../common/timer';
 import { Guild, VoiceBasedChannel } from 'discord.js';
-import { Widget } from '../common/widget';
+import { Widget } from '../widget';
 import { checkChannelPermissions } from './permissions';
 import { TimingsSettings } from '../common/settings/timings.settings';
 import { DBGuild } from '../common/types/dbGuild';
@@ -139,8 +138,8 @@ class AudioManager {
         if (data.respawn.remainingRespawns <= 5 && data.respawn.duration - data.respawn.timeUntilRespawn === 2) {
             this.playRespawnCount(data.respawn.remainingRespawns, voice, audioPlayer);
         }
-        if (data.respawn.remainingRespawns === 0 && 1800 - timers[timers.length - 1] - data.war.timeLeftSeconds === 5) {
-            // Plays last respawn sound
+        if (data.respawn.remainingRespawns === 0 && data.respawn.previousTimestamp && data.respawn.previousTimestamp - data.war.timeLeftSeconds === 5) {
+            // Plays no more respawns sound
             this.playRespawnCount(0, voice, audioPlayer);
         }
     }
