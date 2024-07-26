@@ -15,6 +15,7 @@ class Database {
         const mongoHost = process.env['MONGO_HOST'] ?? 'mongo';
         const mongoPort = process.env['MONGO_PORT'] ?? '27017';
         const mongoAuth = mongoUser && mongoPass ? `${mongoUser}:${mongoPass}@` : '';
+        logger.info('Connecting to ' + `mongodb://${mongoAuth}${mongoHost}:${mongoPort}`);
         return connect(`mongodb://${mongoAuth}${mongoHost}:${mongoPort}`).then(() => {
             logger.info('Succuessfuly connected to MongoDB');
             instance = new Database();
@@ -54,7 +55,7 @@ class Database {
                     }
                 });
             }
-        }).then((obj) => obj.save());
+        });
     }
     public static async deleteGuild(guildId: string): Promise<unknown> {
         return GuildModel.deleteOne({
