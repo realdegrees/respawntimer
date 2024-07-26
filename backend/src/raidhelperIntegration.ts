@@ -11,8 +11,7 @@ import Database from './db/database';
 
 const RETRY_ATTEMPT_DUR = 3;
 const RETRY_INTERVAL_SECONDS = 5;
-export const EVENT_REFRESH_INTERVAL = 5;
-const API_KEY_RATE_LIMIT_MESSAGE = 'This API Key was likely rate-limited. Please get a new key with /apikey refresh';
+export const EVENT_REFRESH_INTERVAL = 15;
 
 export class RaidhelperIntegration {
 
@@ -20,23 +19,26 @@ export class RaidhelperIntegration {
         const date = new Date();
         const [minutes, seconds] = [date.getMinutes(), date.getSeconds()];
 
-        if (minutes % EVENT_REFRESH_INTERVAL === 0 && seconds === 0) {
+        if ((minutes + 5) % EVENT_REFRESH_INTERVAL === 0 && seconds === 0) {
             Database.queryGuilds({
                 'raidHelper.apiKey': { $exists: true }
             }).then(async (dbGuilds) => {
                 for (const dbGuild of dbGuilds) {
                     await this.getEvents(dbGuild)
-                        .catch((reason) => {
-                            if (reason === API_KEY_RATE_LIMIT_MESSAGE) {
-                                dbGuild.raidHelper.apiKey = API_KEY_RATE_LIMIT_MESSAGE;
-                                dbGuild.raidHelper.apiKeyValid = false;
-                            }
+                        .then((events) => {
+                            dbGuild.raidHelper.apiKeyValid = true;
+                            return events;
+                        })
+                        .catch((res: Response) => {
+                            dbGuild.raidHelper.apiKeyValid = false;
+                            logger.info('[' + dbGuild.name + '] Raidhelper API Error: ' + JSON.stringify(res.json()))
                             return [] as ScheduledEvent[];
-                        }).then(async (events) => {
-                            const newEvents = events.filter((event) => !dbGuild.raidHelper.events.find((scheduledEvent) => scheduledEvent.id === event.id));
-                            const descheduledEvents = dbGuild.raidHelper.events.filter((event) => !events.find((oldEvent) => oldEvent.id === event.id));
+                        })
+                        .then(async (events) => {
                             const guild = client.guilds.cache.find((guild) => guild.id === dbGuild.id);
 
+                            // Check for old events that have been descheduled and notify
+                            const descheduledEvents = dbGuild.raidHelper.events.filter((event) => !events.find((oldEvent) => oldEvent.id === event.id));
                             if (descheduledEvents.length !== 0 && guild) {
                                 const descheduledEventStrings = descheduledEvents.map((event) => {
                                     const time = '🗓️ ' + `<t:${event.startTime}:d>` + ' 🕑 ' + `<t:${event.startTime}:t>`;
@@ -47,6 +49,9 @@ export class RaidhelperIntegration {
                                     `${descheduledEventStrings.join('\n')}`,
                                     Colors.Orange);
                             }
+
+                            // Check for new events and notify
+                            const newEvents = events.filter((event) => !dbGuild.raidHelper.events.find((scheduledEvent) => scheduledEvent.id === event.id));
                             if (newEvents.length !== 0) {
                                 await (guild ? Promise.all(
                                     newEvents.map(async (event) => {
@@ -70,8 +75,6 @@ export class RaidhelperIntegration {
                                 }) : Promise.resolve());
                             }
 
-
-                            dbGuild.raidHelper.apiKeyValid = !!dbGuild.raidHelper.apiKey && dbGuild.raidHelper.apiKey !== API_KEY_RATE_LIMIT_MESSAGE;
                             dbGuild.raidHelper.events = events;
                             return dbGuild.save().then(() => {
                                 if (guild) {
@@ -181,13 +184,13 @@ export class RaidhelperIntegration {
         return fetch(serversEventsUrl, {
             headers: header
         })
-            .then((res) => res.ok ? res : Promise.reject(API_KEY_RATE_LIMIT_MESSAGE))
+            .then((res) => res.ok ? res : Promise.reject(res))
             .then((res) => res.json())
             .then(async (data: {
                 postedEvents?: ScheduledEvent[];
             }) => Promise.all(data.postedEvents?.map((event) =>
                 fetch(`https://raid-helper.dev/api/v2/events/${event.id}`, { headers: header })
-                    .then((res) => res.ok ? res : Promise.reject(API_KEY_RATE_LIMIT_MESSAGE))
+                    .then((res) => res.ok ? res : Promise.reject(res))
                     .then((res) => res.json())
                     .then((event: RaidhelperAPIEvent) => ({ // Need to map to new object so the entire event object doesn't get saved to databse
                         id: event.id,
