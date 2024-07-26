@@ -82,7 +82,6 @@ export class RaidhelperIntegration {
       logger.debug("Event Poll Success");
     } catch (response) {
       dbGuild.raidHelper.apiKeyValid = false;
-      await dbGuild.save();
 
       if (guild) {
         await RaidhelperIntegration.onFetchEventError(guild, dbGuild);
@@ -109,6 +108,7 @@ export class RaidhelperIntegration {
         logger.error(`[${guild.name}] Unknown Error while polling`);
       }
     } finally {
+      await dbGuild.save();
       if (!retryAfterAwaited) {
         const timeout = 1000 * 60 * 45;
         await promiseTimeout(timeout);
