@@ -1,4 +1,4 @@
-import { ActionRowBuilder, AnySelectMenuInteraction, BaseSelectMenuBuilder, ButtonInteraction, ButtonStyle, CacheType, ChannelSelectMenuBuilder, ChannelSelectMenuInteraction, ChannelType, Colors, EmbedBuilder, Guild, Interaction, MessageComponentInteraction, ModalSubmitInteraction, StringSelectMenuBuilder } from 'discord.js';
+import { ActionRowBuilder, AnySelectMenuInteraction, BaseSelectMenuBuilder, ButtonBuilder, ButtonInteraction, ButtonStyle, CacheType, ChannelSelectMenuBuilder, ChannelSelectMenuInteraction, ChannelType, Colors, EmbedBuilder, Guild, GuildChannel, Interaction, MessageComponentInteraction, ModalSubmitInteraction, RoleSelectMenuBuilder, StringSelectMenuBuilder } from 'discord.js';
 import { GuildData } from '../../db/guild.schema';
 import { ESettingsID, BaseSetting } from './base.setting';
 import { checkChannelPermissions } from '../../util/permissions';
@@ -9,14 +9,15 @@ import { debug } from '../constant';
 import { Widget } from '../../widget';
 import { NotificationHandler, UPDATE_SOURCE_SERVER_ID } from '../../handlers/notificationHandler';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
+import { AdvancedChannelSelectMenuBuilder, EAdvancedChannelSelectReturnValue } from '../../util/advancedChannelSelectMenuBuilder';
+import { setTimeout } from 'timers/promises';
 
 export enum ENotificationSettingsOptions {
     UPDATE_CHANNEL = 'updatechannel'
 }
-
-export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> {
-
-
+export class NotificationSettings extends BaseSetting<StringSelectMenuBuilder> {
+    private channelSelectPage = 1;
+    private channelSelectCache: GuildChannel[] | undefined;
     public constructor() {
         super(ESettingsID.NOTIFICATIONS,
             ButtonStyle.Primary,
@@ -27,16 +28,18 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
             ''
         );
     }
-    public getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
-        const channel = new ChannelSelectMenuBuilder()
+    public async getSettingsRows(dbGuild: DBGuild, interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction) {
+        const channelSelectMenu = await new AdvancedChannelSelectMenuBuilder(interaction.guild!, interaction.user)
             .setCustomId(this.getCustomId(this.id, [ENotificationSettingsOptions.UPDATE_CHANNEL]))
-            .setChannelTypes(ChannelType.GuildText)
-            .setMinValues(0)
-            .setMaxValues(1)
-            .setPlaceholder('Select channel');
+            .setChannelType(ChannelType.GuildText)
+            .setChannelCache(this.channelSelectCache)
+            .setPage(this.channelSelectPage)
+            .build();
+        
+        this.channelSelectCache = channelSelectMenu.getChannelCache();
 
-        const channelRow = new ActionRowBuilder<ChannelSelectMenuBuilder>()
-            .addComponents(channel);
+        const channelRow = new ActionRowBuilder<StringSelectMenuBuilder>()
+            .addComponents(channelSelectMenu.getMenu());
         return Promise.resolve([channelRow]);
     }
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -56,31 +59,42 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
     ): Promise<SettingsPostInteractAction[]> {
         if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
         switch (option) {
+            case 'makenewclearchannelbuttonhere':
+                await NotificationHandler.sendNotification(
+                    interaction.guild,
+                    dbGuild,
+                    'Notifications',
+                    'This channel will not receive any more notifications and dev updates!',
+                    { color: Colors.Red }
+                );
+                dbGuild.notificationChannelId = undefined;
+                this.channelSelectPage = 1;
+                return ['saveGuild', 'update', 'updateWidget'];
+                break;
             case ENotificationSettingsOptions.UPDATE_CHANNEL:
-                if (!interaction.isChannelSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+                if (!interaction.isStringSelectMenu()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
                 if (interaction.guild.id === UPDATE_SOURCE_SERVER_ID && !debug) return Promise.reject('This setting cannot be changed on this server.');
-                if (!interaction.values?.[0] && dbGuild.notificationChannelId) {
-                    await NotificationHandler.sendNotification(
-                        interaction.guild,
-                        dbGuild,
-                        'Notifications',
-                        'This channel will not receive any more notifications and dev updates!',
-                        { color: Colors.Red }
-                    );
-                    dbGuild.notificationChannelId = undefined;
-                    return ['saveGuild', 'update', 'updateWidget'];
-                } else {
-                    const channel = await interaction.guild.channels.fetch(interaction.values[0]);
-                    if (!channel?.isTextBased?.()) {
-                        return Promise.reject('Invalid Channel');
-                    } else {
-                        await checkChannelPermissions(channel, ['ViewChannel', 'SendMessages']);
-                        logger.info('[' + channel.guild.name + '] Enabled Notifications');
-                        dbGuild.notificationChannelId = interaction.values[0];
-                        await NotificationHandler.sendNotification(channel.guild, dbGuild, 'Notifications', 'This channel will now receive notifications and dev updates!', { color: Colors.Green })
-                        return ['saveGuild', 'update', 'updateWidget'];
-                    }
+
+                const value = interaction.values[0];
+
+                if (value === EAdvancedChannelSelectReturnValue.NEXT_PAGE) {
+                    this.channelSelectPage += 1;
+                    return ['update'];
+                } else if (value === EAdvancedChannelSelectReturnValue.PREV_PAGE) {
+                    this.channelSelectPage -= 1;
+                    return ['update'];
                 }
+
+
+                const channel = await interaction.guild.channels.fetch(value);
+                if (!channel) {
+                    return Promise.reject('Unable to find selected channel!');
+                }
+                await checkChannelPermissions(channel, ['ViewChannel', 'SendMessages']);
+                logger.info('[' + channel.guild.name + '] Enabled Notifications');
+                dbGuild.notificationChannelId = interaction.values[0];
+                await NotificationHandler.sendNotification(channel.guild, dbGuild, 'Notifications', 'This channel will now receive notifications and dev updates!', { color: Colors.Green })
+                return ['saveGuild', 'update', 'updateWidget'];
                 break;
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
         }
