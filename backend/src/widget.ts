@@ -253,7 +253,7 @@ export class Widget {
     private static async getEventDisplayFields(guild: Guild, dbGuild: DBGuild): Promise<EmbedField[]> {
         const event = dbGuild.raidHelper.events.reduce((lowest, current) =>
             Math.abs(current.startTimeUnix * 1000 - Date.now()) < Math.abs(lowest.startTimeUnix * 1000 - Date.now()) ? current : lowest);
-        const startTimeStamp = new Date(Math.round(event.startTimeUnix / 60 / 30) * 30 * 60 * 1000).getTime() / 1000;
+        const startTimeStamp = event.startTimeUnix + (1800 - (event.startTimeUnix % 1800))
         const voiceChannel = (event.voiceChannelId ? await guild.channels.fetch(event.voiceChannelId).catch(() => undefined) : undefined) ??
             (dbGuild.raidHelper.defaultVoiceChannelId ? await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId).catch(() => undefined) : undefined);
 
@@ -273,11 +273,11 @@ export class Widget {
             name: 'Scheduled Event',
             value: `\`\`\`fix\n${event.title}\`\`\``
         }, {
+            name: 'Scheduled Time',
+            value: timeText
+        }, {
             name: 'Voice',
             value: voiceChannelText
-        }, {
-            name: 'Date',
-            value: timeText
         }, {
             name: ' ',
             value: ' '
