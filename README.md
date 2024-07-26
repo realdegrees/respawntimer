@@ -1,3 +1,10 @@
+# Description
+
+Wartimer is a discord bot that provides accurate respawn timers for wars in New World.
+It is simple to use, highly customizable and can be automated fully.
+With the Raidhelper integration you only have to set it up once and the bot will automatically join voice
+when a Raidhelper event starts.
+
 # Live Version
 
 **[Public Bot Link](https://discord.com/api/oauth2/authorize?client_id=993116789284286484&scope=bot+applications.commands&permissions=2100224)**
