@@ -11,7 +11,8 @@ import intervalText from './intervalText';
 
 const buttonIds = {
     toggle: 'toggle',
-    voice: 'voice'
+    voice: 'voice',
+    reload: 'reload'
 };
 const resetDurationSeconds = 7;
 const timeoutDurationSeconds = 3;
@@ -20,6 +21,7 @@ export class Widget {
     private toggleState = false;
     private voiceState = false;
     private isUpdating = false;
+    private isResetting = false;
     private deferButtonQueue: ((
         options?: InteractionDeferUpdateOptions | undefined
     ) => Promise<void>)[] = [];
@@ -34,33 +36,41 @@ export class Widget {
     public constructor(
         private message: Message,
         private guild: Guild,
-        private managerRole: Role | APIRole | null | undefined,
+        private managerRoles: Role[],
         onReady: (widget: Widget) => void,
         private onDestroy?: (widget: Widget) => void
     ) {
         this.init(onReady);
     }
     private async init(onReady: (widget: Widget) => void): Promise<void> {
-        this.managerRole = this.managerRole ?? this.parseManagerRole();
+        this.managerRoles = this.managerRoles.length > 0 ? this.managerRoles : this.parseManagerRole();
         await new Promise((res) => setTimeout(res, 500));
         await this.message.edit({
             components: [this.getButtons()],
             embeds: [this.message.embeds[0].setFooter({
-                text: this.managerRole ? 'Manager Role: @' + this.managerRole.name : ''
+                text: this.getManagerRoleFooterText()
             })]
         }).then((message) => {
             this.message = message;
-            logger.log('Widget ' + this.getId() + ' created.\nRole: ' +
-                (this.managerRole?.name ?? '-') + '\nChannel: ' + message.channel.id);
+            logger.log('Widget ' + this.getId() + ' created.\nRole(s): ' +
+                this.managerRoles.map((role) => '\n@' + role.name) + '\nChannel: ' + message.channel.id);
             onReady(this);
         });
     }
-    private parseManagerRole(): Role | undefined {
-        const roleName = this.message.embeds[0].footer?.text.split('@')[1];
-        logger.log(roleName ?? 'No rolename found');
-        if (roleName) {
-            return this.guild.roles.cache.find((role) => role.name === roleName);
+    private getManagerRoleFooterText(): string {
+        switch (this.managerRoles.length) {
+            case 0: return '';
+            case 1: return 'Manager Role: @' + this.managerRoles[0].name;
+            default: return 'Manager Roles:\n' + this.managerRoles.map((role) => '@' + role.name).join('\n');
         }
+    }
+    private parseManagerRole(): Role[] {
+        const roleNames = this.message.embeds[0].footer?.text.split('@').slice(1);
+        return roleNames ? roleNames
+            .map((roleName) => roleName.trim())
+            .map((roleName) => this.guild.roles.cache.find((role) => role.name === roleName))
+            .filter((role): role is Role => !!role) : [];
+
     }
     private getButtons(disableToggle = false, disableVoice = false): MessageActionRow {
         return new MessageActionRow()
@@ -73,7 +83,11 @@ export class Widget {
                 .setCustomId(buttonIds.voice + '-' + this.message.id)
                 .setLabel(this.voiceState ? '🔇' : '🔊')
                 .setStyle(this.voiceState ? 'DANGER' : 'SUCCESS')
-                .setDisabled(disableVoice));
+                .setDisabled(disableVoice))
+            .addComponents(new MessageButton()
+                .setCustomId(buttonIds.reload + '-' + this.message.id)
+                .setLabel('⟳')
+                .setStyle('SECONDARY'));
     }
     public getId(): string {
         return this.message.id;
@@ -102,6 +116,8 @@ export class Widget {
                 this.isUpdating = false;
             }
         }).catch(async () => {
+            if (this.isResetting) return;
+
             intervalText.unsubscribe(this.message.id, true);
             logger.info('Unable to edit message ' + this.message.id +
                 ' unsubscribing updates and attempting todelete message.');
@@ -111,25 +127,27 @@ export class Widget {
             } catch {
                 logger.info('Unable to delete message' + this.message.id);
             }
-            if(this.voiceState) {
+            if (this.voiceState) {
                 this.disconnect();
             }
             this.onDestroy?.(this);
         });
     }
-    public resetEmbed(): void {
+    public async resetEmbed(): Promise<void> {
         this.toggleState = false;
         this.isUpdating = false;
-        this.update('Respawn Timer', this.voiceState ? 'Audio On' : '');
+        await this.update('Respawn Timer', this.voiceState ? 'Audio On' : '');
+        this.isResetting = false;
     }
-    private recreateMessage(): void {
-        logger.info('Response took too long, taking timeout');
+    public recreateMessage(manual = false): void {
+        if (!manual) logger.info('Response took too long, taking timeout');
+        this.isResetting = true;
         this.message.delete().finally(() => {
             this.message.channel.send({
                 components: [this.getButtons(true, true)],
                 embeds: [this.message.embeds[0]
-                    .setTitle('Slow Discord API Response')
-                    .setDescription(
+                    .setTitle(manual ? 'Reloading Widget' : 'Slow Discord API Response')
+                    .setDescription(manual ? '' :
                         `Resetting.. (${resetDurationSeconds}s)
                         This only affects the widget.\nAudio announcements still work.`
                     )]
@@ -139,13 +157,15 @@ export class Widget {
                 this.message.edit({
                     components: [this.getButtons(true)],
                 });
-                setTimeout(() => {
-                    logger.info('Resuming updates after timeout');
+
+                const reset = (): void => {
+                    if (!manual) logger.info('Resuming updates after timeout');
                     this.isUpdating = false;
                     if (!this.toggleState) {
                         this.resetEmbed();
                     }
-                }, resetDurationSeconds * 1000);
+                };
+                setTimeout(reset, manual ? 0 : resetDurationSeconds * 1000);
             });
         }).catch();
     }
@@ -198,8 +218,11 @@ export class Widget {
         }
     }
     private async checkPermission(interaction: ButtonInteraction): Promise<boolean> {
-        return !this.managerRole || (await this.guild.members
-            .fetch(interaction.user)).roles.cache.some((r) => r.name === this.managerRole?.name);
+        return this.managerRoles.length === 0 || (await this.guild.members
+            .fetch(interaction.user)).roles.cache
+            .some((userRole) => this.managerRoles
+                .map((role) => role.id)
+                .includes(userRole.id));
     }
     private enable(): void {
         intervalText.subscribe(
