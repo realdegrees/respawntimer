@@ -29,7 +29,7 @@ class Bot {
         this.interactionHandler = new InteractionHandler(client);
         this.notificationHandler = new NotificationHandler(client);
         this.widgetHandler = new WidgetHandler(client);
-        this.client.user?.setActivity({ name: '/create & /settings', type: ActivityType.Listening, url: 'https://discord.com/api/oauth2/authorize?client_id=1081219969234260089&scope=bot+applications.commands&permissions=3148800' });
+        this.client.user?.setActivity({ name: 'New World', type: ActivityType.Playing });
         this.client.on('interactionCreate', (interaction) => {
             if (!interaction.isCommand()) return;
             commands.find((command) => command.name === interaction.commandName)?.execute(interaction).catch(logger.error);
