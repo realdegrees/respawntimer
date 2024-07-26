@@ -1,5 +1,5 @@
 import { ButtonInteraction, CacheType, CommandInteraction, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ComponentType, AnySelectMenuInteraction, InteractionCollector, ModalSubmitInteraction, ChannelSelectMenuInteraction, MentionableSelectMenuInteraction, RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction, Guild } from "discord.js";
-import { WARTIMER_ICON_LINK, EXCLAMATION_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT, EPHEMERAL_REPLY_DURATION_LONG, debug } from "../common/constant";
+import { WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT, EPHEMERAL_REPLY_DURATION_LONG, debug, BULB_ICON_LINK } from "../common/constant";
 import { WidgetSettings } from "../common/settings/widget.settings";
 import { NotificationSettings } from "../common/settings/notifications.settings";
 import { PermissionSettings } from "../common/settings/permissions.settings";
@@ -15,7 +15,6 @@ import { setTimeout } from "timers/promises";
 import { SettingsPostInteractAction } from "../common/types/settingsPostInteractActions";
 import { DBGuild } from "../common/types/dbGuild";
 import { ECollectorStopReason } from "../common/types/collectorStopReason";
-import { error } from "console";
 import { RaidhelperIntegration } from "../raidhelperIntegration";
 import { HelpSettings } from "../common/settings/help.settings";
 import { DevSettings } from "../common/settings/dev.settings";
@@ -26,7 +25,7 @@ const settingsEmbed = new EmbedBuilder()
     .setFooter({
         text: `Tip: Enable Notifications to get notified when the bot encounters an issue\n` +
             `Tip: You can completely automate the bot with the Raidhelper Integration`,
-        iconURL: EXCLAMATION_ICON_LINK
+        iconURL: BULB_ICON_LINK
     });
 export class SettingsHandler {
     public static async openSettings(

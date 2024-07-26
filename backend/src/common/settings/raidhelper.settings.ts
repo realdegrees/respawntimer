@@ -34,7 +34,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | ChannelSelec
             'Raidhelper Integration (Experimental)',
             `**Respawn Timer** now integrates with Raidhelper to automatically connect to a channel when an event scheduled by *Raidhelper* starts.\n
             Set the API Key below and toggle Auto-Join to enable *Raidhelper Integration*\n`,
-            '**Respawn Timer** will connect to the voice channel specified in the Raidhelper event.\nIf no event is set it will use the default voice channel set below.'
+            'Respawn Timer will connect to the voice channel specified in the Raidhelper event.\nIf no event is set it will use the default voice channel set below.'
         );
     }
 

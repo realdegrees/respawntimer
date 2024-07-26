@@ -1,12 +1,10 @@
 /* eslint-disable max-len */
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
-import { CacheType, ChannelType, Client, CommandInteraction, OAuth2Scopes, PermissionFlagsBits, PermissionsBitField } from 'discord.js';
+import { CacheType, Client, CommandInteraction, EmbedBuilder, OAuth2Scopes, PermissionFlagsBits } from 'discord.js';
 import { Command } from './command';
-import { Widget } from '../widget';
-import logger from '../../lib/logger';
-import { setTimeout } from 'timers/promises';
 import { DBGuild } from '../common/types/dbGuild';
+import { BULB_ICON_LINK, WARTIMER_ICON_LINK } from '../common/constant';
 
 
 export const INVITE_SETTINGS = {
@@ -32,7 +30,13 @@ export class Invite extends Command {
     public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<void> {
         await interaction.reply({
             ephemeral: true,
-            content: interaction.client.generateInvite(INVITE_SETTINGS)
+            embeds: [new EmbedBuilder()
+                .setAuthor({ iconURL: WARTIMER_ICON_LINK, name: 'Respawn Timer' })
+                .setTitle('🔗 Invite Link')
+                .setURL(interaction.client.generateInvite(INVITE_SETTINGS))
+                .setDescription(`Right-Click the link above and copy link to share the invite link with anyone`)
+                .setFooter({iconURL: BULB_ICON_LINK, text: `You can also invite me to your server with the 'Add to Server' button in my bio`})
+            ]
         });
     }
 }
