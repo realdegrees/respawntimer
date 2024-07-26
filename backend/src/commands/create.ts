@@ -7,6 +7,7 @@ import { Widget } from '../widget';
 import logger from '../../lib/logger';
 import { setTimeout } from 'timers/promises';
 import { DBGuild } from '../common/types/dbGuild';
+import { EPHEMERAL_REPLY_DURATION_SHORT } from '../common/constant';
 
 
 
@@ -36,7 +37,7 @@ export class Create extends Command {
             await interaction.editReply({
                 content: 'Widget Created ✅',
             }).catch(logger.error);
-            await setTimeout(700);
+            await setTimeout(EPHEMERAL_REPLY_DURATION_SHORT);
             await interaction.deleteReply()
                 .catch(logger.error);
         } else {

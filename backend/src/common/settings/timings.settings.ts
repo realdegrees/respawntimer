@@ -12,6 +12,7 @@ import logger from '../../../lib/logger';
 import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 import { setTimeout } from 'timers/promises';
+import { EPHEMERAL_REPLY_DURATION_LONG } from '../constant';
 
 export enum ETimingsSettingsOptions {
     TIMINGS = 'timings',
@@ -125,7 +126,7 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
                 const [validSyntax, reason] = TimingsSettings.checkSyntax(timings);
                 if (!validSyntax) {
                     await modalInteraction.reply({ ephemeral: true, content: reason })
-                        .then(() => setTimeout(1000 * 20))
+                        .then(() => setTimeout(EPHEMERAL_REPLY_DURATION_LONG))
                         .then(() => interaction.deleteReply())
                         .catch(logger.error);
                     return [];
