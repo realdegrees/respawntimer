@@ -24,6 +24,11 @@
             // Docker
             "name": "Docker",
             "path": "docker"
+        },
+        {
+            // Root
+            "name": "Root",
+            "path": "."
         }
     ],
     "settings": {
