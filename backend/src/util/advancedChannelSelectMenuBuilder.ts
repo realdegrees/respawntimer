@@ -28,7 +28,7 @@ export class AdvancedChannelSelectMenuBuilder {
     private customId: string | undefined;
     private channelType: ChannelType = ChannelType.GuildText;
     private channels?: GuildChannel[];
-    private placeholder?: string;
+    private placeholder: string = 'Channel';
 
     public constructor(private guild: Guild, private user: User) {
     }
@@ -93,13 +93,18 @@ export class AdvancedChannelSelectMenuBuilder {
             options.push(this.getNextPageOption())
         }
 
+        const seperator = maxPages > 1 && this.placeholder ? ' » ' : '';
+        const pageText = (maxPages > 1 ? 'Page ' + this.page : '') || 'Select ';
+        const placeholderText = `📖 ${pageText}${seperator}${this.placeholder}`
 
-        return new AdvancedChannelSelectMenu(menuBuilder
-            .setOptions(options)
-            .setCustomId(this.customId)
-            .setMaxValues(1)
-            .setMinValues(1)
-            .setPlaceholder(`📖 Page ${this.page}${this.placeholder ? ' » ' + this.placeholder: ''}`), this.channels);
+        return new AdvancedChannelSelectMenu(
+            menuBuilder
+                .setOptions(options)
+                .setCustomId(this.customId)
+                .setMaxValues(1)
+                .setMinValues(1)
+                .setPlaceholder(placeholderText),
+            this.channels);
     }
     private calculatePagesForChannelAmount(amount: number): number {
         if (amount <= 25) { // 25 items fit on one page, no next page option needed
