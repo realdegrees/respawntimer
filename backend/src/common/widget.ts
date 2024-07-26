@@ -306,6 +306,7 @@ export class Widget {
             .on('collect', async (interaction) => {
                 try {
                     const [, , interactionId] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
+                    logger.info(`[${this.message.guild?.name}] ${interactionId} interaction`);
                     if (!interaction.guild) {
                         await interaction.deferUpdate();
                         return;

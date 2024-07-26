@@ -64,6 +64,7 @@ export class SettingsHandler {
                 try {
                     const [, , interactionId] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
                     const setting: BaseSetting | undefined = this.getSettingById(interactionId, settings);
+                    logger.info(`[${guild.name}] ${interactionId} interaction`);
 
                     if (!interaction.guild) {
                         await interaction.reply({ ephemeral: true, content: 'Unable to process request' });
@@ -96,6 +97,7 @@ export class SettingsHandler {
                                     return;
                                 }
                                 const [, , interactionId, interactionOption] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
+                                logger.info(`[${guild.name}] ${interactionOption} interaction`);
 
                                 const dbGuild = await Database.getGuild(interaction.guild);
                                 const widget = await Widget.find({
