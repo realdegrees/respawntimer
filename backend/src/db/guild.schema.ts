@@ -33,6 +33,7 @@ export const GuildModel = model<GuildData>('Guild', new Schema<GuildData>({
     hideWidgetButtons: Boolean,
     raidHelper: {
         enabled: Boolean,
+        widget: Boolean,
         apiKey: String,
         defaultVoiceChannelId: String,
         eventChannelId: String,

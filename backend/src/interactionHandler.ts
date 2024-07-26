@@ -185,8 +185,11 @@ export class InteractionHandler {
                                         .then(() => setting!.send(interaction, dbGuild, { update: true }));
                                 }
                             });
-                    case ERaidhelperSettingsOptions.TOGGLE:
+                    case ERaidhelperSettingsOptions.TOGGLE_AUTO_VOICE:
                         dbGuild.raidHelper.enabled = !dbGuild.raidHelper.enabled;
+                        return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
+                    case ERaidhelperSettingsOptions.TOGGLE_AUTO_WIDGET:
+                        dbGuild.raidHelper.widget = !dbGuild.raidHelper.widget;
                         return dbGuild.save().then(() => setting!.send(interaction, dbGuild, { update: true }));
                     default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
                 }
@@ -295,7 +298,6 @@ export class InteractionHandler {
                         });
                     } else {
                         return widget.toggleText({
-                            interaction: interaction as ButtonInteraction,
                             dbGuild
                         }).then(() => interaction.deferUpdate());
                     }

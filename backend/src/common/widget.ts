@@ -272,11 +272,12 @@ export class Widget {
         }).catch(logger.error);
     }
     public toggleText(options: {
-        interaction: ButtonInteraction;
         dbGuild: DBGuild;
+        forceOn?: boolean;
     }): Promise<void> {
         return new Promise((res) => {
-            if (!this.textState) {
+            if (!this.textState || options.forceOn) {
+                if(this.textState) return; // already on
                 this.textState = true;
                 textManager.subscribe({
                     msgId: this.message.id,
@@ -293,7 +294,7 @@ export class Widget {
         });
     }
     public async toggleVoice(options?: {
-        dbGuild?: DBGuild;
+        dbGuild: DBGuild;
         interaction?: ButtonInteraction<CacheType>;
         channel?: VoiceBasedChannel;
     }): Promise<unknown> {
