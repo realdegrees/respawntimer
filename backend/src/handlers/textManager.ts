@@ -10,7 +10,6 @@ const settings = {
     barIconEmpty: '○'
 };
 
-// TODO make textmanager static along with voicemanager
 type Subscriber = {
     widget: Widget;
     timings?: number[];
