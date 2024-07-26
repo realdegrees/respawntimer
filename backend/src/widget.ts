@@ -208,10 +208,12 @@ export class Widget {
 						: undefined;
 					if (widget?.voiceState && channelId) {
 						try {
-							const channel = await (
-								await Bot.client.guilds.fetch(widget.guildId)
-							).channels.fetch(channelId);
-							embed.setDescription(`in ${channel}`);
+							const channel = await Bot.client.guilds
+								.fetch(widget.guildId)
+								.then((guild) => guild.channels.fetch(channelId))
+								.catch(() => null);
+
+							if (channel) embed.setDescription(`in ${channel}`);
 						} catch (e) {
 							embed.setDescription('-');
 						}

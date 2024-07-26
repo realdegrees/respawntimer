@@ -15,15 +15,15 @@ export const getEventVoiceChannel = async (
 	guildId: string
 ): Promise<GuildBasedChannel | null> => {
 	const dbGuild = await Database.getGuild(guildId);
-	const guild = await Bot.client.guilds.fetch(guildId);
-	let voiceChannel: GuildBasedChannel | null = null;
+	const guild = await Bot.client.guilds.fetch(guildId).catch(() => undefined);
+	let voiceChannel: GuildBasedChannel | null | undefined = null;
 	try {
 		voiceChannel =
 			(event.voiceChannelId
-				? await guild.channels.fetch(event.voiceChannelId).catch(() => null)
+				? await guild?.channels.fetch(event.voiceChannelId)
 				: null) ??
 			(dbGuild.raidHelper.defaultVoiceChannelId
-				? await guild.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId)
+				? await guild?.channels.fetch(dbGuild.raidHelper.defaultVoiceChannelId)
 				: null);
 	} catch (e) {
 		// Unknown channel https://discord.com/developers/docs/topics/opcodes-and-status-codes
@@ -34,16 +34,16 @@ export const getEventVoiceChannel = async (
 		}
 	}
 
-	return voiceChannel;
+	return voiceChannel ?? null;
 };
 export const getNotificationChannel = async (
 	dbGuild: DBGuild
 ): Promise<GuildTextBasedChannel | null> => {
-	const guild = await Bot.client.guilds.fetch(dbGuild.id);
-	let channel: GuildBasedChannel | null = null;
+	const guild = await Bot.client.guilds.fetch(dbGuild.id).catch(() => undefined);
+	let channel: GuildBasedChannel | null | undefined = null;
 	try {
 		channel = dbGuild.notificationChannelId
-			? await guild.channels.fetch(dbGuild.notificationChannelId).catch(() => null)
+			? await guild?.channels.fetch(dbGuild.notificationChannelId)
 			: null;
 	} catch (e) {
 		// Unknown channel https://discord.com/developers/docs/topics/opcodes-and-status-codes
@@ -62,5 +62,5 @@ export const getNotificationChannel = async (
 		return null;
 	}
 
-	return channel;
+	return channel ?? null;
 };

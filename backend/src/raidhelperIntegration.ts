@@ -14,6 +14,10 @@ import Bot from './bot';
 import textManager from './handlers/textManager';
 import { getEventVoiceChannel } from './util/discord';
 
+/**
+ * db.guilds.find({"raidHelper.eventChannelId":{$exists:true}}).forEach(function(doc){if(typeof doc.raidHelper.eventChannelId==="string"){db.guilds.updateOne({_id: doc._id}, {$set: {"raidHelper.eventChannelId": [doc.raidHelper.eventChannelId]}});}});
+ */
+
 const POLL_INTERVAL_MINUTES = 8;
 const GRACE_PERIOD_MINUTES = 20; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
 
@@ -224,47 +228,47 @@ export class RaidhelperIntegration {
 		await dbGuild.save();
 
 		try {
-			const guild = await Bot.client.guilds.fetch(dbGuild.id);
+			const guild = await Bot.client.guilds.fetch(dbGuild.id).catch(() => undefined);
 
-			if (guild) {
-				await RaidhelperIntegration.sendEventNotifications(guild, dbGuild, events, oldEvents).catch(
-					logger.error
-				);
+			if (!guild) return;
 
-				const widget = await Widget.find(dbGuild);
-				if (!widget?.textState) {
-					const currentlyScheduledEvent =
-						dbGuild.raidHelper.events.length > 0
-							? dbGuild.raidHelper.events.reduce((lowest, current) =>
-									Math.abs(current.startTimeUnix * 1000 - Date.now()) <
-									Math.abs(lowest.startTimeUnix * 1000 - Date.now())
-										? current
-										: lowest
-							  )
-							: undefined;
-					const previouslyScheduledEvent =
-						oldEvents.length > 0
-							? oldEvents.reduce((lowest, current) =>
-									Math.abs(current.startTimeUnix * 1000 - Date.now()) <
-									Math.abs(lowest.startTimeUnix * 1000 - Date.now())
-										? current
-										: lowest
-							  )
-							: undefined;
-					const isNewEvent = currentlyScheduledEvent && !previouslyScheduledEvent;
-					const isNoEvent = events.length === 0;
-					const isSameEvent =
-						currentlyScheduledEvent &&
-						previouslyScheduledEvent &&
-						currentlyScheduledEvent.id === previouslyScheduledEvent.id;
-					const hasChangedProperties =
-						isSameEvent &&
-						currentlyScheduledEvent.lastUpdatedUnix !== previouslyScheduledEvent.lastUpdatedUnix;
+			await RaidhelperIntegration.sendEventNotifications(guild, dbGuild, events, oldEvents).catch(
+				logger.error
+			);
 
-					if (isNewEvent || isNoEvent || !isSameEvent || (isSameEvent && hasChangedProperties)) {
-						await widget?.update({ force: true });
-					}
-				}
+			const widget = await Widget.find(dbGuild);
+			if (widget?.textState) return;
+
+			const currentlyScheduledEvent =
+				dbGuild.raidHelper.events.length > 0
+					? dbGuild.raidHelper.events.reduce((lowest, current) =>
+							Math.abs(current.startTimeUnix * 1000 - Date.now()) <
+							Math.abs(lowest.startTimeUnix * 1000 - Date.now())
+								? current
+								: lowest
+					  )
+					: undefined;
+			const previouslyScheduledEvent =
+				oldEvents.length > 0
+					? oldEvents.reduce((lowest, current) =>
+							Math.abs(current.startTimeUnix * 1000 - Date.now()) <
+							Math.abs(lowest.startTimeUnix * 1000 - Date.now())
+								? current
+								: lowest
+					  )
+					: undefined;
+			const isNewEvent = currentlyScheduledEvent && !previouslyScheduledEvent;
+			const isNoEvent = events.length === 0;
+			const isSameEvent =
+				currentlyScheduledEvent &&
+				previouslyScheduledEvent &&
+				currentlyScheduledEvent.id === previouslyScheduledEvent.id;
+			const hasChangedProperties =
+				isSameEvent &&
+				currentlyScheduledEvent.lastUpdatedUnix !== previouslyScheduledEvent.lastUpdatedUnix;
+
+			if (isNewEvent || isNoEvent || !isSameEvent || (isSameEvent && hasChangedProperties)) {
+				await widget?.update({ force: true });
 			}
 		} catch (e) {
 			logger.error(`[${dbGuild.name}] Failed to send onFetchEventSucess notifications!`, e);
@@ -355,28 +359,36 @@ export class RaidhelperIntegration {
 				$or: [{ 'raidHelper.enabled': true }, { 'raidHelper.widget': true }]
 			});
 
+			logger.log(`Found ${dbGuilds.length} guilds with autostart`);
+
 			// for each guild find the closest event and attempt to start the widget and voice
 			for (const dbGuild of dbGuilds) {
 				const event = findEarliestEventWithinThreshold(dbGuild.raidHelper.events);
 				if (!event) break;
-
+				logger.log(`Eligible event found for ${dbGuild.name}`);
 				const widget = await Widget.find(dbGuild);
-
+				logger.log(`Widget found for ${dbGuild.name}`);
 				// Voice Start
 				try {
 					// Connect to voice if auto-join is enabled
 					if (dbGuild.raidHelper.enabled) {
+						logger.log(`Trying to join voice in ${dbGuild.name}`);
 						let channel: GuildBasedChannel | null = await getEventVoiceChannel(
 							event,
 							dbGuild.id
 						).catch(() => null);
-
+						logger.log(
+							channel
+								? `Voice channel found for ${dbGuild.name}`
+								: `No Voice channel found for ${dbGuild.name}`
+						);
 						if (!channel)
 							throw new Error(
 								'No voice channel specified in event and no default voice channel set'
 							);
 						if (!channel.isVoiceBased()) throw new Error(`${channel} is not a voice channel.`);
 
+						
 						await audioManager.subscribe(dbGuild.id, channel);
 						logger.info(`[${dbGuild.name}][Raidhelper] Voice autojoin`);
 					}
@@ -448,7 +460,10 @@ export class RaidhelperIntegration {
 			.then(({ postedEvents }) => postedEvents);
 
 		// Remove events not posted in observed channels
-		if (dbGuild.raidHelper.eventChannelId?.length && dbGuild.raidHelper.eventChannelId.length >= 2) {
+		if (
+			dbGuild.raidHelper.eventChannelId?.length &&
+			dbGuild.raidHelper.eventChannelId.length >= 2
+		) {
 			postedEvents = postedEvents.filter(({ channelId }) =>
 				dbGuild.raidHelper.eventChannelId!.includes(channelId)
 			);
