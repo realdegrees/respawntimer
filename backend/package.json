@@ -14,7 +14,7 @@
     "build:watch": "tsc --watch",
     "lint:fix": "eslint . --fix --ext .ts",
     "lint": "eslint . --ext .ts",
-    "dockerize": "docker build . -t wartimer -f ../docker/Dockerfile"
+    "dockerize": "docker build . -t wartimer:nightly -f ../docker/Dockerfile"
   },
   "keywords": [],
   "author": "",
