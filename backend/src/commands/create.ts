@@ -2,10 +2,11 @@
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
 import { CacheType, ChannelType, Client, CommandInteraction } from 'discord.js';
-import { Command } from '../common/command';
+import { Command } from './command';
 import { Widget } from '../common/widget';
 import logger from '../../lib/logger';
 import { setTimeout } from 'timers/promises';
+import { DBGuild } from '../common/types/dbGuild';
 
 
 
@@ -22,7 +23,7 @@ export class Create extends Command {
             .setDMPermission(false)
             .toJSON();
     }
-    public async execute(interaction: CommandInteraction<CacheType>): Promise<unknown> {
+    public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<unknown> {
         return this.checkPermission(interaction, 'editor')
             .then(async () => {
                 const channel = interaction.channel;

@@ -115,14 +115,15 @@ export class InteractionHandler {
         id: string
     ): Promise<unknown> {
         if (!widget) return Promise.reject('Unable to find widget for this interaction. This should not happen.');
+        const combinedRoles = [...dbGuild.editorRoleIDs, ...dbGuild.assistantRoleIDs];
         switch (id) {
             case widgetButtonIds.text:
                 return InteractionHandler.checkPermission(
                     interaction.guild!,
                     interaction.user,
-                    dbGuild.editorRoleIDs
+                    combinedRoles
                 ).then(async (perm) => {
-                    if (!perm) {
+                    if (!perm && combinedRoles.length > 0) {
                         return Promise.reject('You do not have permission to use this.');
                     } else {
                         return widget.toggleText({
@@ -134,9 +135,9 @@ export class InteractionHandler {
                 return InteractionHandler.checkPermission(
                     interaction.guild!,
                     interaction.user,
-                    dbGuild.editorRoleIDs
-                ).then(async (perm_1) => {
-                    if (!perm_1) {
+                    combinedRoles
+                ).then(async (perm) => {
+                    if (!perm && combinedRoles.length > 0) {
                         return Promise.reject('You do not have permission to use this.');
                     } else {
                         return widget.toggleVoice({
@@ -152,7 +153,9 @@ export class InteractionHandler {
                     dbGuild.editorRoleIDs
                 ).then(async (perm_2) => {
                     if (!perm_2) {
-                        return Promise.reject('You do not have editor permissions.');
+                        return dbGuild.editorRoleIDs.length === 0 ?
+                            Promise.reject('Editor permissions have not been set up yet!\nPlease ask someone with administrator permissions to add editor roles in the settings.') :
+                            Promise.reject('You do not have editor permissions.');
                     } else {
                         return openSettings(interaction as ButtonInteraction);
                     }
@@ -187,8 +190,7 @@ export class InteractionHandler {
 
     public static async checkPermission(guild: Guild, user: User, permittedRoleIDs: string[]): Promise<boolean> {
         return guild.members.fetch(user)
-            .then((member) => permittedRoleIDs.length === 0 ||
-                member.roles.cache.some((userRole) => permittedRoleIDs.includes(userRole.id)) ||
+            .then((member) => member.roles.cache.some((userRole) => permittedRoleIDs.includes(userRole.id)) ||
                 member.permissions.has('Administrator') ||
                 user.id === process.env['OWNER_ID']);
     }

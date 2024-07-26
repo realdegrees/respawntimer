@@ -9,7 +9,7 @@ import { setTimeout } from 'timers/promises';
 import logger from '../../lib/logger';
 import audioManager from '../util/audioManager';
 import textManager from '../util/textManager';
-import { WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './constant';
+import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './constant';
 import { EInteractionType } from './types/interactionType';
 import { DBGuild } from './types/dbGuild';
 import { WidgetHandler } from '../widgetHandler';
@@ -275,8 +275,9 @@ export class Widget {
                 .then((dbGuild) => {
                     embed.setAuthor({ name: title ?? DEFAULT_TITLE, iconURL: WARTIMER_ICON_LINK })
                         .setFooter({
-                            text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKeyValid ? 'Enabled' : 'Disabled'}\n` +
-                                `Notifications » ${dbGuild.notificationChannelId?.match(/^[0-9]+$/) ? 'Enabled' : 'Disabled'}`
+                            text: `Raidhelper Integration » ${dbGuild.raidHelper.apiKeyValid ? 'Enabled' : 'Disabled'}` +
+                                `\nNotifications » ${dbGuild.notificationChannelId?.match(/^[0-9]+$/) ? 'Enabled' : 'Disabled'}` +
+                                `${dbGuild.assistantRoleIDs.length === 0 ? '\n\nMissing permission setup.\nEveryone can use the widget!' : ''}`
                         });
 
                     if (dbGuild.raidHelper.events.length > 0) {

@@ -2,7 +2,7 @@
 /* eslint-disable max-len */
 import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
-import { Command } from '../common/command';
+import { Command } from './command';
 import {
     ActionRowBuilder,
     ButtonBuilder,
@@ -23,6 +23,8 @@ import { MiscSettings } from '../common/settings/misc.settings';
 import { NotificationSettings } from '../common/settings/notifications.settings';
 import logger from '../../lib/logger';
 import { TimingsSettings } from '../common/settings/timings.settings';
+import { InteractionHandler } from '../interactionHandler';
+import { DBGuild } from '../common/types/dbGuild';
 
 export const SETTINGS_LIST = [
     [new PermissionSettings(),
@@ -45,7 +47,22 @@ export class Settings extends Command {
             .setDMPermission(false)
             .toJSON();
     }
-    public async execute(interaction: CommandInteraction<CacheType>): Promise<unknown> {
+    public async execute(interaction: CommandInteraction<CacheType>, dbGuild: DBGuild): Promise<unknown> {
+        return InteractionHandler.checkPermission(
+            interaction.guild!,
+            interaction.user,
+            dbGuild.editorRoleIDs
+        ).then(async (perm) => {
+            if (!perm) {
+                return dbGuild.editorRoleIDs.length === 0 ?
+                    Promise.reject('Editor permissions have not been set up yet!\nPlease ask someone with administrator permissions to add editor roles in the settings.') :
+                    Promise.reject('You do not have editor permissions.');
+            } else {
+                return openSettings(interaction);
+            }
+        }).catch((reason) => {
+            return interaction.reply({ ephemeral: true, content: reason?.toString?.() || 'Unkown Error' })
+        }).catch(logger.error);
         return this.checkPermission(interaction, 'editor').then(() =>
             openSettings(interaction)
         ).catch(async (msg) => interaction.reply({
