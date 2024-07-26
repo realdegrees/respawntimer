@@ -1,4 +1,3 @@
-import logger from '../../lib/logger';
 import audioplayer from '../audioplayer';
 import applicationSettings from './applicationSettings';
 import { clamp, getRespawnInfo } from './util';
@@ -33,17 +32,22 @@ class IntervalText {
         const title = this.getTitle(data.remainingRespawns, data.timeLeft);
 
         // Audioplayer only plays at the second marks provided by available sound files
-        // Skip any announcements higher than 35% of the total time 
-        if (data.timeLeft / data.timeTotal < 0.65 && data.remainingRespawns > 0) {
+        // Skip any announcements higher than 40% of the total time 
+        if (data.timeLeft / data.timeTotal < 0.60 && data.remainingRespawns > 0) {
             audioplayer.play(data.timeLeft);
         }
-        subscribers.forEach((subscriber) => {
-            // Update subscribers but skip update every other second if timeLeft is alrger than 5
-            if (data.timeLeft > 5 && data.timeLeft % applicationSettings.get(subscriber.guildId).delay !== 0) {
+        for (const subscriber of subscribers) {
+            // Update delay > 10 seconds is decided by the settings, 
+            // Under 10 seconds it's in 2s steps and under 5s it's 1s steps
+            if (
+                data.timeLeft % applicationSettings.get(subscriber.guildId).delay !== 0 ||
+                data.remainingRespawns === 0 &&
+                    new Date().getSeconds() % applicationSettings.get(subscriber.guildId).delay !== 0
+            ) {
                 return;
             }
             subscriber.cb(title, description);
-        });
+        }
     }
     private getBar(timeTotal: number, timeLeft: number): string {
         const progress = Math.round(settings.barWidth * ((timeTotal - timeLeft) / timeTotal));
@@ -82,9 +86,14 @@ class IntervalText {
             this.unsubscribe(id);
         };
     }
-    public unsubscribe(id: string): void {
-        subscribers.find((subscriber) => subscriber.id === id)?.onUnsubscribe();
+    public unsubscribe(id: string): boolean {
+        const subscriber = subscribers.find((subscriber) => subscriber.id === id);
+        if (!subscriber) {
+            return false;
+        }
+        subscriber.onUnsubscribe();
         subscribers = subscribers.filter((subscriber) => subscriber.id !== id);
+        return true;
     }
 }
 export default new IntervalText();
