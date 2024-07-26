@@ -4,7 +4,7 @@ import { Client, Colors, Guild } from 'discord.js';
 import logger from '../lib/logger';
 import { Widget } from './common/widget';
 import audioManager from './util/audioManager';
-import { NotificationHandler } from './notificationHandler';
+import { NotificationHandler } from './handlers/notificationHandler';
 import { DBGuild } from './common/types/dbGuild';
 import { checkChannelPermissions } from './util/checkChannelPermissions';
 import Database from './db/database';

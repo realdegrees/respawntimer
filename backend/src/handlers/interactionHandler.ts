@@ -4,15 +4,15 @@ import {
     ChannelSelectMenuInteraction, MentionableSelectMenuInteraction, ModalSubmitInteraction,
     RoleSelectMenuInteraction, StringSelectMenuInteraction, UserSelectMenuInteraction, ButtonBuilder, ChannelSelectMenuBuilder, RoleSelectMenuBuilder, StringSelectMenuBuilder
 } from 'discord.js';
-import logger from '../lib/logger';
-import { Widget } from './common/widget';
-import { SETTINGS_LIST, openSettings } from './commands/settings';
-import { WARTIMER_INTERACTION_SPLIT, WARTIMER_INTERACTION_ID, WARTIMER_ICON_LINK, EXCLAMATION_ICON_LINK as EXCLAMATION_ICON_LINK } from './common/constant';
-import { EInteractionType } from './common/types/interactionType';
-import { BaseSetting } from './common/settings/base.setting';
-import { DBGuild } from './common/types/dbGuild';
-import Database from './db/database';
+import logger from '../../lib/logger';
+import { Widget } from '../common/widget';
+import { WARTIMER_INTERACTION_SPLIT, WARTIMER_INTERACTION_ID, WARTIMER_ICON_LINK, EXCLAMATION_ICON_LINK as EXCLAMATION_ICON_LINK } from '../common/constant';
+import { EInteractionType } from '../common/types/interactionType';
+import { BaseSetting } from '../common/settings/base.setting';
+import { DBGuild } from '../common/types/dbGuild';
+import Database from '../db/database';
 import { setTimeout } from 'timers/promises';
+import { SettingsHandler } from './settingsHandler';
 
 const widgetButtonIds = {
     text: 'text',
@@ -76,37 +76,8 @@ export class InteractionHandler {
             }) ?? await Widget.get({ message: interaction.message ?? undefined });
             if (type === EInteractionType.WIDGET && interaction.isButton()) {
                 return this.handleWidgetButtons(interaction, widget, dbGuild, id);
-            } else if (type === EInteractionType.SETTING) {
-                return this.handleSettingsInteractions(interaction, widget, dbGuild, id, option);
             }
         });
-    }
-    private async handleSettingsInteractions(interaction:
-        StringSelectMenuInteraction<CacheType> |
-        UserSelectMenuInteraction<CacheType> |
-        RoleSelectMenuInteraction<CacheType> |
-        MentionableSelectMenuInteraction<CacheType> |
-        ChannelSelectMenuInteraction<CacheType> |
-        ButtonInteraction<CacheType> |
-        ModalSubmitInteraction<CacheType>,
-        widget: Widget | undefined,
-        dbGuild: DBGuild, id: string, option: string
-    ): Promise<unknown> {
-        let setting: BaseSetting | undefined;
-        for (const row of SETTINGS_LIST) {
-            for (const item of row) {
-                if (item.id === id)
-                    setting = item;
-            }
-        }
-        if (!setting) {
-            return Promise.reject('**Detected Legacy Widget**\nPlease create a new widget with `/create`');
-        }
-        if (!option) {
-            // No args = subsetting button was pressed -> open a subsetting menu
-            return setting.send(interaction, dbGuild);
-        }
-        return setting.onInteract(dbGuild, interaction, widget, option);
     }
     private async handleWidgetButtons(
         interaction: ButtonInteraction,
@@ -157,7 +128,7 @@ export class InteractionHandler {
                             Promise.reject('Editor permissions have not been set up yet!\nPlease ask someone with administrator permissions to add editor roles in the settings.') :
                             Promise.reject('You do not have editor permissions.');
                     } else {
-                        return openSettings(interaction as ButtonInteraction);
+                        return SettingsHandler.openSettings(interaction as ButtonInteraction);
                     }
                 });
             case widgetButtonIds.info:

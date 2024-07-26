@@ -1,8 +1,8 @@
 import { Client, ColorResolvable, Colors, EmbedBuilder, Guild } from 'discord.js';
 import { setTimeout } from 'timers/promises';
-import logger from '../lib/logger';
-import { WARTIMER_ICON_LINK } from './common/constant';
-import Database from './db/database';
+import logger from '../../lib/logger';
+import { WARTIMER_ICON_LINK } from '../common/constant';
+import Database from '../db/database';
 
 
 type NotificationResponse = {

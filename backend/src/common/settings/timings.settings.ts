@@ -10,6 +10,8 @@ import textManager from '../../util/textManager';
 import audioManager from '../../util/audioManager';
 import logger from '../../../lib/logger';
 import { Widget } from '../widget';
+import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
+import { setTimeout } from 'timers/promises';
 
 export enum ETimingsSettingsOptions {
     TIMINGS = 'timings',
@@ -108,43 +110,45 @@ export class TimingsSettings extends BaseSetting<ButtonBuilder> {
         interaction: Interaction,
         widget: Widget | undefined,
         option: string
-    ): Promise<unknown> {
+    ): Promise<SettingsPostInteractAction[]> {
         switch (option) {
             case ETimingsSettingsOptions.TIMINGS:
-                if (interaction.isButton()) {
-                    return this.showModal(interaction, dbGuild.customTimings);
-                } else if (interaction.isModalSubmit()) {
-                    const timings = interaction.fields
-                        .getTextInputValue(
-                            this.getCustomId(
-                                ESettingsID.TIMINGS,
-                                [ETimingsSettingsOptions.TIMINGS]
-                            ));
-                    const [validSyntax, reason] = TimingsSettings.checkSyntax(timings);
-                    if (!validSyntax) return Promise.reject(reason);
-                    if (TimingsSettings.equalsDefault(timings)) {
-                        // No need to save if the settings are default
-                        return Promise.reject('Default Timings');
-                    }
-                    // remove duplicates and trim spaces
-                    dbGuild.customTimings = TimingsSettings.sort(timings).join(',');
-                    return dbGuild.save().then(() => {
-                        logger.info('[' + dbGuild.name + '] Added custom respawn timings');
-                        audioManager.setTimings(dbGuild.id, timings);
-                        textManager.setTimings(dbGuild.id, timings);
-                        return this.send(interaction, dbGuild, { update: true });
-                    });
-                } else {
-                    return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+                if (!interaction.isButton()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
+                await this.showModal(interaction, dbGuild.customTimings);
+                const modalInteraction = await interaction.awaitModalSubmit({ time: 1000 * 60 * 2 });
+                const timings = modalInteraction.fields
+                    .getTextInputValue(
+                        this.getCustomId(
+                            ESettingsID.TIMINGS,
+                            [ETimingsSettingsOptions.TIMINGS]
+                        ));
+                const [validSyntax, reason] = TimingsSettings.checkSyntax(timings);
+                if (!validSyntax) {
+                    await modalInteraction.reply({ ephemeral: true, content: reason })
+                        .then(() => setTimeout(1000 * 20))
+                        .then(() => interaction.deleteReply())
+                        .catch(logger.error);
+                    return [];
+                };
+                if (TimingsSettings.equalsDefault(timings)) {
+                    // No need to save if the settings are default
+                    await modalInteraction.deferUpdate();
+                    return [];
                 }
+                // remove duplicates and trim spaces
+                dbGuild.customTimings = TimingsSettings.sort(timings).join(',');
+                audioManager.setTimings(dbGuild.id, timings);
+                textManager.setTimings(dbGuild.id, timings);
+                await modalInteraction.deferUpdate();
+                return ['saveGuild', 'update'];
+                break;
             case ETimingsSettingsOptions.RESET:
                 if (!interaction.isButton()) return Promise.reject('Interaction ID mismatch, try resetting the bot in the toptions if this error persists.');
-                if (!dbGuild.customTimings) return interaction.deferUpdate();
                 dbGuild.customTimings = undefined;
-                logger.info('[' + dbGuild.name + '] Reset respawn timings');
                 audioManager.resetTimings(dbGuild.id);
                 textManager.resetTimings(dbGuild.id);
-                return dbGuild.save().then(() => this.send(interaction, dbGuild, { update: true }));
+                return ['saveGuild', 'update'];
+                break;
             default: return Promise.reject('Missing Options ID on Interaction. This should never happen');
         }
     }

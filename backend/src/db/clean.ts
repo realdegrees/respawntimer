@@ -2,7 +2,7 @@ import { Client, Colors } from 'discord.js';
 import { DBGuild } from '../common/types/dbGuild';
 import logger from '../../lib/logger';
 import Database from './database';
-import { NotificationHandler } from '../notificationHandler';
+import { NotificationHandler } from '../handlers/notificationHandler';
 
 /**
  * @returns deleted guilds

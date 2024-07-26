@@ -12,7 +12,7 @@ import textManager from '../util/textManager';
 import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, WARTIMER_INTERACTION_ID, WARTIMER_INTERACTION_SPLIT } from './constant';
 import { EInteractionType } from './types/interactionType';
 import { DBGuild } from './types/dbGuild';
-import { WidgetHandler } from '../widgetHandler';
+import { WidgetHandler } from '../handlers/widgetHandler';
 import Database from '../db/database';
 
 export const widgetButtonIds = {

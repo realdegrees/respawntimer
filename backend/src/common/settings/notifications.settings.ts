@@ -7,7 +7,8 @@ import { DBGuild } from '../types/dbGuild';
 import logger from '../../../lib/logger';
 import { EXCLAMATION_ICON_LINK, WARTIMER_ICON_LINK, debug } from '../constant';
 import { Widget } from '../widget';
-import { NotificationHandler, UPDATE_SOURCE_SERVER_ID } from '../../notificationHandler';
+import { NotificationHandler, UPDATE_SOURCE_SERVER_ID } from '../../handlers/notificationHandler';
+import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 
 export enum ENotificationSettingsOptions {
     UPDATE_CHANNEL = 'updatechannel'
@@ -52,7 +53,7 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
         interaction: ButtonInteraction | ModalSubmitInteraction | AnySelectMenuInteraction,
         widget: Widget | undefined,
         option: string
-    ): Promise<unknown> {
+    ): Promise<SettingsPostInteractAction[]> {
         if (!interaction.guild) return Promise.reject('Unable to complete request! Cannot retrieve server data');
         switch (option) {
             case ENotificationSettingsOptions.UPDATE_CHANNEL:
@@ -66,11 +67,7 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
                         Colors.Red
                     );
                     dbGuild.notificationChannelId = undefined;
-                    await dbGuild.save();
-                    await this.send(interaction, dbGuild, { update: true });
-                    if (!widget?.textState) {
-                        widget?.update({ force: true });
-                    }
+                    return ['saveGuild', 'update', 'updateWidget'];
                 } else {
                     const channel = await interaction.guild.channels.fetch(interaction.values[0]);
                     if (!channel?.isTextBased?.()) {
@@ -79,12 +76,8 @@ export class NotificationSettings extends BaseSetting<ChannelSelectMenuBuilder> 
                         await checkChannelPermissions(channel, ['ViewChannel', 'SendMessages']);
                         logger.info('[' + channel.guild.name + '] Enabled Notifications');
                         dbGuild.notificationChannelId = interaction.values[0];
-                        await dbGuild.save();
-                        await this.send(interaction, dbGuild, { update: true });
                         await NotificationHandler.sendNotification(channel.guild, 'Notifications', 'This channel will now receive notifications and dev updates!', Colors.DarkGold)
-                        if (!widget?.textState) {
-                            widget?.update({ force: true });
-                        }
+                        return ['saveGuild', 'update', 'updateWidget'];
                     }
                 }
                 break;

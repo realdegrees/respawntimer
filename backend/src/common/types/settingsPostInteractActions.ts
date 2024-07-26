@@ -1,0 +1,1 @@
+export type SettingsPostInteractAction = 'update' | 'none' | 'saveGuild' | 'updateWidget' | 'deleteGuild'

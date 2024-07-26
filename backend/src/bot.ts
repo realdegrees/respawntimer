@@ -5,9 +5,9 @@ import logger from '../lib/logger';
 import { Create } from './commands/create';
 import { Settings } from './commands/settings';
 import { Command } from './commands/command';
-import { InteractionHandler } from './interactionHandler';
-import { NotificationHandler } from './notificationHandler';
-import { WidgetHandler } from './widgetHandler';
+import { InteractionHandler } from './handlers/interactionHandler';
+import { NotificationHandler } from './handlers/notificationHandler';
+import { WidgetHandler } from './handlers/widgetHandler';
 import { Invite } from './commands/invite';
 import Database from './db/database';
 
