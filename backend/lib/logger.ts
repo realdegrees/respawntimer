@@ -108,7 +108,7 @@ const log = (level: Level,
 
     preLogHook();
 
-    const timestamp = new Date().toISOString().replace(/T/, ' ').replace(/\..+/, '');
+    const timestamp = new Date().toLocaleString().replace(/T/, ' ').replace(/\..+/, '');
     const stack = getStackTrace(fromStack);
     stack.length = Math.min(stack.length, stackTraceDepth); // Applies the stackTraceDepth limit
 
