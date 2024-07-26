@@ -40,9 +40,11 @@ Promise.resolve()
         // Start polling interval for all guilds
         dbGuilds = await Database.getAllGuilds();
         for (const dbGuild of dbGuilds) {
-            const guild = await bot.client.guilds.fetch(dbGuild.id);
-            RaidhelperIntegration.startPollingInterval(guild, dbGuild);
-            await setTimeout(100);
+            if(dbGuild.raidHelper.apiKey){
+                const guild = await bot.client.guilds.fetch(dbGuild.id);
+                RaidhelperIntegration.startPollingInterval(guild, dbGuild);
+                await setTimeout(100);
+            }
         }
 
         // Start respawn interval
