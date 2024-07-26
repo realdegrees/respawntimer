@@ -163,7 +163,6 @@ export class Widget {
             );
         }
         this.isResetting = true;
-        textManager.unsubscribe(this.message.id);
         this.message.delete().finally(() => {
             (this.message.channel as TextChannel).send({
                 components: [this.getButtons(true, true)],
@@ -176,20 +175,23 @@ export class Widget {
                 components: [this.getButtons(true)],
             })).then((message) => {
                 textManager.updateSubscription(this.message.id, message.id);
+                const oldMessageId = this.message.id;
                 this.message = message;
 
                 const reset = (): void => {
                     if (!manual) logger.info('[' + this.guild.name + '][Reset] Done!');
-                    this.isResetting = false;
-                    this.isUpdating = false;
                     this.lastUpdateTimeStamp = undefined;
+                    this.isUpdating = false;
+                    this.isResetting = false;
                     this.update().then(() => {
                         if (this.textState) {
-                            textManager.subscribe(
-                                this.message.id,
-                                this.guild.id,
-                                this.update.bind(this),
-                                this.onTextUnsubscribe.bind(this));
+                            if (!textManager.updateSubscription(oldMessageId, this.message.id)) {
+                                textManager.subscribe(
+                                    this.message.id,
+                                    this.guild.id,
+                                    this.update.bind(this),
+                                    this.onTextUnsubscribe.bind(this));
+                            }
                         }
                     });
                 };
@@ -237,7 +239,7 @@ export class Widget {
                 if (!this.textState) {
                     await this.update(undefined, undefined, true);
                 }
-            } catch(e) {
+            } catch (e) {
                 interaction.reply({
                     ephemeral: true,
                     content: (e as Error).message
@@ -246,7 +248,7 @@ export class Widget {
             }
 
         } else {
-            if(interaction){
+            if (interaction) {
                 interaction.deferUpdate();
             }
             audioManager.unsubscribe(this.guild.id);
