@@ -64,7 +64,6 @@ export const getGuild = async (guild: Guild): Promise<Document<unknown, object, 
                 voice: 'female',
                 lastActivityTimestamp: Date.now(),
                 raidHelper: {
-                    enabled: false,
                     events: []
                 },
                 widget: {}
