@@ -26,6 +26,24 @@ const activePollIntervals: Partial<
 	>
 > = {};
 
+const findEarliestEventWithinThreshold = (events: ScheduledEvent[]): ScheduledEvent | undefined => {
+	let earliestEvent: ScheduledEvent | undefined;
+	let earliestStartTime: number = Infinity;
+
+	for (const event of events) {
+		const warStartTime = roundUpHalfHourUnix(event.startTimeUnix);
+		const diff = warStartTime * 1000 - Date.now();
+		const diffSeconds = diff / 1000;
+		const isWithinThreshold = diffSeconds <= 60; // 60 seconds buffer
+
+		if (isWithinThreshold && diffSeconds < earliestStartTime) {
+			earliestStartTime = diffSeconds;
+			earliestEvent = event;
+		}
+	}
+	return earliestEvent;
+};
+
 export class RaidhelperIntegration {
 	public static startRaidhelperMessageCollector(): void {
 		const messageCreateEvent = Bot.client.on('messageCreate', async (message) => {
@@ -144,9 +162,7 @@ export class RaidhelperIntegration {
 						);
 				}
 			} else {
-				logger.error(
-					`[${dbGuild.name}] Internal: ${String(response)}`
-				);
+				logger.error(`[${dbGuild.name}] Internal: ${String(response)}`);
 			}
 		} finally {
 			if (!retryAfterAwaited) {
@@ -238,7 +254,8 @@ export class RaidhelperIntegration {
 	}
 	private static async onFetchEventError(dbGuild: DBGuild, message: string): Promise<void> {
 		try {
-			const body = message + '\n\n*If this issue persist please ask for help in the support discord!*';
+			const body =
+				message + '\n\n*If this issue persist please ask for help in the support discord!*';
 
 			// Send notification
 			await NotificationHandler.sendNotification(dbGuild, 'Raidhelper Integration Error', body, {
@@ -345,30 +362,8 @@ export class RaidhelperIntegration {
 		try {
 			const dbGuilds = await Database.queryGuilds({
 				'raidHelper.events': { $exists: true, $ne: [] },
-				'raidHelper.apiKey': { $exists: true },
-				'raidHelper.apiKeyValid': true,
 				$or: [{ 'raidHelper.enabled': true }, { 'raidHelper.widget': true }]
 			});
-
-			const findEarliestEventWithinThreshold = (
-				events: ScheduledEvent[]
-			): ScheduledEvent | undefined => {
-				let earliestEvent: ScheduledEvent | undefined;
-				let earliestStartTime: number = Infinity;
-
-				for (const event of events) {
-					const warStartTime = roundUpHalfHourUnix(event.startTimeUnix);
-					const diff = warStartTime * 1000 - Date.now();
-					const diffSeconds = diff / 1000;
-					const isWithinThreshold = diffSeconds <= 60; // 60 seconds buffer
-
-					if (isWithinThreshold && diffSeconds < earliestStartTime) {
-						earliestStartTime = diffSeconds;
-						earliestEvent = event;
-					}
-				}
-				return earliestEvent;
-			};
 
 			// for each guild find the closest event and attempt to start the widget and voice
 			for (const dbGuild of dbGuilds) {
