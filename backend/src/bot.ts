@@ -20,7 +20,7 @@ class Bot {
         commands: Command[]
     ) {
         this.user = this.client.user;
-
+        this.client.user?.setActivity({name: '/create'})
         this.client.on('interactionCreate', (interaction) => {
             if (!interaction.isCommand()) return;
             commands.find((command) => command.name === interaction.commandName)?.execute(interaction);
