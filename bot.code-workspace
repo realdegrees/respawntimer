@@ -26,6 +26,11 @@
             "path": "docker"
         },
         {
+            // Dev
+            "name": "Dev",
+            "path": "dev"
+        },
+        {
             // Root
             "name": "Root",
             "path": "."
