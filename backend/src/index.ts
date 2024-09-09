@@ -30,7 +30,7 @@ Promise.resolve()
 		for (const dbGuild of dbGuilds) {
 			if (dbGuild.raidHelper.apiKey) {
 				RaidhelperIntegration.start(dbGuild);
-				await setTimeout(2000);
+				await setTimeout(20);
 			}
 		}
 
