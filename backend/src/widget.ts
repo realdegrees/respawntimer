@@ -21,6 +21,7 @@ import audioManager from './handlers/audioManager';
 import textManager from './handlers/textManager';
 import {
 	EPHEMERAL_REPLY_DURATION_SHORT,
+	WAR_START_INTERVAL,
 	WARTIMER_ICON_LINK,
 	WARTIMER_INTERACTION_ID,
 	WARTIMER_INTERACTION_SPLIT
@@ -30,7 +31,7 @@ import { DBGuild } from './common/types/dbGuild';
 import Database from './db/database';
 import { SettingsHandler } from './handlers/settingsHandler';
 import { checkChannelPermissions, userHasRole } from './util/permissions';
-import { roundUpHalfHourUnix } from './util/formatTime';
+import { roundUptoInterval } from './util/formatTime';
 import Bot from './bot';
 import { getVoiceConnection } from '@discordjs/voice';
 import { getEventVoiceChannel } from './util/discord';
@@ -236,7 +237,7 @@ export class Widget {
 				? current
 				: lowest
 		);
-		const startTimeStamp = roundUpHalfHourUnix(event.startTimeUnix);
+		const startTimeStamp = roundUptoInterval(event.startTimeUnix, WAR_START_INTERVAL);
 		const voiceChannel = await getEventVoiceChannel(event, dbGuild.id).catch(() => null);
 		const permissionText = voiceChannel
 			? await checkChannelPermissions(voiceChannel, ['ViewChannel', 'Connect', 'Speak']).catch(

@@ -18,3 +18,4 @@ export const MODAL_TIMEOUT = 1000 * 60 * 60; // 60 minutes
 export const EPHEMERAL_REPLY_DURATION_SHORT = 1000 * 2.5;
 export const EPHEMERAL_REPLY_DURATION_LONG = 1000 * 25;
 export const RAIDHELPER_USER_ID = '579155972115660803';
+export const WAR_START_INTERVAL = debug ? 5 : 30;

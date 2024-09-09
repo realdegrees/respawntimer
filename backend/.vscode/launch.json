@@ -15,7 +15,7 @@
             "skipFiles": [
                 "<node_internals>/**"
             ],
-            "type": "pwa-node",
+            "type": "node",
             "console": "integratedTerminal",
             "internalConsoleOptions": "neverOpen"
         },

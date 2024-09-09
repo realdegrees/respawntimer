@@ -183,11 +183,10 @@ class AudioManager extends Manager<Extended> {
 	private playAudio(audioResource: AudioResource, voiceConnection: VoiceConnection): void {
 		const audioPlayer = this.audioPlayers[voiceConnection.joinConfig.guildId];
 		const subscription = voiceConnection.subscribe(audioPlayer);
+		audioPlayer.play(audioResource);
 		audioPlayer.on(AudioPlayerStatus.Idle, (v) => {
 			subscription?.unsubscribe();
-			audioPlayer.removeAllListeners(AudioPlayerStatus.Idle);
 		});
-		audioPlayer.play(audioResource);
 	}
 
 	public async subscribe(
@@ -207,6 +206,7 @@ class AudioManager extends Manager<Extended> {
 	}
 	public async unsubscribe(guildId: string, reason?: UnsubscribeReason): Promise<void> {
 		getVoiceConnection(guildId)?.destroy();
+		this.audioPlayers[guildId].stop();
 		delete this.audioPlayers[guildId];
 		const dbGuild = await Database.getGuild(guildId);
 		const widget = await Widget.find(dbGuild);

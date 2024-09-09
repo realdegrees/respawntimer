@@ -1,3 +1,5 @@
+import { WAR_START_INTERVAL } from "../common/constant";
+
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'June', 'July', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 export const formatTime = (date: Date): string => {
     const hours = date.getHours().toString().length === 1 ? '0' + date.getHours() : date.getHours();
@@ -7,7 +9,7 @@ export const formatTime = (date: Date): string => {
 
     return hours + ':' + minutes + ' ' + month + ' ' + day;
 };
-export const roundUpHalfHourUnix = (unixTimeStamp: number): number => {
-    const remainder = unixTimeStamp % 1800;
-    return remainder === 0 ? unixTimeStamp : unixTimeStamp + (1800 - remainder);
+export const roundUptoInterval = (unixTimeStamp: number, intervalMinutes: number): number => {
+    const remainder = (unixTimeStamp % intervalMinutes) * 60;
+    return remainder === 0 ? unixTimeStamp : unixTimeStamp + (intervalMinutes * 60 - remainder);
 }
