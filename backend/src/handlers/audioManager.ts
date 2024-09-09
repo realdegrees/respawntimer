@@ -184,17 +184,18 @@ class AudioManager extends Manager<Extended> {
 		const audioPlayer = this.audioPlayers[voiceConnection.joinConfig.guildId];
 		const subscription = voiceConnection.subscribe(audioPlayer);
 		audioPlayer.play(audioResource);
-		audioPlayer.on(AudioPlayerStatus.Idle, (v) => {
-			subscription?.unsubscribe();
-		});
+		// audioPlayer.on(AudioPlayerStatus.Idle, (v) => {
+		// 	subscription?.unsubscribe();
+		// });
 	}
 
 	public async subscribe(
 		guildId: string,
 		channel: VoiceBasedChannel
 	): Promise<() => Promise<void>> {
-		await this.connect(channel).then(async () => {
+		await this.connect(channel).then(async (voiceConnection) => {
 			this.audioPlayers[guildId] = createAudioPlayer(defaultAudioPlayerBehaviour);
+			voiceConnection.subscribe(this.audioPlayers[guildId]);
 			const dbGuild = await Database.getGuild(guildId);
 			const widget = await Widget.find(dbGuild);
 			if (widget) {
