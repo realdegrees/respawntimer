@@ -1,4 +1,3 @@
-import { REST } from "@discordjs/rest";
 import { Routes } from "discord-api-types/v9";
 import {
   ActivityType,
@@ -6,6 +5,7 @@ import {
   Client,
   CommandInteraction,
   GatewayIntentBits,
+  REST,
   User,
 } from "discord.js";
 import logger from "../lib/logger";

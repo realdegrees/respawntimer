@@ -1,9 +1,15 @@
 /* eslint-disable max-len */
-import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
-import { CacheType, Client, CommandInteraction, EmbedBuilder, OAuth2Scopes, PermissionFlagsBits } from 'discord.js';
+import {
+	CacheType,
+	Client,
+	CommandInteraction,
+	EmbedBuilder,
+	OAuth2Scopes,
+	PermissionFlagsBits,
+	SlashCommandBuilder
+} from 'discord.js';
 import { Command } from './command';
-import { DBGuild } from '../common/types/dbGuild';
 import { BULB_ICON_LINK, WARTIMER_ICON_LINK } from '../common/constant';
 
 

@@ -4,6 +4,7 @@ import {
 	AudioResource,
 	createAudioPlayer,
 	createAudioResource,
+	DiscordGatewayAdapterCreator,
 	getVoiceConnection,
 	joinVoiceChannel,
 	NoSubscriberBehavior,
@@ -223,7 +224,7 @@ class AudioManager extends Manager<Extended> {
 		const connection = joinVoiceChannel({
 			guildId: channel.guild.id,
 			channelId: channel.id,
-			adapterCreator: channel.guild.voiceAdapterCreator
+			adapterCreator: channel.guild.voiceAdapterCreator as unknown as DiscordGatewayAdapterCreator
 		});
 		connection.on(VoiceConnectionStatus.Disconnected, () => connection.destroy());
 		return connection;

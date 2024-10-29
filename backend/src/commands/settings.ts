@@ -1,13 +1,8 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
 /* eslint-disable max-len */
-import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
 import { Command } from './command';
-import {
-    CacheType,
-    Client,
-    CommandInteraction,
-} from 'discord.js';
+import { CacheType, Client, CommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { DBGuild } from '../common/types/dbGuild';
 import { SettingsHandler } from '../handlers/settingsHandler';
 import { userHasRole } from '../util/permissions';

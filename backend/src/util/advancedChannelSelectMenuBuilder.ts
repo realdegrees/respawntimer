@@ -1,5 +1,4 @@
-import { StringSelectMenuOptionBuilder } from '@discordjs/builders';
-import { ChannelType, Guild, GuildChannel, StringSelectMenuBuilder, User } from 'discord.js';
+import { ChannelType, Guild, GuildChannel, StringSelectMenuBuilder, StringSelectMenuOptionBuilder, User } from 'discord.js';
 
 export enum EAdvancedChannelSelectReturnValue {
 	PREV_PAGE = 'Previous Page',

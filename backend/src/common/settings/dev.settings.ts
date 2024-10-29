@@ -56,7 +56,8 @@ export class DevSettings extends BaseSetting<ButtonBuilder> {
                     await interaction.reply({ ephemeral: true, content: 'Need a widget to do that' });
                     return [];
                 }
-                const message = await interaction.channel?.send({
+                const channel = interaction.channel?.isSendable() ? interaction.channel : undefined;
+                const message = await channel?.send({
                     content: 'Rate Limit Force'
                 });
                 await interaction.deferUpdate();

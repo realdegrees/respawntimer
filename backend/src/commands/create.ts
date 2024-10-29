@@ -1,7 +1,6 @@
 /* eslint-disable max-len */
-import { SlashCommandBuilder } from '@discordjs/builders';
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
-import { CacheType, ChannelType, Client, CommandInteraction } from 'discord.js';
+import { CacheType, ChannelType, Client, CommandInteraction, SlashCommandBuilder } from 'discord.js';
 import { Command } from './command';
 import { Widget } from '../widget';
 import logger from '../../lib/logger';
