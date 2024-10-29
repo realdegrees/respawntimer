@@ -362,7 +362,7 @@ export class RaidhelperIntegration {
 				$or: [{ 'raidHelper.enabled': true }, { 'raidHelper.widget': true }]
 			});
 
-			logger.log(`Found ${dbGuilds.length} guilds with autostart`);
+			logger.info(`Found ${dbGuilds.length} guilds with autostart`);
 
 			// for each guild find the closest event and attempt to start the widget and voice
 			for (const dbGuild of dbGuilds) {
@@ -375,7 +375,9 @@ export class RaidhelperIntegration {
 				try {
 					// Connect to voice if auto-join is enabled
 					if (dbGuild.raidHelper.enabled) {
-						logger.log(`Trying to join voice in ${dbGuild.name}`);
+						logger.info(
+							`[${dbGuild.name}][Raidhelper] Trying to auto-join voice`
+						);
 						let channel: GuildBasedChannel | null = await getEventVoiceChannel(
 							event,
 							dbGuild.id
