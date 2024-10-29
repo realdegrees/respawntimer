@@ -2,8 +2,9 @@
 # pull the Node.js Docker image
 FROM python:3-alpine as builder
 
-# Add node
+# Add node and pnpm
 RUN apk add --update npm
+RUN npm install -g pnpm
 RUN apk add libtool autoconf automake g++ make
 
 # change working directory
@@ -12,21 +13,22 @@ WORKDIR /usr/src/app
 # copy the package.json files from local machine to the workdir in container
 COPY package*.json .
 
-# run npm install in our local machine
-RUN npm ci
+# run pnpm install in our local machine
+RUN pnpm install
 
 # copy the generated modules and all other files to the container
 COPY . .
 
 # build the application
-RUN npm run build
+RUN pnpm run build
 
 ### Serve Step
 # pull the Node.js Docker image
 FROM python:3-alpine
 
-# Add node
+# Add node and pnpm
 RUN apk add --update npm
+RUN npm install -g pnpm
 
 # change working directory
 WORKDIR /app
