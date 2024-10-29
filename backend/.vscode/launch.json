@@ -9,7 +9,7 @@
             "request": "launch",
             "env": {
                 "LOG_LEVEL": "debug",
-                "STACK_TRACE_DEPTH": "1"
+                "STACK_TRACE_DEPTH": "-1"
             },
             "runtimeArgs": [
                 "run-script",
