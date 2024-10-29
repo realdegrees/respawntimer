@@ -17,8 +17,8 @@ export class WidgetSettings extends BaseSetting<ButtonBuilder> {
             ButtonStyle.Primary,
             'Widget Settings',
             `**Toggle Text-Widget Buttons**
-            You can choose to hide the buttons below the widget if you want a clearer image for the discord overlay for example\n           `,
-            ''
+            You can choose to hide the buttons below the widget if you want a clearer image for the discord overlay for example.\n           `,
+            'To access the settings without the buttons use the /settings command'
         );
     }
 

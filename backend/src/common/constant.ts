@@ -19,3 +19,24 @@ export const EPHEMERAL_REPLY_DURATION_SHORT = 1000 * 2.5;
 export const EPHEMERAL_REPLY_DURATION_LONG = 1000 * 25;
 export const RAIDHELPER_USER_ID = '579155972115660803';
 export const WAR_START_INTERVAL = debug ? 5 : 30;
+export const PRE_JOIN_BUFFER = 30;
+export const WAR_START_TIMES_MINUTES = debug ? [0, 30] : Array.from({ length: 59 }, (_, i) => i + 1);
+export const POLL_INTERVAL_MINUTES = debug ? 2 : 8;
+export const GRACE_PERIOD_MINUTES = WAR_START_INTERVAL / 2; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
+export const PROGRESS_BAR_SETTINGS = {
+	barWidth: 20,
+	barIconFull: '●',
+	barIconEmpty: '○'
+};
+// Alternative icons you could use:
+// 1. Block characters
+// barIconFull: '▓',
+// barIconEmpty: '░'
+
+// 6. Circles
+// barIconFull: '●',
+// barIconEmpty: '○'
+
+// 7. Squares
+// barIconFull: '▰',
+// barIconEmpty: '▱'

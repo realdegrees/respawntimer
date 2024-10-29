@@ -21,6 +21,7 @@ import { TimingsSettings } from '../common/settings/timings.settings';
 import { WarInfo } from '../common/types';
 import { Manager, Subscriber, TimeInfo, UnsubscribeReason } from './manager';
 import Database from '../db/database';
+import { WAR_START_INTERVAL } from '../common/constant';
 
 //TODO: can probably remove this since the path can just be passed to createAudioResource without a crash
 const loadVoice = (
@@ -123,7 +124,7 @@ class AudioManager extends Manager<Extended> {
 				}
 
 				const minutesSubscribed = subscribedForMs / 1000 / 60;
-				if (warEnd && minutesSubscribed > 15) {
+				if (warEnd && minutesSubscribed > (WAR_START_INTERVAL / 2)) {
 					this.unsubscribe(id, 'War End');
 					return;
 				}

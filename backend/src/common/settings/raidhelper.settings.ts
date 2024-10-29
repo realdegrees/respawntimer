@@ -21,7 +21,7 @@ import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 import { setTimeout } from 'timers/promises';
 import { RaidhelperIntegration } from '../../raidhelperIntegration';
-import { EPHEMERAL_REPLY_DURATION_SHORT } from '../constant';
+import { EPHEMERAL_REPLY_DURATION_SHORT, PRE_JOIN_BUFFER } from '../constant';
 import { formatEventsNoFetch } from '../../util/formatEvents';
 import { ScheduledEvent } from '../types/raidhelperEvent';
 import {
@@ -161,7 +161,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 			{
 				name: `Auto-Join`,
 				value:
-					'*The bot will automatically join voice when an event starts*\n' +
+					`*The bot will automatically join voice ${PRE_JOIN_BUFFER} seconds before an event starts*\n` +
 					(dbGuild.raidHelper.enabled ? '```diff\n+ Enabled ```' : '```diff\n- Disabled ```'),
 				inline: true
 			},

@@ -8,7 +8,7 @@ import { NotificationHandler } from './handlers/notificationHandler';
 import { DBGuild } from './common/types/dbGuild';
 import Database from './db/database';
 import { formatEvents } from './util/formatEvents';
-import { debug, RAIDHELPER_USER_ID, WAR_START_INTERVAL } from './common/constant';
+import { debug, GRACE_PERIOD_MINUTES, POLL_INTERVAL_MINUTES, PRE_JOIN_BUFFER, RAIDHELPER_USER_ID, WAR_START_INTERVAL } from './common/constant';
 import { roundUptoInterval } from './util/formatTime';
 import Bot from './bot';
 import textManager from './handlers/textManager';
@@ -18,8 +18,6 @@ import { getEventVoiceChannel } from './util/discord';
  * db.guilds.find({"raidHelper.eventChannelId":{$exists:true}}).forEach(function(doc){if(typeof doc.raidHelper.eventChannelId==="string"){db.guilds.updateOne({_id: doc._id}, {$set: {"raidHelper.eventChannelId": [doc.raidHelper.eventChannelId]}});}});
  */
 
-const POLL_INTERVAL_MINUTES = process.env.NODE_ENV === 'dev' ? 2 : 8;
-const GRACE_PERIOD_MINUTES = process.env.NODE_ENV === 'dev' ? 3 : 20; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
 
 const activePollIntervals: Partial<
 	Record<
@@ -352,7 +350,7 @@ export class RaidhelperIntegration {
 		const seconds = date.getSeconds();
 		const minutes = date.getMinutes();
 
-		return (minutes + 1) % WAR_START_INTERVAL === 0 && seconds === 30;
+		return (minutes + 1) % WAR_START_INTERVAL === 0 && seconds === PRE_JOIN_BUFFER;
 	}
 	public static async interval(): Promise<void> {
 		// Only run on war start
@@ -368,8 +366,6 @@ export class RaidhelperIntegration {
 
 			// for each guild find the closest event and attempt to start the widget and voice
 			for (const dbGuild of dbGuilds) {
-				console.log(dbGuild.raidHelper.events);
-
 				const event = findEarliestEventWithinThreshold(dbGuild.raidHelper.events);
 				if (!event) break;
 				logger.log(`Eligible event found for ${dbGuild.name}`);

@@ -195,7 +195,7 @@ export class Widget {
 						`Raidhelper Integration » ${apiKeyStatus}` +
 						`${
 							dbGuild.assistantRoleIDs.length === 0
-								? '\n\nMissing permission setup.\nEveryone can use the widget!'
+								? '\n\nMissing permission setup.\nAnyone can use the widget!'
 								: ''
 						}`
 				});
@@ -245,30 +245,30 @@ export class Widget {
 			  )
 			: undefined;
 
+			
 		const channelInfo = voiceChannel
-			? `${
-					startTimeStamp <= Date.now() / 1000 ? 'Joined' : 'Joining'
-			  } ${voiceChannel} at <t:${startTimeStamp}:t>`
+			? `${voiceChannel}`
 			: '⚠️ *No Default Voice Channel Set*';
 
 		const voiceChannelText = dbGuild.raidHelper.enabled
 			? `${permissionText ?? channelInfo}`
 			: '```fix\nAuto-Join Disabled```';
 
-		const timeText = `<t:${event.startTimeUnix}:d>${
-			event.startTimeUnix === startTimeStamp && voiceChannel && dbGuild.raidHelper.enabled
-				? ''
-				: ` at <t:${event.startTimeUnix}:t>`
-		}`;
+		const isOngoing = startTimeStamp <= Date.now() / 1000;
+		const timeText = `<t:${event.startTimeUnix}:d> <t:${event.startTimeUnix}:t>`;
 
-		// Pad with empty fields to improve visual
+		let statusText: string;
+		if (isOngoing) {
+			statusText = 'Ongoing';
+		} else if (voiceChannel) {
+			statusText = `Joining ${voiceChannel} at <t:${startTimeStamp}:t>`;
+		} else {
+			statusText = 'Upcoming';
+		}
+
 		return [
 			{
-				name: ' ',
-				value: ' '
-			},
-			{
-				name: 'Scheduled Event',
+				name: `Event`,
 				value: `\`\`\`fix\n${event.title}\`\`\``
 			},
 			{
@@ -278,6 +278,10 @@ export class Widget {
 			{
 				name: 'Voice',
 				value: voiceChannelText
+			},
+			{
+				name: 'Status',
+				value: statusText
 			},
 			{
 				name: ' ',
