@@ -1,8 +1,9 @@
 const includesArg = (arg: string): boolean => {
-    return !!process.argv.find((a: string) => [arg, `-${arg}`, `--${arg}`].includes(a));
+	const lowerArg = arg.toLowerCase();
+	return !!process.argv.find((a: string) => [lowerArg, `-${lowerArg}`, `--${lowerArg}`].includes(a.toLowerCase()));
 };
 export const debug = ((): boolean => {
-    return includesArg('debug');
+    return includesArg('debug') || process.env['DEBUG'] === 'true';
 })(); 
 
 export const WARTIMER_INTERACTION_ID = 'wartimer';
