@@ -22,11 +22,8 @@ Promise.resolve()
 		// Log invite link
 		logger.info('Invite | ' + Bot.client.generateInvite(INVITE_SETTINGS));
 
-		// Remove discord servers from DB taht have been inactive or where bot is not a member anymore
-		let dbGuilds = await Database.getAllGuilds();
-
 		// Start polling interval for all guilds
-		dbGuilds = await Database.getAllGuilds();
+		let dbGuilds = await Database.getAllGuilds();
 		for (const dbGuild of dbGuilds) {
 			if (dbGuild.raidHelper.apiKey) {
 				RaidhelperIntegration.start(dbGuild);
