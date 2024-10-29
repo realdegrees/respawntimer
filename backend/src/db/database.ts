@@ -1,4 +1,4 @@
-import { connect } from 'mongoose';
+import { connect, PipelineStage } from 'mongoose';
 import logger from '../../lib/logger';
 import { FilterQuery } from 'mongoose';
 import { GuildData, GuildModel } from './guild.schema';
@@ -64,8 +64,10 @@ class Database {
 	public static async getAllGuilds(): Promise<DBGuild[]> {
 		return GuildModel.find().exec();
 	}
-	public static async queryGuilds(filter: FilterQuery<GuildData>): Promise<DBGuild[]> {
-		return GuildModel.find(filter).exec();
+	public static async queryGuilds(
+		filter: PipelineStage[] | FilterQuery<GuildData>
+	): Promise<DBGuild[]> {
+		return Array.isArray(filter) ? GuildModel.aggregate(filter).exec() : GuildModel.find(filter).exec();
 	}
 }
 
