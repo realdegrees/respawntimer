@@ -40,8 +40,8 @@
     "discord.js": "^14.16.3",
     "dotenv": "^16.4.5",
     "ffmpeg-static": "^5.2.0",
+    "libsodium-wrappers": "^0.7.15",
     "mongoose": "^7.6.7",
-    "sodium-native": "^4.2.1",
     "source-map-support": "^0.5.21"
   }
 }
