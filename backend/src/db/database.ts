@@ -62,7 +62,13 @@ class Database {
 		});
 	}
 	public static async getAllGuilds(): Promise<DBGuild[]> {
-		return GuildModel.find({}).exec();
+		return GuildModel.find({}).exec().then((guilds) => {
+			if (Array.isArray(guilds)) {
+				return guilds;
+			} else {
+				throw new Error('Expected an array of guilds');
+			}
+		});
 	}
 	public static async queryGuilds(filter: FilterQuery<GuildData>): Promise<DBGuild[]> {
 		return GuildModel.find(filter).exec();
