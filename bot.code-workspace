@@ -1,44 +1,45 @@
 {
-    "folders": [
-        {
-            // Source code
-            "name": "Backend",
-            "path": "backend"
-        },
-        {
-            // Config
-            "name": "Config",
-            "path": "config"
-        },
-        {
-            // Github
-            "name": "Github",
-            "path": ".github"
-        },
-        {
-            // Docs and release notes
-            "name": "Documentation",
-            "path": "docs"
-        },
-        {
-            // Docker
-            "name": "Docker",
-            "path": "docker"
-        },
-        {
-            // Dev
-            "name": "Dev",
-            "path": "dev"
-        },
-        {
-            // Root
-            "name": "Root",
-            "path": "."
-        }
-    ],
-    "settings": {
-        "eslint.validate": [
-            "typescript"
-        ],
+  "folders": [
+    {
+      // Source code
+      "name": "Backend",
+      "path": "backend"
+    },
+    {
+      // Config
+      "name": "Config",
+      "path": "config"
+    },
+    {
+      // Github
+      "name": "Github",
+      "path": ".github"
+    },
+    {
+      // Docs and release notes
+      "name": "Documentation",
+      "path": "docs"
+    },
+    {
+      // Docker
+      "name": "Docker",
+      "path": "docker"
+    },
+    {
+      // Dev
+      "name": "Dev",
+      "path": "dev"
+    },
+    {
+      // Root
+      "name": "Root",
+      "path": "."
     }
+  ],
+  "settings": {
+    "eslint.validate": ["typescript"]
+  },
+  "extensions": {
+    "recommendations": ["esbenp.prettier-vscode"]
+  }
 }
