@@ -1,14 +1,11 @@
 import { setTimeout as promiseTimeout } from 'timers/promises';
 import { RaidhelperAPIEvent, ScheduledEvent } from '../common/types/raidhelperEvent';
 import {
-	Channel,
-	Client,
 	Colors,
 	Guild,
 	GuildBasedChannel,
 	Message,
 	PartialMessage,
-	ThreadMemberFlagsBitField
 } from 'discord.js';
 import logger from '../../lib/logger';
 import { Widget } from '../widget';
@@ -18,21 +15,15 @@ import { DBGuild } from '../common/types/dbGuild';
 import Database from '../db/database';
 import { formatEvents } from '../util/formatEvents';
 import {
-	debug,
 	GRACE_PERIOD_MINUTES,
 	POLL_INTERVAL_MINUTES,
 	PRE_JOIN_BUFFER,
 	RAIDHELPER_USER_ID,
 	WAR_START_INTERVAL
 } from '../common/constant';
-import { roundUptoInterval } from '../util/formatTime';
 import Bot from '../bot';
 import textManager from '../handlers/textManager';
 import { getEventVoiceChannel } from '../util/discord';
-
-/**
- * db.guilds.find({"raidHelper.eventChannelId":{$exists:true}}).forEach(function(doc){if(typeof doc.raidHelper.eventChannelId==="string"){db.guilds.updateOne({_id: doc._id}, {$set: {"raidHelper.eventChannelId": [doc.raidHelper.eventChannelId]}});}});
- */
 
 const activePollIntervals: Partial<
 	Record<
@@ -42,27 +33,7 @@ const activePollIntervals: Partial<
 		}
 	>
 > = {};
-// ! Deprecated, task is now handled by db
-// const findEarliestEventWithinThreshold = (events: ScheduledEvent[]): ScheduledEvent | undefined => {
-// 	return events.reduce<{
-// 		earliestStartTime: number;
-// 		earliestEvent: ScheduledEvent | undefined;
-// 	}>(
-// 		(earliest, event) => {
-// 			const warStartTime = roundUptoInterval(event.startTimeUnix, WAR_START_INTERVAL);
-// 			const diff = warStartTime * 1000 - Date.now();
-// 			const diffSeconds = diff / 1000;
-// 			const isWithinThreshold = diffSeconds <= 60; // 60 seconds buffer
 
-// 			if (isWithinThreshold && diffSeconds < earliest.earliestStartTime) {
-// 				return { earliestStartTime: diffSeconds, earliestEvent: event };
-// 			}
-
-// 			return earliest;
-// 		},
-// 		{ earliestStartTime: Infinity, earliestEvent: undefined }
-// 	).earliestEvent;
-// };
 export class RaidhelperIntegration {
 	public static startRaidhelperMessageCollector(): void {
 		// Handle message creation event
