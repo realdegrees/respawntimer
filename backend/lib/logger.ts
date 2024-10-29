@@ -146,7 +146,12 @@ const getStackTrace = (fromExisting?: string): string[] => {
 			.slice(fromExisting ? 1 : 4) // Remove logger function from stacktrace
 			.map((line) => line.trim().split(' ').slice(-1)[0].replace(/[)(]/g, '')) // Extract the path
 			.map((path) => mapNonProjectCalls(path)) // Hide internal and external calls
-			.filter((call, index, paths) => index === paths.length - 1 || paths[index + 1] !== call) // Remove duplice adjacent values
+			.reduce((acc, call) => {
+				if (acc[acc.length - 1] !== call) {
+					acc.push(call);
+				}
+				return acc;
+			}, [] as string[]) // Merge consecutive duplicates
 			.map((call) => call.replace(`${projectRoot}`, '').trim()) ?? [] // Remove project root to shorten path
 	);
 };
@@ -155,11 +160,9 @@ const mapNonProjectCalls = (path: string): string => {
         return 'compiled';
     } else if (path.includes(`${projectRoot}`)) {
         return path;
-    } else if (path.includes('<anonymous>')) {
-        return 'anonymous';
     } else if (path.includes('node_modules')) {
         return 'dependency';
-    } else if (path.startsWith('node:internal')) {
+    } else if (path.startsWith('node:internal') || path.includes('<anonymous>')) {
         return 'node';
     } else {
         return path;
