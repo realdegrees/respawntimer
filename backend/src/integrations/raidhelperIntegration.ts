@@ -549,7 +549,7 @@ export class RaidhelperIntegration {
 			}
 
 			logger.debug(`[${dbGuild.name}] Fetching event ${id}`);
-			const event: RaidhelperAPIEvent = await fetch(`https://raid-helper.dev/api/v2/events/${id}`, {
+			const event: RaidhelperAPIEvent = await fetch(`https://raid-helper.dev/api/v2/scheduledevents/${id}`, {
 				headers
 			}).then((res) => res.json());
 
