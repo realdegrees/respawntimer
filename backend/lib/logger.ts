@@ -151,14 +151,18 @@ const getStackTrace = (fromExisting?: string): string[] => {
 	);
 };
 const mapNonProjectCalls = (path: string): string => {
-	if (path.includes(`${projectRoot}`)) {
-		return path;
-	} else if (path.includes('<anonymous>')) {
-		return 'anonymous';
-	} else if (path.startsWith('node:internal')) {
-		return 'node';
-	} else {
-		return path;
-	}
+    if (path.includes('dist/')) {
+        return 'compiled';
+    } else if (path.includes(`${projectRoot}`)) {
+        return path;
+    } else if (path.includes('<anonymous>')) {
+        return 'anonymous';
+    } else if (path.includes('node_modules')) {
+        return 'dependency';
+    } else if (path.startsWith('node:internal')) {
+        return 'node';
+    } else {
+        return path;
+    }
 };
 export default new Logger();
