@@ -37,10 +37,10 @@ const activePollIntervals: Partial<
 export class RaidhelperIntegration {
 	public static startRaidhelperMessageCollector(): void {
 		// Handle message creation event
-		Bot.client.on('messageCreate', this.handleMessageCreate);
+		Bot.client.on('messageCreate', this.handleMessageCreate.bind(this));
 
 		// Handle message deletion event
-		Bot.client.on('messageDelete', this.handleMessageDelete);
+		Bot.client.on('messageDelete', this.handleMessageDelete.bind(this));
 	}
 
 	// Method to handle message creation
