@@ -9,11 +9,14 @@ services:
     environment:
       - DISCORD_CLIENT_TOKEN=<token> # ! Required: Token of your bot from https://discord.com/developers/applications
       - DISCORD_CLIENT_ID=<id> # ! Required: ID of your bot from https://discord.com/developers/applications
+      - MONGO_HOST=<host> # ! Required: Hostname of the mongo database (Use the container name of the mongo service if using mongo service) 
       - LOG_LEVEL="info" # Optional: debug, log, info, warning, error
       - STACK_TRACE_DEPTH="1" # Optional: The depth of the stack trace in the logs (-1: Max length, 0: no stack trace)
       - OWNER_ID=<id> # Optional: The owner can interact with the bot on any server without requiring editor or assistant roles
-  mongo:
+      - TZ=Europe/Berlin # Optional: Adjust the timezone (doesn't really matter as wars are timezone independent)
+  mongo: # Optional: Adjust the MONGO_HOST environment variable in the wartimer service to use a different endpoint
     image: mongo:4.4.18 # ! Important: Higher versions may not work
     restart: always
     volumes:
       - <localpath>:/data/db
+  # Optional: Add a web interface for mongo to manage the database
