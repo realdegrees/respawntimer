@@ -5,7 +5,7 @@ import { install } from 'source-map-support';
 import logger from '../lib/logger';
 import Database from './db/database';
 import { INVITE_SETTINGS } from './commands/invite';
-import { RaidhelperIntegration } from './raidhelperIntegration';
+import { RaidhelperIntegration } from './integrations/raidhelperIntegration';
 import { NotificationHandler } from './handlers/notificationHandler';
 import { setTimeout } from 'timers/promises';
 import { startInterval } from './handlers/intervalHandler';

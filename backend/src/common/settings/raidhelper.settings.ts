@@ -20,7 +20,7 @@ import logger from '../../../lib/logger';
 import { Widget } from '../../widget';
 import { SettingsPostInteractAction } from '../types/settingsPostInteractActions';
 import { setTimeout } from 'timers/promises';
-import { RaidhelperIntegration } from '../../raidhelperIntegration';
+import { RaidhelperIntegration } from '../../integrations/raidhelperIntegration';
 import { EPHEMERAL_REPLY_DURATION_SHORT, PRE_JOIN_BUFFER } from '../constant';
 import { formatEventsNoFetch } from '../../util/formatEvents';
 import { ScheduledEvent } from '../types/raidhelperEvent';

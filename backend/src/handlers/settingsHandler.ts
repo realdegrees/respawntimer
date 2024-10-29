@@ -15,7 +15,7 @@ import { setTimeout } from "timers/promises";
 import { SettingsPostInteractAction } from "../common/types/settingsPostInteractActions";
 import { DBGuild } from "../common/types/dbGuild";
 import { ECollectorStopReason } from "../common/types/collectorStopReason";
-import { RaidhelperIntegration } from "../raidhelperIntegration";
+import { RaidhelperIntegration } from "../integrations/raidhelperIntegration";
 import { HelpSettings } from "../common/settings/help.settings";
 import { DevSettings } from "../common/settings/dev.settings";
 
