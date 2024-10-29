@@ -1,15 +1,19 @@
+# Replace any <...> with the appropriate values
+
 version: "3.2"
 services:
   wartimer:
     container_name: wartimer
-    image: realdegrees/wartimer:latest
+    image: realdegrees/wartimer:latest # ? Use nightly tag to get early updates (high chance of bugs and instability)
     restart: unless-stopped
     environment:
-      - DISCORD_CLIENT_TOKEN=<token>
-      - DISCORD_CLIENT_ID=<id>
-      - OWNER_ID<id> # Optional: The owner can interact with the bot on any server without requiring editor or assistant roles
+      - DISCORD_CLIENT_TOKEN=<token> # ! Required: Token of your bot from https://discord.com/developers/applications
+      - DISCORD_CLIENT_ID=<id> # ! Required: ID of your bot from https://discord.com/developers/applications
+      - LOG_LEVEL="info" # Optional: debug, log, info, warning, error
+      - STACK_TRACE_DEPTH="1" # Optional: The depth of the stack trace in the logs (-1: Max length, 0: no stack trace)
+      - OWNER_ID=<id> # Optional: The owner can interact with the bot on any server without requiring editor or assistant roles
   mongo:
-    image: mongo:4.4.18
+    image: mongo:4.4.18 # ! Important: Higher versions may not work
     restart: always
     volumes:
       - <localpath>:/data/db
