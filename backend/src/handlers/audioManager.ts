@@ -114,7 +114,7 @@ class AudioManager extends Manager<Extended> {
 		subscribers.forEach(
 			({
 				warEnd,
-				dbGuild: { id, customTimings, voice, name },
+				dbGuild: { id, customTimings, voice },
 				voiceConnection,
 				time: { subscribedForMs }
 			}) => {
@@ -124,7 +124,7 @@ class AudioManager extends Manager<Extended> {
 				}
 
 				const minutesSubscribed = subscribedForMs / 1000 / 60;
-				if (warEnd && minutesSubscribed > (WAR_START_INTERVAL / 2)) {
+				if (warEnd && minutesSubscribed >= WAR_START_INTERVAL / 2) {
 					this.unsubscribe(id, 'War End');
 					return;
 				}
@@ -133,7 +133,7 @@ class AudioManager extends Manager<Extended> {
 					? TimingsSettings.convertToRespawnData(TimingsSettings.convertToSeconds(customTimings)!)
 					: TimingsSettings.convertToRespawnData(
 							TimingsSettings.convertToSeconds(TimingsSettings.DEFAULT)!
-					  );
+						);
 
 				this.handleSounds(respawnData, voice, voiceConnection);
 			}

@@ -3,8 +3,11 @@ const includesArg = (arg: string): boolean => {
 	return !!process.argv.find((a: string) => [lowerArg, `-${lowerArg}`, `--${lowerArg}`].includes(a.toLowerCase()));
 };
 export const debug = ((): boolean => {
-    return includesArg('debug') || process.env['DEBUG'] === 'true';
+	const isDebugMode = includesArg('debug');
+	isDebugMode && console.warn('##########  Running in debug mode  ##########');
+    return isDebugMode;
 })(); 
+
 
 export const WARTIMER_INTERACTION_ID = 'wartimer';
 export const WARTIMER_INTERACTION_SPLIT = '-';
@@ -21,7 +24,7 @@ export const EPHEMERAL_REPLY_DURATION_LONG = 1000 * 25;
 export const RAIDHELPER_USER_ID = '579155972115660803';
 export const WAR_START_INTERVAL = debug ? 2 : 30;
 export const PRE_JOIN_BUFFER = 30;
-export const WAR_START_TIMES_MINUTES = debug ? [0, 30] : Array.from({ length: 59 }, (_, i) => i + 1);
+export const WAR_START_TIMES_MINUTES = debug ? Array.from({ length: 59 }, (_, i) => i + 1) : [0, 30];
 export const POLL_INTERVAL_MINUTES = debug ? 1 : 8;
 export const GRACE_PERIOD_MINUTES = WAR_START_INTERVAL / 2; // Amount of time that events are checked in the past (e.g. if raidhelper is set to pre-war meeting time)
 export const PROGRESS_BAR_SETTINGS = {

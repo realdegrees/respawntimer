@@ -1,5 +1,5 @@
 import logger from '../../lib/logger';
-import { WAR_START_TIMES_MINUTES } from '../common/constant';
+import { debug, WAR_START_TIMES_MINUTES } from '../common/constant';
 import { RaidhelperIntegration } from '../integrations/raidhelperIntegration';
 import audioManager from './audioManager';
 import textManager from './textManager';
