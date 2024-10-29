@@ -145,7 +145,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 				: '';
 
 		// No need to check permissions for the text channel as we only use the id as a filter for the Raidhelper API
-		const eventChannelText = dbGuild.raidHelper.eventChannelId
+		const eventChannelText = dbGuild.raidHelper.eventChannelId?.length
 			? `Only events posted in\n${dbGuild.raidHelper.eventChannelId.map(id => `- <#${id}>`).join('\n')}\nwill be scheduled\n`
 			: `\`\`\`diff\n- Not Set\`\`\`*Events from all channels will be scheduled*`;
 
