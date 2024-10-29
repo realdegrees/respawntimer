@@ -238,7 +238,7 @@ export class Widget {
 				: lowest
 		);
 		const startTimeStamp = roundUptoInterval(event.startTimeUnix, WAR_START_INTERVAL);
-		const voiceChannel = await getEventVoiceChannel(event, dbGuild.id).catch(() => null);
+		const voiceChannel = await getEventVoiceChannel(event, dbGuild).catch(() => null);
 		const permissionText = voiceChannel
 			? await checkChannelPermissions(voiceChannel, ['ViewChannel', 'Connect', 'Speak']).catch(
 					(e) => String(e)

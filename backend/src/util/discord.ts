@@ -6,16 +6,14 @@ import {
 } from 'discord.js';
 import { DBGuild } from '../common/types/dbGuild';
 import { ScheduledEvent } from '../common/types/raidhelperEvent';
-import Database from '../db/database';
 import Bot from '../bot';
 import logger from '../../lib/logger';
 
 export const getEventVoiceChannel = async (
 	event: ScheduledEvent,
-	guildId: string
+	dbGuild: DBGuild
 ): Promise<GuildBasedChannel | null> => {
-	const dbGuild = await Database.getGuild(guildId);
-	const guild = await Bot.client.guilds.fetch(guildId).catch(() => undefined);
+	const guild = await Bot.client.guilds.fetch(dbGuild.id).catch(() => undefined);
 	let voiceChannel: GuildBasedChannel | null | undefined = null;
 	try {
 		voiceChannel =

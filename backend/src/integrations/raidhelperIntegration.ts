@@ -1,12 +1,6 @@
 import { setTimeout as promiseTimeout } from 'timers/promises';
 import { RaidhelperAPIEvent, ScheduledEvent } from '../common/types/raidhelperEvent';
-import {
-	Colors,
-	Guild,
-	GuildBasedChannel,
-	Message,
-	PartialMessage,
-} from 'discord.js';
+import { Colors, Guild, GuildBasedChannel, Message, PartialMessage } from 'discord.js';
 import logger from '../../lib/logger';
 import { Widget } from '../widget';
 import audioManager from '../handlers/audioManager';
@@ -390,19 +384,25 @@ export class RaidhelperIntegration {
 					closestEvent: { $first: '$raidHelper.events' }
 				}
 			},
-			// Reconstruct the guild document with only the closest event
+			// Reconstruct the guild document with only the closest event in raidHelper.events
 			{
-				$project: {
-					_id: '$guild._id',
-					name: '$guild.name',
-					raidHelper: {
-						enabled: '$guild.raidHelper.enabled',
-						widget: '$guild.raidHelper.widget',
-						events: ['$closestEvent']
+				$addFields: {
+					'guild.raidHelper.events': ['$closestEvent'] // Set only the events field with the closest event
+				}
+			},
+			// Project to include only the modified guild document
+			{
+				$replaceRoot: {
+					newRoot: {
+						$mergeObjects: [
+							'$guild',
+							{ id: '$_id' } // Add the virtual 'id' field manually
+						]
 					}
 				}
 			}
 		]);
+
 		return dbGuilds;
 	}
 	private static async autoJoinVoice(dbGuild: DBGuild, event: ScheduledEvent): Promise<void> {
@@ -410,7 +410,7 @@ export class RaidhelperIntegration {
 
 		// Voice Start
 		logger.info(`[${dbGuild.name}][Raidhelper] Trying to auto-join voice`);
-		let channel: GuildBasedChannel | null = await getEventVoiceChannel(event, dbGuild.id).catch(
+		let channel: GuildBasedChannel | null = await getEventVoiceChannel(event, dbGuild).catch(
 			() => null
 		);
 
@@ -430,16 +430,14 @@ export class RaidhelperIntegration {
 		const widget = await Widget.find(dbGuild);
 
 		if (!dbGuild.raidHelper.widget) return;
-		if (widget) {
-			await textManager.subscribe(dbGuild.id);
-			logger.info(`[${dbGuild.name}][Raidhelper] Widget autostart`);
-			return;
+		if (!widget) {
+			// If widget is not found, notify that it is missing
+			throw new Error(
+				`Tried to enable text-widget for scheduled event\n**${event.title}**\n\n**Auto-Widget is enabled but I can't find a widget to enable.**`
+			);
 		}
-
-		// If widget is not found, notify that it is missing
-		throw new Error(
-			`Tried to enable text-widget for scheduled event\n**${event.title}**\n\n**Auto-Widget is enabled but I can't find a widget to enable.**`
-		);
+		await textManager.subscribe(dbGuild.id);
+		logger.info(`[${dbGuild.name}][Raidhelper] Widget autostart`);
 	}
 	public static async interval(): Promise<void> {
 		// Only run on war start
@@ -449,13 +447,13 @@ export class RaidhelperIntegration {
 
 		logger.info(`Found ${dbGuilds.length} guilds with upcoming events`);
 
-		dbGuilds.forEach((dbGuild) => {
+		dbGuilds.forEach(async (dbGuild) => {
 			const event = dbGuild.raidHelper.events[0];
 			if (!event) return;
 
 			try {
-				this.autoJoinVoice(dbGuild, event).catch(logger.error);
-				this.autoStartWidget(dbGuild, event).catch(logger.error);
+				await this.autoJoinVoice(dbGuild, event);
+				await this.autoStartWidget(dbGuild, event);
 			} catch (e) {
 				const errorMessage = e instanceof Error ? e.message : String(e);
 				NotificationHandler.sendNotification(
@@ -511,7 +509,7 @@ export class RaidhelperIntegration {
 			throw response;
 		}
 
-		let { postedEvents }: { postedEvents: Omit<RaidhelperAPIEvent, 'advancedSettings'>[] } =
+		let { postedEvents }: { postedEvents?: Omit<RaidhelperAPIEvent, 'advancedSettings'>[] } =
 			await response.json();
 
 		// Remove events not posted in observed channels
@@ -519,15 +517,17 @@ export class RaidhelperIntegration {
 			dbGuild.raidHelper.eventChannelId?.length &&
 			dbGuild.raidHelper.eventChannelId.length >= 2
 		) {
-			postedEvents = postedEvents.filter(({ channelId }) =>
+			postedEvents = postedEvents?.filter(({ channelId }) =>
 				dbGuild.raidHelper.eventChannelId!.includes(channelId)
 			);
 		}
 
-		logger.debug(
-			`[${dbGuild.name}] Fetched events`,
-			postedEvents.map((e) => e.id)
-		);
+		if (postedEvents?.length) {
+			logger.debug(
+				`[${dbGuild.name}] Fetched events`,
+				postedEvents.map((e) => e.id)
+			);
+		}
 
 		/**
 		 * Fetches the details of a scheduled event from the Raidhelper API.
@@ -549,7 +549,7 @@ export class RaidhelperIntegration {
 			}
 
 			logger.debug(`[${dbGuild.name}] Fetching event ${id}`);
-			const event: RaidhelperAPIEvent = await fetch(`https://raid-helper.dev/api/v2/scheduledevents/${id}`, {
+			const event: RaidhelperAPIEvent = await fetch(`https://raid-helper.dev/api/v2/events/${id}`, {
 				headers
 			}).then((res) => res.json());
 
@@ -567,7 +567,7 @@ export class RaidhelperIntegration {
 		};
 
 		const results = await Promise.allSettled(
-			postedEvents.map(({ id, lastUpdated }) => fetchEventDetails(id, lastUpdated))
+			postedEvents?.map(({ id, lastUpdated }) => fetchEventDetails(id, lastUpdated)) ?? []
 		);
 
 		return results
