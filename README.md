@@ -55,9 +55,8 @@ Set a dedicated notification channel in the **Notification Settings** to get not
 # 🐋 Deployment - Docker
 You can create your own docker image of this app by building the [Dockerfile](Dockerfile), or use an automatically created image from [GitHub packages](https://github.com/realdegrees/angry-generator/pkgs/container/angry-generator).
 
-To start a container run  
-`docker run -d -e DISCORD_CLIENT_TOKEN='<Token>' -e DISCORD_CLIENT_ID='<ID>' ghcr.io/realdegrees/respawntimer`  
-**or**  use the provided [docker-compose.yml](docker-compose.example.yml)
+To start a container run `docker run -d -e DISCORD_CLIENT_TOKEN='<Token>' -e DISCORD_CLIENT_ID='<ID>' ghcr.io/realdegrees/respawntimer`  
+A mongo instance is required to run the bot, the corresponding environment variables are listed in the provided [docker-compose.yml](docker-compose.example.yml).
 
 
 # Deployment - Node
