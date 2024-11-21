@@ -11,13 +11,13 @@ RUN apk add libtool autoconf automake g++ make
 WORKDIR /usr/src/app
 
 # copy the package.json files from local machine to the workdir in container
-COPY package*.json .
+COPY backend/package*.json .
 
 # run pnpm install in our local machine
 RUN pnpm install
 
 # copy the generated modules and all other files to the container
-COPY . .
+COPY backend .
 
 # build the application
 RUN pnpm run build

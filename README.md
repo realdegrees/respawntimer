@@ -1,6 +1,6 @@
 # Description
 
-Wartimer is a discord bot that provides accurate respawn timers for wars in New World.
+Respawn Timer is a discord bot that provides accurate respawn timers for wars in New World.
 It is simple to use, highly customizable and can be automated fully.
 With the Raidhelper integration you only have to set it up once and the bot will automatically join voice
 when a Raidhelper event starts.
@@ -53,15 +53,16 @@ You can set **Editor** and **Assistant** roles. **Editor** roles have full acces
 ## 🔔 Notifications
 Set a dedicated notification channel in the **Notification Settings** to get notfied when the bot encounters problems like missing permissions or when events get de-/scheduled. You will also receive important app updates here.
 # 🐋 Deployment - Docker
-`docker run -d --name wartimer -e DISCORD_CLIENT_TOKEN='<Token>' -e DISCORD_CLIENT_ID='<ID>' realdegrees/wartimer`
+You can create your own docker image of this app by building the [Dockerfile](Dockerfile), or use an automatically created image from [GitHub packages](https://github.com/realdegrees/angry-generator/pkgs/container/angry-generator).
 
-**OR**
+To start a container run  
+`docker run -d -e DISCORD_CLIENT_TOKEN='<Token>' -e DISCORD_CLIENT_ID='<ID>' ghcr.io/realdegrees/respawntimer`  
+**or**  use the provided [docker-compose.yml](docker-compose.example.yml)
 
-[Use docker-compose](docker/docker-compose.example.yml)
 
 # Deployment - Node
 1. Clone the repo
-2. Run `npm install` in `backend`
+2. Run `pnpm install` in `backend`
 3. Create `.env` in `backend` with following content:
 ```
 MONGO_HOST="localhost"
@@ -73,7 +74,4 @@ DISCORD_CLIENT_ID="<id>"
 OWNER_ID="<id>"
 TZ="Europe/Berlin"
 ```
-4. Run `npm run start:build`
-
-# Dockerizing
-You can create your own docker image of this app by running `npm run dockerize` in `backend`.
+4. Run `pnpm run start:build`

@@ -2,9 +2,9 @@
 
 version: "3.2"
 services:
-  wartimer:
-    container_name: wartimer
-    image: realdegrees/wartimer:latest # ? Use nightly tag to get early updates (high chance of bugs and instability)
+  respawntimer:
+    container_name: respawntimer
+    image: ghcr.io/realdegrees/respawntimer # ? Use :preview tag to get early updates (high chance of bugs and instability)
     restart: unless-stopped
     environment:
       - DISCORD_CLIENT_TOKEN=<token> # ! Required: Token of your bot from https://discord.com/developers/applications
@@ -14,7 +14,7 @@ services:
       - STACK_TRACE_DEPTH="1" # Optional: The depth of the stack trace in the logs (-1: Max length, 0: no stack trace)
       - OWNER_ID=<id> # Optional: The owner can interact with the bot on any server without requiring editor or assistant roles
       - TZ=Europe/Berlin # Optional: Adjust the timezone (doesn't really matter as wars are timezone independent)
-  mongo: # Optional: Adjust the MONGO_HOST environment variable in the wartimer service to use a different endpoint
+  mongo: # Optional: Adjust the MONGO_HOST environment variable in the respawntimer service to use a different endpoint
     image: mongo:4.4.18 # ! Important: Higher versions may not work
     restart: always
     volumes:
