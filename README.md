@@ -1,3 +1,7 @@
+> **⚠️ Warning**
+> This project is no longer actively maintained. While you are welcome to use, fork, or build upon it, please be aware that no further updates will be provided. I will still provide basic support for issues that can be solved without updating the project on the support discord.
+
+
 # Description
 
 Respawn Timer is a discord bot that provides accurate respawn timers for wars in New World.
