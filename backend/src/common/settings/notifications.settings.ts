@@ -123,12 +123,14 @@ export class NotificationSettings extends BaseSetting<StringSelectMenuBuilder> {
 					return ['update'];
 				}
 
-				const channel = await interaction.guild.channels.fetch(value);
+				const channel = await interaction.guild.channels.fetch(value).catch(() => {
+					logger.warn(`Failed to fetch channel ${value} from guild ${interaction.guild?.id}`);
+					return undefined;
+				});
 				if (!channel) {
 					return Promise.reject('Unable to find selected channel!');
 				}
 				await checkChannelPermissions(channel, ['ViewChannel', 'SendMessages']);
-				logger.info('[' + channel.guild.name + '] Enabled Notifications');
 				dbGuild.notificationChannelId = interaction.values[0];
 				await NotificationHandler.sendNotification(
 					dbGuild,

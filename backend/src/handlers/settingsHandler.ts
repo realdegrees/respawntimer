@@ -62,7 +62,10 @@ export class SettingsHandler {
                 ) as ActionRowBuilder<any>)
         });
         let settingInteraction: AnySelectMenuInteraction | ButtonInteraction | undefined;
-        const overviewCollector = (await res.fetch()).createMessageComponentCollector({ idle: 1000 * 60 * 2 });
+        const overviewCollector = (await res.fetch().catch((e) => {
+            logger.error(`Failed to fetch settings message: ${e}`);
+            throw new Error('Failed to fetch settings message');
+        })).createMessageComponentCollector({ idle: 1000 * 60 * 2 });
         let settingCollector: InteractionCollector<AnySelectMenuInteraction | ButtonInteraction> | undefined;
         overviewCollector
             .on('collect', async (interaction) => {
@@ -70,7 +73,6 @@ export class SettingsHandler {
                 try {
                     const [, , interactionId] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
                     const setting: BaseSetting | undefined = this.getSettingById(interactionId, settings);
-                    logger.info(`[${guild.name}] ${interactionId} interaction`);
 
                     if (!interaction.guild) {
                         await interaction.reply({ ephemeral: true, content: 'Unable to process request' });
@@ -102,7 +104,6 @@ export class SettingsHandler {
                                     return;
                                 }
                                 const [, , interactionId, interactionOption] = interaction.customId.split(WARTIMER_INTERACTION_SPLIT);
-                                logger.info(`[${guild.name}] ${interactionOption} interaction`);
 
                                 const dbGuild = await Database.getGuild(interaction.guild.id);
                                 const widget = await Widget.find(dbGuild);
@@ -168,7 +169,6 @@ export class SettingsHandler {
         settingInteraction?: AnySelectMenuInteraction | ButtonInteraction,
         setting?: BaseSetting
     ): Promise<void> {
-        logger.debug('Executing post interaction settings: ' + JSON.stringify(postInteractActions ?? 'None'))
         if (postInteractActions?.includes('saveGuild')) {
             await dbGuild.save();
         }
@@ -179,7 +179,6 @@ export class SettingsHandler {
         }
         if (postInteractActions?.includes('deleteGuild')) {
             await Database.deleteGuild(dbGuild.id);
-            logger.debug('Guild exists: ' + await Database.hasGuild(dbGuild.id))
             if (widget) {
                 await widget.delete();
             }

@@ -205,7 +205,7 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 			return Promise.reject('Unable to complete request! Cannot retrieve server data');
 		const guild = interaction.guild;
 		let events: ScheduledEvent[];
-		let value;
+		let value: string;
 		switch (option) {
 			case ERaidhelperSettingsOptions.API_KEY:
 				if (!interaction.isButton())
@@ -265,7 +265,10 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 					return ['saveGuild', 'update', 'updateWidget'];
 				}
 
-				const defaultVoiceChannel = await interaction.guild.channels.fetch(value);
+				const defaultVoiceChannel = await interaction.guild.channels.fetch(value).catch(() => {
+					logger.warn(`Failed to fetch voice channel ${value} from guild ${interaction.guild?.id}`);
+					return undefined;
+				});
 				if (!defaultVoiceChannel) {
 					return Promise.reject('Unable to find selected channel!');
 				}
@@ -291,7 +294,10 @@ export class RaidhelperSettings extends BaseSetting<ButtonBuilder | StringSelect
 					return ['saveGuild', 'update', 'updateWidget'];
 				}
 
-				const defaultEventChannel = await interaction.guild.channels.fetch(value);
+				const defaultEventChannel = await interaction.guild?.channels.fetch(value).catch(() => {
+					logger.warn(`Failed to fetch event channel ${value} from guild ${interaction.guild?.id}`);
+					return undefined;
+				});
 				if (!defaultEventChannel) {
 					return Promise.reject('Unable to find selected channel!');
 				}

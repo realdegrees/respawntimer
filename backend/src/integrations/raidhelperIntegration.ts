@@ -94,7 +94,9 @@ export class RaidhelperIntegration {
 	public static start(dbGuild: DBGuild): void {
 		if (!activePollIntervals[dbGuild.id]) {
 			activePollIntervals[dbGuild.id] = { retries: 0 };
-			this.poll(dbGuild, true);
+			this.poll(dbGuild, true).catch((e) => {
+				logger.error(`[${dbGuild.name}] Failed to start initial poll: ${e}`);
+			});
 			logger.info(`[${dbGuild.name}] Starting polling interval`);
 		} else {
 			logger.warn(`[${dbGuild.name}] Attempted to start second polling interval!`);
@@ -161,7 +163,6 @@ export class RaidhelperIntegration {
 			// Poll for events
 			const events = await this.getEvents(dbGuild);
 			await this.onFetchEventSuccess(dbGuild, events);
-			logger.debug('Event Poll Success');
 		} catch (response) {
 			await this.handlePollError(response, dbGuild);
 		} finally {
@@ -409,7 +410,6 @@ export class RaidhelperIntegration {
 		if (!dbGuild.raidHelper.enabled) return;
 
 		// Voice Start
-		logger.info(`[${dbGuild.name}][Raidhelper] Trying to auto-join voice`);
 		let channel: GuildBasedChannel | null = await getEventVoiceChannel(event, dbGuild).catch(
 			() => null
 		);
@@ -423,7 +423,7 @@ export class RaidhelperIntegration {
 		}
 
 		await audioManager.subscribe(dbGuild.id, channel);
-		logger.info(`[${dbGuild.name}][Raidhelper] Voice autojoin`);
+		logger.debug(`[${dbGuild.name}][Raidhelper] Voice autojoin successful`);
 	}
 	private static async autoStartWidget(dbGuild: DBGuild, event: ScheduledEvent): Promise<void> {
 		// Widget Start
@@ -437,7 +437,7 @@ export class RaidhelperIntegration {
 			);
 		}
 		await textManager.subscribe(dbGuild.id);
-		logger.info(`[${dbGuild.name}][Raidhelper] Widget autostart`);
+		logger.debug(`[${dbGuild.name}][Raidhelper] Widget autostart successful`);
 	}
 	public static async interval(): Promise<void> {
 		// Only run on war start
@@ -501,8 +501,6 @@ export class RaidhelperIntegration {
 			headers.set('ChannelFilter', dbGuild.raidHelper.eventChannelId[0]);
 		}
 
-		logger.debug(`[${dbGuild.name}] Fetching events`, [...headers.entries()]);
-
 		const response = await fetch(serversEventsUrl, { headers });
 
 		if (!response.ok) {
@@ -544,16 +542,12 @@ export class RaidhelperIntegration {
 			const scheduledEvent = dbGuild.raidHelper.events.find((event) => event.id === id);
 
 			if (scheduledEvent?.lastUpdatedUnix === lastUpdated) {
-				logger.debug(`[${dbGuild.name}] Skipping event ${id}. Already scheduled.`);
 				return scheduledEvent;
 			}
 
-			logger.debug(`[${dbGuild.name}] Fetching event ${id}`);
 			const event: RaidhelperAPIEvent = await fetch(`https://raid-helper.dev/api/v2/events/${id}`, {
 				headers
 			}).then((res) => res.json());
-
-			logger.debug(`[${dbGuild.name}] Fetched event ${id}`);
 
 			return {
 				id: event.id,

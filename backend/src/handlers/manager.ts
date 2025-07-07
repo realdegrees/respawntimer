@@ -79,7 +79,7 @@ export abstract class Manager<
 	public async unsubscribe(guildId: string, reason?: UnsubscribeReason): Promise<void> {
 		const subscribedTimestamp: number | undefined = this._subscribers[guildId];
 		const { name } = await Database.getGuild(guildId);
-		logger.info(
+		logger.debug(
 			`[${name}] Ending subscription ${reason ? `(${reason})` : ''}(Lasted ${(
 				(Date.now() - subscribedTimestamp) /
 				1000 /

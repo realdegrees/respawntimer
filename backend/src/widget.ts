@@ -104,7 +104,10 @@ export class Widget {
 		const guild = channel.guild;
 
 		// Check permissions of the user
-		const member = await guild.members.fetch(interaction.user);
+		const member = await guild.members.fetch(interaction.user).catch(() => {
+			logger.warn(`Failed to fetch member ${interaction.user.id} from guild ${guild.id}`);
+			return undefined;
+		});
 		if (!member) throw new Error('Internal Error. User not found!');
 		if (
 			member.user.id !== process.env['OWNER_ID'] &&
@@ -386,8 +389,6 @@ export class Widget {
 				return;
 			}
 			const dbGuild = await Database.getGuild(this.guildId);
-
-			logger.debug(`[${dbGuild.name}] ${interactionId} interaction`);
 
 			const hasEditorPermission = await userHasRole(
 				interaction.guild,

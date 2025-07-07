@@ -45,10 +45,14 @@ class Bot {
       const message = interaction.message;
       dbGuild.widget.channelId = message.channel.id;
       dbGuild.widget.messageId = message.id;
-      await dbGuild.save();
+      await dbGuild.save().catch((e) => {
+        logger.error(`Failed to save guild data for ${dbGuild.id}: ${e}`);
+      });
 
       const widget = await Widget.find(dbGuild);
-      widget?.handleInteraction(interaction);
+      widget?.handleInteraction(interaction).catch((e) => {
+        logger.error(`Widget interaction failed for guild ${dbGuild.id}: ${e}`);
+      });
     }
   }
   private static async handleCommand(
@@ -85,7 +89,6 @@ class Bot {
         await setTimeout(EPHEMERAL_REPLY_DURATION_SHORT);
         await interaction.deleteReply().catch(logger.error);
       }
-      logger.debug("Command failed for interaction: " + interaction.toJSON());
     }
   }
   public static async init(): Promise<Client> {
@@ -117,11 +120,15 @@ class Bot {
       client.on("interactionCreate", (interaction) => {
         switch (true) {
           case interaction.isButton(): {
-            this.handleButton(interaction as ButtonInteraction);
+            this.handleButton(interaction as ButtonInteraction).catch((e) => {
+              logger.error("Unhandled error in button interaction:", e);
+            });
             break;
           }
           case interaction.isCommand(): {
-            this.handleCommand(interaction as CommandInteraction, commands);
+            this.handleCommand(interaction as CommandInteraction, commands).catch((e) => {
+              logger.error("Unhandled error in command interaction:", e);
+            });
             break;
           }
         }

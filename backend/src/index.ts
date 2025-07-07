@@ -13,6 +13,16 @@ import { startInterval } from './handlers/intervalHandler';
 install();
 config();
 
+// Global error handlers
+process.on('unhandledRejection', (reason, promise) => {
+	logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (error) => {
+	logger.error('Uncaught Exception:', error);
+	process.exit(1);
+});
+
 Promise.resolve()
 	.then(() => Database.init())
 	.then(() => Bot.init())

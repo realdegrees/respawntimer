@@ -35,13 +35,19 @@ class Database {
 		return GuildModel.findById(guildId).then((obj) => !!obj);
 	}
 	public static async getGuild(id: string): Promise<DBGuild> {
-		const guild = await Bot.client.guilds.fetch(id);
+		const guild = await Bot.client.guilds.fetch(id).catch(() => {
+			logger.warn(`Failed to fetch guild ${id} from Discord API`);
+			return undefined;
+		});
 		return GuildModel.findById(id).then(async (obj) => {
 			if (obj) {
 				obj.lastActivity = new Date();
 				obj.name = guild?.name ?? obj.name;
 				return obj;
 			} else {
+				if (!guild) {
+					throw new Error(`Guild ${id} not found in Discord API`);
+				}
 				return new GuildModel({
 					_id: guild.id,
 					name: guild.name,

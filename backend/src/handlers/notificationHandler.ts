@@ -104,7 +104,7 @@ export class NotificationHandler {
 					]
 				});
 
-				logger.info('[' + dbGuild.name + '][Notification] ' + title + ' ' + text);
+				logger.debug('[' + dbGuild.name + '][Notification] ' + title);
 				return {
 					type: 'sent'
 				};
@@ -115,7 +115,7 @@ export class NotificationHandler {
 				};
 			}
 		} else {
-			logger.info('[' + dbGuild.name + '][Notification-Log] ' + title + ' ' + text);
+			logger.debug('[' + dbGuild.name + '][Notification-Log] ' + title);
 			return { type: 'nochannel' };
 		}
 	}

@@ -1,4 +1,5 @@
 import { Guild, GuildBasedChannel, PermissionResolvable, User } from 'discord.js';
+import logger from '../../lib/logger';
 
 export const checkChannelPermissions = async (
 	channel: GuildBasedChannel,
@@ -29,5 +30,10 @@ export const userHasRole = async (
 				member.roles.cache.some((userRole) => permittedRoleIDs.includes(userRole.id)) ||
 				member.permissions.has('Administrator') ||
 				user.id === process.env['OWNER_ID']
-		);
+		)
+		.catch((e) => {
+			// If we can't fetch the member, default to checking if they're the owner
+			logger.warn(`Failed to fetch member ${user.id} from guild ${guild.id}: ${e}`);
+			return user.id === process.env['OWNER_ID'];
+		});
 };

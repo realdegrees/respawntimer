@@ -1,6 +1,7 @@
 import { RESTPostAPIApplicationCommandsJSONBody } from 'discord-api-types/v9';
 import { CacheType, Client, CommandInteraction } from 'discord.js';
 import Database from '../db/database';
+import logger from '../../lib/logger';
 
 export class Command {
     public constructor(
@@ -27,7 +28,16 @@ export class Command {
         if (!interaction.guild) return Promise.reject();
 
         const dbGuild = await Database.getGuild(interaction.guild.id);
-        const member = await interaction.guild.members.fetch(interaction.user);
+        const member = await interaction.guild.members.fetch(interaction.user).catch(() => {
+            logger.warn(`Failed to fetch member ${interaction.user.id} from guild ${interaction.guild?.id}`);
+            return undefined;
+        });
+        
+        if (!member) {
+            logger.error(`Member ${interaction.user.id} not found in guild ${interaction.guild.id}`);
+            return false;
+        }
+        
         const roleIDs = permitType === 'editor' ? dbGuild.editorRoleIDs : [...dbGuild.editorRoleIDs, ...dbGuild.assistantRoleIDs];
 
         return interaction.user.id === process.env['OWNER_ID'] ||
