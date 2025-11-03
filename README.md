@@ -1,5 +1,6 @@
 > **⚠️ Warning**
 > This project is no longer actively maintained. While you are welcome to use, fork, or build upon it, please be aware that no further updates will be provided. I will still provide basic support for issues that can be solved without updating the project on the support discord.
+> Due to New World being shut down I am shutting down the public instance as well. You can still host your own instance or fork the repo.
 
 
 # Description
@@ -9,12 +10,12 @@ It is simple to use, highly customizable and can be automated fully.
 With the Raidhelper integration you only have to set it up once and the bot will automatically join voice
 when a Raidhelper event starts.
 
-# Live Version
+# ~~Live Version~~
 
-**[Public Bot Link](https://discord.com/api/oauth2/authorize?client_id=993116789284286484&scope=bot+applications.commands&permissions=2100224)**
+~~**[Public Bot Link]()**~~
 
-If you don't want to deploy your own instance via docker or node or just want to test the bot you can use the public instance of the bot at the risk of it being down for a few minutes whenever I update it. I try to only update it at times when there are no wars in EU timezones.  
-I will maintain this bot as long as I actively play the game.
+~~If you don't want to deploy your own instance via docker or node or just want to test the bot you can use the public instance of the bot at the risk of it being down for a few minutes whenever I update it. I try to only update it at times when there are no wars in EU timezones.  
+I will maintain this bot as long as I actively play the game.~~
 
 # Features
 
@@ -57,7 +58,7 @@ You can set **Editor** and **Assistant** roles. **Editor** roles have full acces
 ## 🔔 Notifications
 Set a dedicated notification channel in the **Notification Settings** to get notfied when the bot encounters problems like missing permissions or when events get de-/scheduled. You will also receive important app updates here.
 # 🐋 Deployment - Docker
-You can create your own docker image of this app by building the [Dockerfile](Dockerfile), or use an automatically created image from [GitHub packages](https://github.com/realdegrees/angry-generator/pkgs/container/angry-generator).
+You can create your own docker image of this app by building the [Dockerfile](Dockerfile), or use an automatically created image from [GitHub packages](https://github.com/realdegrees/respawntimer/pkgs/container/respawntimer).
 
 To start a container run `docker run -d -e DISCORD_CLIENT_TOKEN='<Token>' -e DISCORD_CLIENT_ID='<ID>' ghcr.io/realdegrees/respawntimer`  
 A mongo instance is required to run the bot, the corresponding environment variables are listed in the provided [docker-compose.yml](docker-compose.example.yml).
