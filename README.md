@@ -1,6 +1,5 @@
 > **⚠️ Warning**
-> This project is no longer actively maintained. While you are welcome to use, fork, or build upon it, please be aware that no further updates will be provided. I will still provide basic support for issues that can be solved without updating the project on the support discord.
-> Due to New World being shut down I am shutting down the public instance as well. You can still host your own instance or fork the repo.
+> This project is no longer actively maintained. Due to New World being shut down I am shutting down the public instance as well. You can still host your own instance or fork the repo.
 
 
 # Description
