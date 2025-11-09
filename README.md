@@ -1,6 +1,7 @@
-> **⚠️ Warning**
-> This project is no longer actively maintained. Due to New World being shut down I am shutting down the public instance as well. You can still host your own instance or fork the repo.
-
+> [!IMPORTANT]
+> **This repository is no longer maintained.**  
+> Development has moved to **[@Katze719](https://github.com/Katze719)** at [**github.com/Katze719/respawntimer**](https://github.com/Katze719/respawntimer).  
+> The fork already includes multiple bug fixes.
 
 # Description
 
